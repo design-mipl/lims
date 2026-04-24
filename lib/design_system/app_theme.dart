@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tokens.dart';
@@ -32,9 +33,11 @@ abstract final class AppTheme {
       onSurface: AppTokens.neutral900,
     );
 
+    final poppinsFamily = GoogleFonts.poppins().fontFamily ?? AppTokens.fontFamily;
+
     return ThemeData(
       useMaterial3: true,
-      fontFamily: 'Inter',
+      fontFamily: poppinsFamily,
       brightness: Brightness.light,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppTokens.background,
@@ -48,7 +51,7 @@ abstract final class AppTheme {
       dividerTheme: _lightDividerTheme(),
       listTileTheme: _listTileTheme(),
       popupMenuTheme: _lightPopupMenuTheme(),
-      textTheme: _textTheme(AppTokens.neutral900),
+      textTheme: GoogleFonts.poppinsTextTheme(_textTheme(AppTokens.neutral900)),
     );
   }
 
@@ -70,9 +73,11 @@ abstract final class AppTheme {
       onSurface: AppTokens.neutral100,
     );
 
+    final poppinsFamily = GoogleFonts.poppins().fontFamily ?? AppTokens.fontFamily;
+
     return ThemeData(
       useMaterial3: true,
-      fontFamily: 'Inter',
+      fontFamily: poppinsFamily,
       brightness: Brightness.dark,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppTokens.neutral900,
@@ -86,7 +91,7 @@ abstract final class AppTheme {
       dividerTheme: _darkDividerTheme(),
       listTileTheme: _listTileTheme(),
       popupMenuTheme: _darkPopupMenuTheme(),
-      textTheme: _textTheme(AppTokens.neutral100),
+      textTheme: GoogleFonts.poppinsTextTheme(_textTheme(AppTokens.neutral100)),
     );
   }
 
@@ -100,7 +105,7 @@ abstract final class AppTheme {
       scrolledUnderElevation: AppTokens.space0,
       toolbarHeight: AppTokens.topbarHeight,
       titleTextStyle: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textMd,
         fontWeight: AppTokens.weightSemibold,
         color: AppTokens.neutral900,
@@ -146,7 +151,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -183,7 +188,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -209,7 +214,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -241,7 +246,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -295,22 +300,22 @@ abstract final class AppTheme {
         ),
       ),
       labelStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.neutral500,
       ),
       hintStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.neutral400,
       ),
       errorStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textXs,
         color: AppTokens.error500,
       ),
       floatingLabelStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.primary800,
       ),
@@ -335,7 +340,7 @@ abstract final class AppTheme {
       scrolledUnderElevation: AppTokens.space0,
       toolbarHeight: AppTokens.topbarHeight,
       titleTextStyle: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textMd,
         fontWeight: AppTokens.weightSemibold,
         color: AppTokens.neutral100,
@@ -381,7 +386,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -418,7 +423,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -444,7 +449,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -476,7 +481,7 @@ abstract final class AppTheme {
         ),
         textStyle: const WidgetStatePropertyAll(
           TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: AppTokens.fontFamily,
             fontSize: AppTokens.textBase,
             fontWeight: AppTokens.weightMedium,
           ),
@@ -530,22 +535,22 @@ abstract final class AppTheme {
         ),
       ),
       labelStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.neutral400,
       ),
       hintStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.neutral500,
       ),
       errorStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textXs,
         color: AppTokens.error500,
       ),
       floatingLabelStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         color: AppTokens.neutral100,
       ),
@@ -580,7 +585,7 @@ abstract final class AppTheme {
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
       textStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textBase,
         color: AppTokens.neutral700,
       ),
@@ -595,7 +600,7 @@ abstract final class AppTheme {
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
       textStyle: const TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textBase,
         color: AppTokens.neutral100,
       ),
@@ -606,67 +611,67 @@ abstract final class AppTheme {
   static TextTheme _textTheme(Color color) {
     return TextTheme(
       displayLarge: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.text3xl,
         fontWeight: AppTokens.weightSemibold,
         color: color,
       ),
       headlineMedium: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.text2xl,
         fontWeight: AppTokens.weightSemibold,
         color: color,
       ),
       titleLarge: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textXl,
         fontWeight: AppTokens.weightSemibold,
         color: color,
       ),
       titleMedium: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textMd,
         fontWeight: AppTokens.weightMedium,
         color: color,
       ),
       titleSmall: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textBase,
         fontWeight: AppTokens.weightMedium,
         color: color,
       ),
       bodyLarge: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textMd,
         fontWeight: AppTokens.weightRegular,
         color: color,
       ),
       bodyMedium: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textBase,
         fontWeight: AppTokens.weightRegular,
         color: color,
       ),
       bodySmall: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         fontWeight: AppTokens.weightRegular,
         color: color,
       ),
       labelLarge: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textBase,
         fontWeight: AppTokens.weightMedium,
         color: color,
       ),
       labelMedium: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textSm,
         fontWeight: AppTokens.weightMedium,
         color: color,
       ),
       labelSmall: TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: AppTokens.fontFamily,
         fontSize: AppTokens.textXs,
         fontWeight: AppTokens.weightMedium,
         color: color,

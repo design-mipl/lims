@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 abstract final class AppTokens {
   const AppTokens._();
 
+  /// Primary UI font (loaded via google_fonts in [AppTheme]).
+  static const String fontFamily = 'Poppins';
+
   // --- Primary brand (navy) ---
 
   /// Darkest navy; high-contrast headers and chrome.
@@ -135,6 +138,30 @@ abstract final class AppTokens {
   /// Muted fill for secondary [FilledButton] backgrounds (light theme).
   static const Color filledSecondarySurface = Color(0xFFE8EAF0);
 
+  /// Default outline for inputs, form cards, and tables.
+  static const Color borderDefault = Color(0xFFE2E8F0);
+
+  /// Subtle panel / table header background.
+  static const Color surfaceSubtle = Color(0xFFF8FAFC);
+
+  /// Field labels above inputs.
+  static const Color labelColor = Color(0xFF374151);
+
+  /// Placeholder and hint text.
+  static const Color hintColor = Color(0xFF9CA3AF);
+
+  /// Primary body and heading ink on light surfaces.
+  static const Color textPrimary = Color(0xFF111827);
+
+  /// Secondary text and icons on light surfaces.
+  static const Color textSecondary = Color(0xFF6B7280);
+
+  /// Muted supporting text.
+  static const Color textMuted = Color(0xFF9CA3AF);
+
+  /// Listing row bottom divider (light theme).
+  static const Color tableRowDivider = Color(0xFFF1F5F9);
+
   // --- Sidebar ---
 
   /// Sidebar panel background (matches [primary800]).
@@ -241,6 +268,35 @@ abstract final class AppTokens {
   /// Titles, table headers, and primary actions.
   static const FontWeight weightSemibold = FontWeight.w600;
 
+  /// Strong numeric emphasis (KPI values).
+  static const FontWeight weightBold = FontWeight.w700;
+
+  // --- Typography roles (use with [fontFamily] / theme) ---
+
+  /// Page title (e.g. form page header).
+  static const double pageTitleSize = 20.0;
+  static const FontWeight pageTitleWeight = FontWeight.w600;
+
+  /// Page subtitle / supporting line under title.
+  static const double pageSubtitleSize = 13.0;
+  static const FontWeight pageSubtitleWeight = FontWeight.w400;
+
+  /// Card / form section title.
+  static const double sectionTitleSize = 13.0;
+  static const FontWeight sectionTitleWeight = FontWeight.w600;
+
+  /// Label above [AppInput] / [AppSelect] / [AppTextarea].
+  static const double fieldLabelSize = 12.0;
+  static const FontWeight fieldLabelWeight = FontWeight.w500;
+
+  /// Default dense body copy.
+  static const double bodySize = 13.0;
+  static const FontWeight bodyWeight = FontWeight.w400;
+
+  /// Caption and inline errors under fields.
+  static const double captionSize = 11.0;
+  static const FontWeight captionWeight = FontWeight.w400;
+
   // --- Sizing (compact enterprise chrome) ---
 
   /// Compact icon-only or inline buttons.
@@ -267,11 +323,23 @@ abstract final class AppTokens {
   /// Desktop filter drawer width beside the listing table.
   static const double listingFilterPanelWidth = 280.0;
 
+  /// Desktop width for [AppFormDrawer] side panel.
+  static const double formDrawerWidthDesktop = 560.0;
+
+  /// Max width for centered [AppFormModal] content.
+  static const double formModalMaxWidth = 600.0;
+
+  /// Max width for [AppFormPage] scroll body on wide viewports.
+  static const double formPageContentMaxWidth = 960.0;
+
   /// Checkbox column width in listing tables.
   static const double tableCheckboxColumnWidth = 40.0;
 
   /// Row actions column width in listing tables.
   static const double tableActionsColumnWidth = 80.0;
+
+  /// Preferred minimum width for status chip columns when using flex layout.
+  static const double tableStatusColumnPreferredWidth = 100.0;
 
   /// Toggle column width in listing tables.
   static const double tableToggleColumnWidth = 52.0;

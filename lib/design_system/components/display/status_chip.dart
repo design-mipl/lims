@@ -158,7 +158,7 @@ class StatusChip extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily:
-                      theme.textTheme.labelMedium?.fontFamily ?? 'Inter',
+                      theme.textTheme.labelMedium?.fontFamily ?? AppTokens.fontFamily,
                   fontSize: AppTokens.textSm,
                   fontWeight: AppTokens.weightSemibold,
                   color: foreground,

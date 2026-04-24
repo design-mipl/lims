@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../tokens.dart';
 
 /// Visual style for [AppButton].
-enum AppButtonVariant { primary, secondary, tertiary, danger }
+enum AppButtonVariant { primary, secondary, tertiary, danger, outlined }
 
 /// Compact, default, or prominent hit target for [AppButton].
 enum AppButtonSize { sm, md, lg }
@@ -55,7 +55,7 @@ class AppButton extends StatelessWidget {
     };
 
     final textStyle = TextStyle(
-      fontFamily: theme.textTheme.labelLarge?.fontFamily ?? 'Inter',
+      fontFamily: theme.textTheme.labelLarge?.fontFamily ?? AppTokens.fontFamily,
       fontSize: fontSize,
       fontWeight: AppTokens.weightMedium,
     );
@@ -140,6 +140,33 @@ class AppButton extends StatelessWidget {
           child: _buildChild(
             context,
             foregroundColor: AppTokens.error500,
+          ),
+        ),
+      AppButtonVariant.outlined => OutlinedButton(
+          onPressed: effectiveOnPressed,
+          style: ButtonStyle(
+            minimumSize: minimumSize,
+            padding: padding,
+            textStyle: mergedTextStyle,
+            foregroundColor: const WidgetStatePropertyAll(AppTokens.primary800),
+            side: const WidgetStatePropertyAll(
+              BorderSide(
+                color: AppTokens.borderDefault,
+                width: AppTokens.borderWidthSm,
+              ),
+            ),
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.pressed)) {
+                return AppTokens.primary800
+                    .withValues(alpha: AppTokens.overlayPrimaryAlpha);
+              }
+              return null;
+            }),
+          ),
+          child: _buildChild(
+            context,
+            foregroundColor: AppTokens.primary800,
           ),
         ),
     };

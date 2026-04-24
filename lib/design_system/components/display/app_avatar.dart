@@ -57,7 +57,7 @@ class AppAvatar extends StatelessWidget {
     final textColor = _contrastingInk(bg);
 
     final fontFamily =
-        Theme.of(context).textTheme.titleMedium?.fontFamily ?? 'Inter';
+        Theme.of(context).textTheme.titleMedium?.fontFamily ?? AppTokens.fontFamily;
 
     final Widget child = imageUrl != null && imageUrl!.isNotEmpty
         ? ClipOval(

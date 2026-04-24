@@ -137,10 +137,32 @@ const List<NavItem> appNavItems = [
     sectionLabel: 'REPORTS',
   ),
   NavItem(
-    path: '/users',
+    path: '/user-management',
     label: 'User Management',
     icon: Icon(LucideIcons.userCog, size: 16),
     sectionLabel: 'SYSTEM',
+    children: [
+      NavItem(
+        path: '/user-management/departments',
+        label: 'Departments',
+        icon: Icon(LucideIcons.building2, size: 16),
+      ),
+      NavItem(
+        path: '/user-management/users',
+        label: 'Users',
+        icon: Icon(LucideIcons.users, size: 16),
+      ),
+      NavItem(
+        path: '/user-management/roles',
+        label: 'Roles',
+        icon: Icon(LucideIcons.shieldCheck, size: 16),
+      ),
+      NavItem(
+        path: '/user-management/modules',
+        label: 'Modules',
+        icon: Icon(LucideIcons.layoutGrid, size: 16),
+      ),
+    ],
   ),
 ];
 

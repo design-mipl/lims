@@ -69,7 +69,7 @@ class AppBadge extends StatelessWidget {
                   style: TextStyle(
                     fontFamily:
                         Theme.of(context).textTheme.labelSmall?.fontFamily ??
-                            'Inter',
+                            AppTokens.fontFamily,
                     fontSize: AppTokens.textXs,
                     fontWeight: AppTokens.weightMedium,
                     color: scheme.foreground,

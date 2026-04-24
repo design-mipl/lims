@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../tokens.dart';
-import '../cards/app_card.dart';
 
 /// Optional KPI metric shown above the listing table or on dashboards.
 class KpiCard {
@@ -39,84 +38,104 @@ class KpiMetricTile extends StatelessWidget {
         : (card.trendPositive ? AppTokens.success500 : AppTokens.error500);
 
     final padding = compact
-        ? EdgeInsets.all(AppTokens.space2)
+        ? EdgeInsets.all(AppTokens.space3)
         : EdgeInsets.all(AppTokens.space4);
 
-    final valueStyle = compact
-        ? theme.textTheme.titleMedium?.copyWith(
-            color: theme.brightness == Brightness.dark
-                ? theme.colorScheme.onSurface
-                : AppTokens.neutral900,
-            fontWeight: AppTokens.weightSemibold,
-          )
-        : theme.textTheme.headlineMedium?.copyWith(
-            color: theme.brightness == Brightness.dark
-                ? theme.colorScheme.onSurface
-                : AppTokens.neutral900,
-            fontWeight: AppTokens.weightSemibold,
-          );
+    final surface = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surface
+        : AppTokens.white;
+    final borderColor = theme.brightness == Brightness.dark
+        ? AppTokens.neutral700
+        : AppTokens.borderDefault;
 
-    return AppCard(
-      padding: padding,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  card.label.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.brightness == Brightness.dark
-                        ? AppTokens.neutral400
-                        : AppTokens.neutral500,
-                    fontWeight: AppTokens.weightMedium,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(
+          color: borderColor,
+          width: AppTokens.borderWidthSm,
+        ),
+      ),
+      child: Padding(
+        padding: padding,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                right: card.icon != null ? AppTokens.space10 : AppTokens.space0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    card.label.toUpperCase(),
+                    style: TextStyle(
+                      fontFamily:
+                          theme.textTheme.labelSmall?.fontFamily ?? AppTokens.fontFamily,
+                      fontSize: AppTokens.textXs,
+                      fontWeight: AppTokens.weightMedium,
+                      letterSpacing: 0.5,
+                      color: AppTokens.textSecondary,
+                    ),
                   ),
-                ),
-                SizedBox(height: AppTokens.space1),
-                Text(
-                  card.value,
-                  style: valueStyle,
-                ),
-                if (card.trend != null) ...[
                   SizedBox(height: AppTokens.space1),
                   Text(
-                    card.trend!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: trendColor,
+                    card.value,
+                    style: TextStyle(
+                      fontFamily:
+                          theme.textTheme.headlineSmall?.fontFamily ?? AppTokens.fontFamily,
+                      fontSize: AppTokens.text3xl,
+                      fontWeight: AppTokens.weightBold,
+                      color: theme.brightness == Brightness.dark
+                          ? theme.colorScheme.onSurface
+                          : AppTokens.textPrimary,
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
-          if (card.icon != null)
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                color: AppTokens.primary50,
-                shape: BoxShape.circle,
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(
-                  compact ? AppTokens.space1 : AppTokens.space2,
-                ),
-                child: SizedBox(
-                  width: compact ? AppTokens.space6 : AppTokens.space8,
-                  height: compact ? AppTokens.space6 : AppTokens.space8,
-                  child: Center(
-                    child: IconTheme(
-                      data: IconThemeData(
-                        color: AppTokens.primary800,
-                        size: compact ? AppTokens.space3 : AppTokens.space4,
+                  if (card.trend != null) ...[
+                    SizedBox(height: AppTokens.space1),
+                    Text(
+                      card.trend!,
+                      style: TextStyle(
+                        fontFamily:
+                            theme.textTheme.bodySmall?.fontFamily ?? AppTokens.fontFamily,
+                        fontSize: AppTokens.textSm,
+                        fontWeight: AppTokens.bodyWeight,
+                        color: trendColor ?? AppTokens.textMuted,
                       ),
-                      child: card.icon!,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (card.icon != null)
+              Positioned(
+                top: AppTokens.space0,
+                right: AppTokens.space0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppTokens.primary800.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                  ),
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Center(
+                      child: IconTheme(
+                        data: IconThemeData(
+                          color: AppTokens.primary800,
+                          size: 20,
+                        ),
+                        child: card.icon!,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

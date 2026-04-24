@@ -255,7 +255,7 @@ class _LogoRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'Inter',
+                        fontFamily: AppTokens.fontFamily,
                         fontSize: AppTokens.textMd,
                         fontWeight: AppTokens.weightSemibold,
                         color: AppTokens.white,
@@ -267,7 +267,7 @@ class _LogoRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: AppTokens.fontFamily,
                           fontSize: AppTokens.textXs,
                           color: AppTokens.sidebarInactiveText,
                         ),
@@ -300,7 +300,7 @@ class _LogoRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'Inter',
+                      fontFamily: AppTokens.fontFamily,
                       fontSize: AppTokens.textMd,
                       fontWeight: AppTokens.weightSemibold,
                       color: AppTokens.white,
@@ -312,7 +312,7 @@ class _LogoRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'Inter',
+                        fontFamily: AppTokens.fontFamily,
                         fontSize: AppTokens.textXs,
                         color: AppTokens.sidebarInactiveText,
                       ),
@@ -379,7 +379,7 @@ class _SectionOrDivider extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontFamily: 'Inter',
+              fontFamily: AppTokens.fontFamily,
               fontSize: AppTokens.textXs,
               color: AppTokens.sidebarSectionLabel,
               fontWeight: AppTokens.weightSemibold,
@@ -631,7 +631,7 @@ class _ParentTileState extends State<_ParentTile> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: AppTokens.fontFamily,
                               fontSize: AppTokens.textBase,
                               color: labelColor,
                               fontWeight: isActiveParent
@@ -736,7 +736,7 @@ class _ChildTileState extends State<_ChildTile> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontFamily: 'Inter',
+                  fontFamily: AppTokens.fontFamily,
                   fontSize: AppTokens.textSm,
                   color: isActiveChild
                       ? AppTokens.sidebarActiveText
@@ -787,7 +787,7 @@ class _BottomBlock extends StatelessWidget {
               child: Text(
                 'v$appVersion',
                 style: const TextStyle(
-                  fontFamily: 'Inter',
+                  fontFamily: AppTokens.fontFamily,
                   fontSize: AppTokens.textXs,
                   color: AppTokens.sidebarInactiveText,
                 ),
@@ -841,7 +841,7 @@ class _HelpRowState extends State<_HelpRow> {
                           Text(
                             'Help & Docs',
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: AppTokens.fontFamily,
                               fontSize: AppTokens.textBase,
                               color: AppTokens.sidebarInactiveText,
                             ),

@@ -180,7 +180,7 @@ class _SearchPill extends StatelessWidget {
                           color: AppTokens.neutral400,
                         ) ??
                         const TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: AppTokens.fontFamily,
                           fontSize: AppTokens.textSm,
                           color: AppTokens.neutral400,
                         ),
@@ -193,7 +193,7 @@ class _SearchPill extends StatelessWidget {
                           color: AppTokens.neutral300,
                         ) ??
                         const TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: AppTokens.fontFamily,
                           fontSize: AppTokens.textXs,
                           color: AppTokens.neutral300,
                         ),

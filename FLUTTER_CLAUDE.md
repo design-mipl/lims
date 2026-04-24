@@ -17,7 +17,7 @@ Canonical guardrails for the **limsv1** Flutter codebase. Rules match **what exi
 | 3 | Masters       | **0** |
 | 4 | Housekeeping  | **0** |
 | 5 | Reports       | **0** |
-| 6 | Users         | **0** |
+| 6 | Users         | **User Management** scaffold under `lib/features/user_management/` (Departments CRUD + placeholders for Users/Roles/Modules) |
 | 7 | Settings      | **0** |
 
 Treat sub-module counts as **to be established** when `lib/features/<module>/` is added.
@@ -37,12 +37,14 @@ Exact dependency constraints from `pubspec.yaml` (SDK and declared packages):
 | `provider` `^6.1.2` | State management (`ChangeNotifier`; app-level `ThemeNotifier`, route-level feature providers) |
 | `get_it` `^8.0.0` | Dependency injection / service locator (`lib/core/di/service_locator.dart`) |
 | `go_router` `^16.0.0` | Declarative routing; `appRouter` in `lib/core/router/app_router.dart` (placeholder) |
+| `dio` `^5.7.0` | HTTP client (available for future API wiring) |
+| `google_fonts` `^6.2.1` | Loads **Poppins** for `AppTheme` / `textTheme` |
 | `flutter_test` (SDK) | Unit/widget tests |
 | `flutter_lints` `^6.0.0` | Static analysis rules |
 
-**Not in `pubspec.yaml` yet (TO BE BUILT):** `dio`, `flutter_secure_storage`, code generation packages, etc.
+**Not in `pubspec.yaml` yet (TO BE BUILT):** `flutter_secure_storage`, code generation packages, etc.
 
-**Fonts:** `AppTheme` sets `fontFamily: 'Inter'`. The pubspec does **not** declare Inter font assets or `google_fonts`; ensure Inter is bundled or switch to a registered family before shipping.
+**Fonts:** `AppTheme` applies **Poppins** via `google_fonts` (`GoogleFonts.poppinsTextTheme`). `AppTokens.fontFamily` is `'Poppins'`. Do not use Material’s default Roboto for product UI—inherit from theme or set `AppTokens.fontFamily` explicitly when building standalone `TextStyle`s.
 
 ---
 
@@ -56,8 +58,21 @@ lib/
   features/
     coming_soon/
       coming_soon_screen.dart
+    dev/
+      form_template_preview_screen.dart   # temporary; remove before production
     shell/
       shell_screen.dart
+    user_management/
+      departments/
+        data/department_model.dart
+        data/departments_api.dart
+        state/departments_provider.dart
+        ui/departments_screen.dart
+        ui/department_form_drawer.dart
+      users/ui/users_screen.dart
+      roles/ui/roles_screen.dart
+      modules/ui/modules_screen.dart
+      shared/ui/user_management_section_placeholder.dart
   core/
     di/
       service_locator.dart
@@ -92,6 +107,15 @@ lib/
         app_button.dart
         app_icon_button.dart
         app_input.dart
+        app_select.dart
+        app_textarea.dart
+        app_segmented_control.dart
+      forms/
+        app_form_drawer.dart
+        app_form_field_row.dart
+        app_form_modal.dart
+        app_form_page.dart
+        app_form_section.dart
       templates/
         auth_template.dart
         dashboard_template.dart
@@ -104,7 +128,17 @@ lib/
 **Planned (not created yet under `lib/core/` or as additional `lib/features/` modules):**
 
 - `lib/core/api/` — shared API client, env config, auth helpers.
-- `lib/features/<module>/` — additional folders per product module as they are built (beyond `coming_soon` and `shell`).
+- `lib/features/<module>/` — additional folders per product module as they are built (beyond `coming_soon`, `shell`, `user_management`, and internal `dev/` previews).
+
+### User Management and other large modules (sub-module folders)
+
+When a product module spans **several product sub-areas** (e.g. Departments, Users, Roles), **do not** collect all `data/` / `state/` / `ui/` files in a single flat layer under `lib/features/<module>/`. Instead:
+
+- Give **each sub-module** its own tree: `lib/features/<module>/<sub_module>/data/`, `state/`, `ui/` as needed (example: `user_management/departments/…`).
+- Put **shared** screens, placeholders, and cross-cutting widgets for that module only under `lib/features/<module>/shared/` (example: `user_management/shared/ui/`).
+- **Do not** place future Users/Roles/Modules implementation files in a global `user_management/data/` or `user_management/state/` folder at the module root—add them under `users/`, `roles/`, `modules/` (or new sibling sub-module folders) respectively.
+
+Apply the same pattern to **future large features** that naturally split into sub-domains, so ownership stays clear and imports stay local to the sub-module.
 
 ---
 
@@ -114,15 +148,17 @@ All visual constants live on **`AppTokens`** (`lib/design_system/tokens.dart`): 
 
 ### How to use tokens
 
-**Colors (examples):** `AppTokens.primary900` … `primary50`, `accent600` … `accent50`, `neutral900` … `neutral50`, `success500` / `success100` / `success50`, `warning500` / `warning100` / `warning50`, `error500` / `error100` / `error50`, `info500` / `info100` / `info50`, `white`, `surfaceCard`, `background`, `border`, `borderLight`, `filledSecondarySurface`, `sidebarBg`, `sidebarActiveItem`, `sidebarInactiveText`, `sidebarActiveText`, `sidebarSectionLabel`, `sidebarIcon`.
+**Colors (examples):** `AppTokens.primary900` … `primary50`, `accent600` … `accent50`, `neutral900` … `neutral50`, `success500` / `success100` / `success50`, `warning500` / `warning100` / `warning50`, `error500` / `error100` / `error50`, `info500` / `info100` / `info50`, `white`, `surfaceCard`, `background`, `border`, `borderLight`, **`borderDefault`**, **`surfaceSubtle`**, **`labelColor`**, **`hintColor`**, **`textPrimary`**, **`textSecondary`**, **`textMuted`**, **`tableRowDivider`**, `filledSecondarySurface`, `sidebarBg`, `sidebarActiveItem`, `sidebarInactiveText`, `sidebarActiveText`, `sidebarSectionLabel`, `sidebarIcon`.
 
 **Spacing (4px base):** `space0`, `space1` (4), `space2` (8), `space3` (12), `space4` (16), `space5` (20), `space6` (24), `space8` (32), `space10` (40), `space12` (48).
 
 **Radius:** `radiusSm`, `radiusMd`, `radiusLg`, `radiusXl`, `radiusFull`.
 
-**Typography sizes:** `textXs` … `text3xl`. **Weights:** `weightRegular`, `weightMedium`, `weightSemibold`.
+**Typography sizes:** `textXs` … `text3xl`. **Weights:** `weightRegular`, `weightMedium`, `weightSemibold`, `weightBold`.
 
-**Sizing / chrome:** `buttonHeightSm` / `Md` / `Lg`, `inputHeight`, `inputHeightLg`, `tableRowHeight`, `listingSearchWidthTablet` / `Desktop`, `listingFilterPanelWidth`, `tableCheckboxColumnWidth`, `tableActionsColumnWidth`, `tableToggleColumnWidth`, `topbarHeight`, `topbarSearchWidthTablet` / `Desktop`, `sidebarExpanded`, `sidebarCollapsed`, `navItemHeight`, border widths, `focusRingWidth`, `iconSizeMd`, `iconButtonIconSm` / `Md`, `inlineProgressIndicatorSize`, `inlineProgressIndicatorStrokeWidth`, `badgeHeight`, `avatarSizeXs` / `Sm`, `disabledOpacity`, `opacityFull`, `statusChipHeight`, `luminanceInkThreshold`, `elevationPopupMenu`, `overlayPrimaryAlpha` (focus ring color: `focusRingColor`).
+**Typography roles (pair with Poppins / theme):** `pageTitleSize` / `pageTitleWeight`, `pageSubtitleSize` / `pageSubtitleWeight`, `sectionTitleSize` / `sectionTitleWeight`, `fieldLabelSize` / `fieldLabelWeight`, `bodySize` / `bodyWeight`, `captionSize` / `captionWeight`.
+
+**Sizing / chrome:** `buttonHeightSm` / `Md` / `Lg`, `inputHeight`, `inputHeightLg`, `tableRowHeight`, `listingSearchWidthTablet` / `Desktop`, `listingFilterPanelWidth`, `formDrawerWidthDesktop`, `formModalMaxWidth`, `formPageContentMaxWidth`, `tableCheckboxColumnWidth`, `tableActionsColumnWidth`, `tableToggleColumnWidth`, `topbarHeight`, `topbarSearchWidthTablet` / `Desktop`, `sidebarExpanded`, `sidebarCollapsed`, `navItemHeight`, border widths, `focusRingWidth`, `iconSizeMd`, `iconButtonIconSm` / `Md`, `inlineProgressIndicatorSize`, `inlineProgressIndicatorStrokeWidth`, `badgeHeight`, `avatarSizeXs` / `Sm`, `disabledOpacity`, `opacityFull`, `statusChipHeight`, `luminanceInkThreshold`, `elevationPopupMenu`, `overlayPrimaryAlpha` (focus ring color: `focusRingColor`).
 
 **Shadows:** `AppTokens.shadowSm`, `shadowMd`, `shadowLg` — each is `List<BoxShadow>`.
 
@@ -190,6 +226,48 @@ All visual constants live on **`AppTokens`** (`lib/design_system/tokens.dart`): 
   - ✅ `AppTokens.sidebarActiveItem.withOpacity(0.40)`
   - ❌ `AppTokens.sidebarSectionActiveBg`
 
+### FONT
+
+- Font family: **Poppins** (via `google_fonts` in `AppTheme`).
+- Never rely on Flutter’s default (Roboto) for product UI—use theme `textTheme` or `AppTokens.fontFamily`.
+
+### INPUT RULES
+
+- Always use **`AppInput`** for single-line text fields.
+- Always use **`AppSelect`** for dropdowns — **never** `DropdownButtonFormField` in `lib/features/` (the primitive may wrap it internally in `app_select.dart` only).
+- Always use **`AppTextarea`** for multiline fields.
+- All of the above use the **full bordered box** style (outline, 6px radius)—never underline-only inputs.
+
+### FORM LAYOUT RULES
+
+- **`AppFormSection`** default body should use a **two-column** layout on desktop via **`AppFormFieldRow`** / **`ResponsiveGridRow`** (same widget; `ResponsiveGridRow` is a typedef).
+- Wrap fields that must span the full width in **`AppFormFullWidth`**.
+- Section card: **`surfaceSubtle`** background, **`borderDefault`** border, **8px** radius (`radiusLg`), **16px** padding.
+
+### TYPOGRAPHY RULES
+
+- Page title: **20px**, **w600** (`pageTitleSize` / `pageTitleWeight`).
+- Page subtitle: **13px**, **w400**, muted (`pageSubtitleSize` / `textMuted`).
+- Section title: **13px**, **w600** (`sectionTitleSize` / `sectionTitleWeight`).
+- Field label: **12px**, **w500** — rendered **above** the field as a `Text` widget, **not** as `InputDecoration.labelText`.
+- Body text: **13px**, **w400** (`bodySize` / `bodyWeight`).
+- Caption / helper / tight meta: **11px**, **w400** (`captionSize` / `captionWeight`).
+
+### KPI CARD RULES
+
+- Always use **`KpiMetricTile`** with **`KpiCard`** data.
+- Label: **uppercase 11px**, **w500**, letter-spacing **0.5**, **`textSecondary`**.
+- Value: **24px**, **w700**, **`textPrimary`** (or on-surface in dark mode).
+- Icon: **top-right**, **20px** glyph inside a **36×36** rounded tile at **~10%** `primary800` tint.
+- Optional sub-label / trend: **12px**, muted (`textMuted` / semantic trend color).
+
+### TABLE RULES (listings)
+
+- Header row: **uppercase 11px**, **w600**, **`textSecondary`**, background **`surfaceSubtle`**, bottom border **`borderDefault`**.
+- Cell padding: **12px** horizontal, **10px** vertical; row height from **`AppTokens.tableRowHeight`**.
+- Row hover: **`surfaceSubtle`**; row divider: **`tableRowDivider`**.
+- Text alignment: **left** default, **center** for status columns, **right** for actions / numeric columns.
+
 ---
 
 ## 5. Import rules — CRITICAL
@@ -214,10 +292,8 @@ import 'package:limsv1/design_system/components/display/kpi_metric.dart';
 
 ### Cross-feature imports
 
-**TO BE BUILT** — no `lib/features/` yet. Intended rule:
-
-- Allowed: relative imports within the same feature; `package:limsv1/core/...` for shared core.
-- Forbidden: `../../other_feature/...` imports across feature boundaries.
+- Allowed: relative imports within the same **feature sub-module** (e.g. under `user_management/departments/`); imports from that module’s **`shared/`** tree when appropriate; `package:limsv1/core/...` for shared core.
+- Forbidden: `../../other_feature/...` imports across **top-level** feature boundaries (e.g. from `user_management/` into `shell/` via relative `../` hops). Prefer `package:limsv1/...` for intentional cross-feature APIs when they exist.
 
 ### Theme access
 
@@ -257,6 +333,8 @@ AppButton(label: 'Saving…', onPressed: () {}, isLoading: true)
 ### AppInput (`AppInputSize`)
 
 Parameters include `label`, `hint`, `helperText`, `errorText`, `controller`, `prefixIcon`, `suffixIcon`, `required`, `enabled`, `readOnly`, `obscureText`, `size` (`sm` / `md` / `lg`), `maxLines`, `maxLength`, etc.
+
+For dense Stripe-style forms (Section 9), prefer **`AppInputSize.sm`** when layout allows.
 
 ```dart
 AppInput(
@@ -556,21 +634,60 @@ onTabChanged: (i) => _reloadTab(i),
 
 ---
 
-## 9. Form templates — CRITICAL DECISION RULES
+## 9. Form Template Rules
 
-The following files are **not present** in the repository:  
-`app_form_modal.dart`, `app_form_drawer.dart`, `app_form_page.dart`, `app_form_section.dart`, `app_form_field_row.dart`, `app_confirm_dialog.dart`.
+Shared form UI lives under `lib/design_system/components/forms/` and is exported from `components.dart`. Use **`AppTokens`**, **`AppBreakpoints`**, and **`Theme.of(context)`** for layout and color—never hardcode colors, spacing, radii, or shadows on these surfaces.
 
-**Status: TO BE BUILT.** Intended tiering (keep when implementing):
+### Form tiers
 
-| Scenario | Component |
-|----------|-------------|
-| ≤6 fields, simple | `AppFormModal` |
-| 7–15 fields, sectioned | `AppFormDrawer` |
-| Nested tables / line items | `AppFormPage` |
-| Destructive confirm only | `AppConfirmDialog` |
+| Tier | Component | Use when | Examples |
+|------|-------------|----------|----------|
+| Tier 1 | `AppFormModal` | ≤ 6 fields, simple data entry | Add Grade, Add Bank |
+| Tier 2 | `AppFormDrawer` | 7–15 fields, sectioned data, no nested tables | Add Customer, Add User |
+| Tier 3 | `AppFormPage` | 15+ fields, complex workflows, nested tables / line items | Sample Receipt |
+| Confirm | `AppConfirmDialog` | Destructive confirmation | Delete, Disable |
 
-Until those widgets exist, use Flutter’s `showDialog` / `showModalBottomSheet` / full routes with **`AppInput`**, **`AppButton`**, and **`AppTokens`** styling, or add the shared form components under `lib/design_system/components/forms/` and export them from `components.dart`.
+**Confirm tier:** `AppConfirmDialog` is **not implemented** yet. Until it exists, use `AlertDialog` (or `showDialog`) with **`AppButton`** (`danger` for confirm when appropriate) and the same token/theme rules.
+
+**APIs:** `AppFormModal.show(…)` and `AppFormDrawer.show(…)` wrap `showDialog` / `showGeneralDialog` with sticky footers. `AppFormPage` is an in-shell layout: it uses a **`Column`** with **`Expanded`** for the scroll body—when the parent is scrollable (e.g. `AppShell` body), wrap it in a **`SizedBox`** with an explicit height derived from the viewport minus chrome so the footer stays sticky.
+
+### Drawer rules
+
+- Width: **`AppTokens.formDrawerWidthDesktop`** (720px) on desktop (`AppBreakpoints.isDesktopWidth`).
+- Tablet / mobile: full usable width (responsive, max available).
+- Sticky footer always visible; body scrolls independently.
+- Prefer **`AppFormFieldRow`** for a 2-column field grid on desktop and 1 column on mobile.
+- Use **`AppFormSection`** for medium/large forms: light surface, subtle border/shadow, compact padding.
+
+### Section rules
+
+- Every medium/large form should use **`AppFormSection`** (or equivalent sectioning)—avoid long flat forms.
+- Section supports **title**, optional **description**, and optional **`trailing`** inline action (e.g. `+ Add Address`, **Fetch Details**, `+ Add Bank`).
+- Inline actions belong in the section header row, not buried in the body copy.
+
+### Field rules
+
+- Keep fields **compact** (Stripe-like): prefer **`AppInputSize.sm`** in dense forms where it fits.
+- **Labels above inputs** (`AppInput` already stacks label → field → helper/error).
+- **Required:** set **`required: true`** per field only when needed; the label shows a red asterisk (`*`).
+- Do **not** mark every field required globally.
+- Use **`helperText`** / **`errorText`** below the field when needed.
+
+### Footer rules
+
+- **Modal:** sticky footer with **Cancel** (tertiary) + **primary** action (`AppButton.primary`); primary may use **`isLoading`**.
+- **Drawer:** same pattern—Cancel + Save/Submit.
+- **Page:** optional top **`actions`**; bottom sticky footer for **Cancel**, optional **Save & continue** (`secondary`), and **Save** (`primary`) when the corresponding callbacks are non-null.
+
+### Token rules
+
+- Never hardcode colors, spacing, sizes, shadows, or radius on form templates—use **`AppTokens`** and **`Theme.of(context)`**.
+- Do not use raw Flutter **`Colors.*`** for chrome (except **`Colors.transparent`** where the project already allows it, e.g. barriers).
+
+### Preview route
+
+- Temporary dev-only route: **`/dev/form-preview`** (`FormTemplatePreviewScreen`)—registered in **`ShellRoute`** only; **not** in the sidebar `navItems`.
+- **Remove before production** (screen file header comment).
 
 ---
 
@@ -728,7 +845,7 @@ class XProvider extends BaseProvider {
 }
 ```
 
-**Intended feature layout:**
+**Intended feature layout (small single-domain feature):**
 
 ```text
 features/<name>/
@@ -736,8 +853,9 @@ features/<name>/
   state/<name>_provider.dart
   state/<name>_state.dart   // optional
   ui/<name>_screen.dart
-  ui/sub_modules/<sub_name>/   // when needed
 ```
+
+**Large module with product sub-areas** (e.g. User Management): use **`features/<module>/<sub_module>/data|state|ui/`** plus **`features/<module>/shared/`** for module-local shared UI—see **§3 User Management and other large modules** above. Do not default to `ui/sub_modules/…` for new work in those cases.
 
 **How to provide at route level:**
 
@@ -861,7 +979,7 @@ Any module that is not implemented yet is represented by a **`GoRoute`** whose b
 **Intended conventions:**
 
 - `lib/core/api/client.dart` — shared `Dio` (or chosen HTTP client).
-- `lib/features/<x>/data/<x>_api.dart` — feature endpoints.
+- `lib/features/<x>/data/<x>_api.dart` — feature endpoints (or `lib/features/<module>/<sub_module>/data/…` when the module is split by sub-domain, e.g. `user_management/departments/data/departments_api.dart`).
 - Base URL from environment / flavor config; auth token from secure storage; centralized **401** → clear session → **login** redirect; timeouts (e.g. connect 10s, receive 30s) as project policy.
 - Each API function: single responsibility; return **typed models** (not `Map<String, dynamic>`); throw **typed** errors, not raw `DioException`.
 
@@ -885,7 +1003,7 @@ Any module that is not implemented yet is represented by a **`GoRoute`** whose b
 - Prefer **`AppButton`** over raw `ElevatedButton` / `FilledButton` for product UI.
 - Prefer **`AppInput`** over raw `TextField` for forms.
 - **`StatusChip`** in table status cells; **`AppBadge`** for compact labels/counts.
-- Form tier rules (Section 9) once form components exist.
+- Form tier rules (Section 9 — Form Template Rules).
 
 **Responsive**
 
@@ -908,10 +1026,10 @@ Any module that is not implemented yet is represented by a **`GoRoute`** whose b
 
 Use when adding **`lib/features/<module>/…`** for the first time.
 
-1. Create `data/`, `state/`, `ui/` (and `ui/sub_modules/` if needed).
+1. Create `data/`, `state/`, `ui/` under the module (or under **`features/<module>/<sub_module>/`** when the module has multiple product sub-areas; see §3). Prefer **`shared/`** for module-local shared UI instead of `ui/sub_modules/` when splitting by sub-domain.
 2. **API:** class with client, `fetchAll`, `fetchById`, `create`, `update`, `delete` as required; register the API in GetIt (lazy singleton) and inject `ApiClient` / prefs as needed.
 3. **Provider:** `ChangeNotifier` extending `BaseProvider`; `fetchAll` in `runAsync`; route-level `ChangeNotifierProvider` wraps the screen.
-4. **Screen:** default **`AppListingScreen<Model>`** with columns, `rowActions`, `mobileCardBuilder`, forms (`AppFormModal` / … when built), `AppConfirmDialog` for delete when available.
+4. **Screen:** default **`AppListingScreen<Model>`** with columns, `rowActions`, `mobileCardBuilder`, forms (`AppFormModal` / `AppFormDrawer` / `AppFormPage` per Section 9), or `AlertDialog` + **`AppButton`** for destructive confirm until **`AppConfirmDialog`** exists.
 
    **IMPORTANT:** Routes registered **inside** the shell (`ShellRoute`) must **not** use **`Scaffold`** or **`AppBar`**. The shell already provides layout and top bar. Start the screen with content only, for example:
 
@@ -931,7 +1049,7 @@ Start prompts with:
 
 **New master sub-module**
 
-> Read FLUTTER_CLAUDE.md. Add a new master sub-module called [Name] with fields: […]. Follow the module scaffolding guide. Use the form tier that matches field count (forms TO BE BUILT — implement or use interim dialogs).
+> Read FLUTTER_CLAUDE.md. Add a new master sub-module called [Name] with fields: […]. Follow the module scaffolding guide. Use the form tier that matches field count (Section 9 — `AppFormModal` / `AppFormDrawer` / `AppFormPage`).
 
 **Audit**
 

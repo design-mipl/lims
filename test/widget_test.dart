@@ -15,14 +15,15 @@ void main() {
     await setupServiceLocator();
   });
 
-  testWidgets('App shows router placeholder', (tester) async {
+  testWidgets('App loads shell and initial route', (tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider<ThemeNotifier>.value(
         value: sl<ThemeNotifier>(),
         child: const AppRoot(),
       ),
     );
-    await tester.pump();
-    expect(find.text('Router placeholder'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('This module is coming soon.'), findsOneWidget);
   });
 }

@@ -184,10 +184,7 @@ class _AppShellState extends State<AppShell> {
               showUserText: false,
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.zero,
-                child: widget.child,
-              ),
+              child: widget.child,
             ),
           ],
         ),
@@ -232,10 +229,7 @@ class _AppShellState extends State<AppShell> {
                     showUserText: desktop,
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.zero,
-                      child: widget.child,
-                    ),
+                    child: widget.child,
                   ),
                 ],
               ),

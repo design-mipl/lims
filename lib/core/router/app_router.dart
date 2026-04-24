@@ -1,7 +1,20 @@
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../features/coming_soon/coming_soon_screen.dart';
+import '../../features/dev/form_template_preview_screen.dart';
 import '../../features/shell/shell_screen.dart';
+import '../../features/user_management/departments/state/departments_provider.dart';
+import '../../features/user_management/departments/ui/departments_screen.dart';
+import '../../features/user_management/modules/state/modules_provider.dart';
+import '../../features/user_management/modules/ui/modules_screen.dart';
+import '../../features/user_management/roles/state/roles_provider.dart';
+import '../../features/user_management/roles/ui/roles_screen.dart';
+import '../../features/user_management/users/state/users_provider.dart';
+import '../../features/user_management/users/ui/user_form_page.dart';
+import '../../features/user_management/users/ui/user_permissions_placeholder_screen.dart';
+import '../../features/user_management/users/ui/user_view_page.dart';
+import '../../features/user_management/users/ui/users_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/dashboard',
@@ -24,6 +37,10 @@ final GoRouter appRouter = GoRouter(
             moduleName: 'Dashboard',
             subtitle: 'Overview and analytics',
           ),
+        ),
+        GoRoute(
+          path: '/dev/form-preview',
+          builder: (context, _) => const FormTemplatePreviewScreen(),
         ),
         GoRoute(
           path: '/transactions',
@@ -165,10 +182,103 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/users',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'User Management',
-            subtitle: 'Manage users, roles and permissions',
-          ),
+          redirect: (context, state) => '/user-management/departments',
+        ),
+        GoRoute(
+          path: '/user-management',
+          redirect: (context, state) {
+            if (state.uri.path == '/user-management') {
+              return '/user-management/departments';
+            }
+            return null;
+          },
+          routes: [
+            GoRoute(
+              path: 'departments',
+              builder: (context, state) => ChangeNotifierProvider(
+                create: (_) => DepartmentsProvider()..fetchAll(),
+                child: const DepartmentsScreen(),
+              ),
+            ),
+            GoRoute(
+              path: 'users/create',
+              builder: (context, state) => MultiProvider(
+                providers: [
+                  ChangeNotifierProvider(
+                    create: (_) => UsersProvider()..fetchAll(),
+                  ),
+                  ChangeNotifierProvider(
+                    create: (_) => DepartmentsProvider()..fetchAll(),
+                  ),
+                  ChangeNotifierProvider(
+                    create: (_) => RolesProvider()..fetchAll(),
+                  ),
+                ],
+                child: const UserFormPage(),
+              ),
+            ),
+            GoRoute(
+              path: 'users/:id/edit',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return MultiProvider(
+                  providers: [
+                    ChangeNotifierProvider(
+                      create: (_) => UsersProvider()..fetchAll(),
+                    ),
+                    ChangeNotifierProvider(
+                      create: (_) => DepartmentsProvider()..fetchAll(),
+                    ),
+                    ChangeNotifierProvider(
+                      create: (_) => RolesProvider()..fetchAll(),
+                    ),
+                  ],
+                  child: UserFormPage(userId: id),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'users/:id/permissions',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return ChangeNotifierProvider(
+                  create: (_) => UsersProvider()..fetchAll(),
+                  child: UserPermissionsPlaceholderScreen(userId: id),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'users/:id',
+              builder: (context, state) {
+                final id = state.pathParameters['id']!;
+                return ChangeNotifierProvider(
+                  create: (_) => UsersProvider()..fetchAll(),
+                  child: UserViewPage(userId: id),
+                );
+              },
+            ),
+            GoRoute(
+              path: 'users',
+              builder: (context, state) => ChangeNotifierProvider(
+                create: (_) => UsersProvider()..fetchAll(),
+                child: const UsersScreen(),
+              ),
+            ),
+            GoRoute(
+              path: 'roles',
+              builder: (context, state) => ChangeNotifierProvider(
+                create: (_) => RolesProvider()..fetchAll(),
+                child: const RolesScreen(),
+              ),
+            ),
+            GoRoute(
+              path: 'modules',
+              builder: (context, state) => ChangeNotifierProvider(
+                create: (_) => ModulesProvider()..fetchAll(),
+                child: const ModulesScreen(),
+              ),
+            ),
+          ],
         ),
       ],
     ),
