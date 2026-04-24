@@ -759,11 +759,9 @@ class ThemeConfig {
 
 /// Holds [ThemeConfig], exposes resolved [ThemeData], and persists changes.
 class ThemeNotifier extends ChangeNotifier {
-  ThemeNotifier() {
-    _bootstrap();
-  }
+  ThemeNotifier(ThemeConfig config) : _config = config;
 
-  ThemeConfig _config = const ThemeConfig();
+  ThemeConfig _config;
 
   /// Latest user configuration (brand + mode).
   ThemeConfig get config => _config;
@@ -779,11 +777,6 @@ class ThemeNotifier extends ChangeNotifier {
 
   /// Whether the effective scheme is dark.
   bool get isDark => _resolveBrightness() == Brightness.dark;
-
-  Future<void> _bootstrap() async {
-    _config = await ThemeConfig.load();
-    notifyListeners();
-  }
 
   Brightness _resolveBrightness() {
     switch (_config.mode) {

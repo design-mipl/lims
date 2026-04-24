@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
@@ -10,12 +12,11 @@ class AppSidebar extends StatefulWidget {
     super.key,
     required this.navItems,
     required this.currentPath,
-    required this.isRailExpanded,
+    required this.isExpanded,
     required this.isDrawer,
     required this.onPathSelected,
     this.onExpandFromLogo,
-    this.onToggleEdgeExpand,
-    required this.showEdgeChevron,
+    this.onToggle,
     required this.appName,
     required this.logoWidget,
     this.appSubtitle,
@@ -24,12 +25,11 @@ class AppSidebar extends StatefulWidget {
 
   final List<NavItem> navItems;
   final String currentPath;
-  final bool isRailExpanded;
+  final bool isExpanded;
   final bool isDrawer;
   final void Function(String path) onPathSelected;
   final VoidCallback? onExpandFromLogo;
-  final VoidCallback? onToggleEdgeExpand;
-  final bool showEdgeChevron;
+  final VoidCallback? onToggle;
   final String appName;
   final Widget logoWidget;
   final String? appSubtitle;
@@ -40,26 +40,27 @@ class AppSidebar extends StatefulWidget {
 }
 
 class _AppSidebarState extends State<AppSidebar> {
-  late final Set<String> _expandedForChildren;
+  String? _expandedParentPath;
+
+  static const double _logoBoxSize =
+      AppTokens.tableRowHeight - AppTokens.space3;
 
   @override
   void initState() {
     super.initState();
-    _expandedForChildren = <String>{};
     _syncExpandForPath();
   }
 
   void _syncExpandForPath() {
+    String? found;
     for (final item in widget.navItems) {
-      if (item.isExpandable) {
-        final hasActiveChild = item.children!.any(
-          (c) => c.path == widget.currentPath,
-        );
-        if (hasActiveChild) {
-          _expandedForChildren.add(item.path);
-        }
+      if (item.isExpandable &&
+          item.children!.any((c) => c.path == widget.currentPath)) {
+        found = item.path;
+        break;
       }
     }
+    _expandedParentPath = found;
   }
 
   @override
@@ -74,10 +75,10 @@ class _AppSidebarState extends State<AppSidebar> {
   void _onParentTap(NavItem item) {
     if (item.isExpandable) {
       setState(() {
-        if (_expandedForChildren.contains(item.path)) {
-          _expandedForChildren.remove(item.path);
+        if (_expandedParentPath == item.path) {
+          _expandedParentPath = null;
         } else {
-          _expandedForChildren.add(item.path);
+          _expandedParentPath = item.path;
         }
       });
     } else {
@@ -85,172 +86,164 @@ class _AppSidebarState extends State<AppSidebar> {
     }
   }
 
+  /// Full nav labels only when the rail has finished (or nearly finished)
+  /// widening—avoids expanded [Row] layout during [AnimatedContainer] width
+  /// animation (56 → 210), which caused RenderFlex overflow.
+  bool _effectiveRailLabelsVisible(double maxWidth) {
+    if (widget.isDrawer) return true;
+    return widget.isExpanded &&
+        maxWidth >= AppTokens.sidebarExpanded - 0.5;
+  }
+
+  double get _sidebarWidth {
+    if (widget.isDrawer) return AppTokens.sidebarExpanded;
+    return widget.isExpanded
+        ? AppTokens.sidebarExpanded
+        : AppTokens.sidebarCollapsed;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTokens.primary800,
-      child: SizedBox(
-        width: _sidebarWidth,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LogoRow(
-                  isRailExpanded: _labelsVisible,
-                  isDrawer: widget.isDrawer,
-                  onExpandFromLogo: widget.onExpandFromLogo,
-                  appName: widget.appName,
-                  appSubtitle: widget.appSubtitle,
-                  logo: widget.logoWidget,
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.only(bottom: AppTokens.space2),
-                    children: _buildNavWidgets(),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      width: _sidebarWidth,
+      child: Material(
+        color: AppTokens.sidebarBg,
+        elevation: 0,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final railLabels = _effectiveRailLabelsVisible(
+              constraints.maxWidth,
+            );
+            return ClipRect(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _LogoRow(
+                    isExpanded: railLabels,
+                    isDrawer: widget.isDrawer,
+                    onExpandFromLogo: widget.onExpandFromLogo,
+                    onToggle: widget.onToggle,
+                    appName: widget.appName,
+                    appSubtitle: widget.appSubtitle,
+                    logo: widget.logoWidget,
+                    logoBoxSize: _logoBoxSize,
                   ),
-                ),
-                _BottomBlock(
-                  isRailExpanded: _labelsVisible,
-                  appVersion: widget.appVersion,
-                ),
-              ],
-            ),
-            if (widget.showEdgeChevron) _edgeChevron(),
-          ],
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.only(bottom: AppTokens.space2),
+                      children: _buildNavWidgets(railLabels),
+                    ),
+                  ),
+                  _BottomBlock(
+                    isRailExpanded: railLabels,
+                    appVersion: widget.appVersion,
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  bool get _labelsVisible {
-    if (widget.isDrawer) return true;
-    return widget.isRailExpanded;
-  }
-
-  double get _sidebarWidth {
-    if (widget.isDrawer) return AppTokens.sidebarExpanded;
-    return widget.isRailExpanded
-        ? AppTokens.sidebarExpanded
-        : AppTokens.sidebarCollapsed;
-  }
-
-  List<Widget> _buildNavWidgets() {
+  List<Widget> _buildNavWidgets(bool isRailExpanded) {
     final out = <Widget>[];
     String? prevSection;
     for (final item in widget.navItems) {
       if (item.sectionLabel != prevSection) {
         if (item.sectionLabel != null) {
           out.add(_SectionOrDivider(
-            isRailExpanded: _labelsVisible,
+            isRailExpanded: isRailExpanded,
             label: item.sectionLabel!,
           ));
         }
         prevSection = item.sectionLabel;
       }
       out.add(
-        _ParentTile(
+        _NavParentBlock(
           item: item,
-          isRailExpanded: _labelsVisible,
+          isRailExpanded: isRailExpanded,
           currentPath: widget.currentPath,
-          navExpanded: _expandedForChildren.contains(item.path),
+          navExpanded: _expandedParentPath == item.path,
           onParentTap: () => _onParentTap(item),
+          onPathSelected: widget.onPathSelected,
         ),
       );
-      if (item.isExpandable &&
-          _labelsVisible &&
-          _expandedForChildren.contains(item.path)) {
-        for (final c in item.children!) {
-          out.add(
-            _ChildTile(
-              item: c,
-              currentPath: widget.currentPath,
-              onPathSelected: widget.onPathSelected,
-            ),
-          );
-        }
-      }
     }
     return out;
-  }
-
-  Widget _edgeChevron() {
-    final h = AppTokens.space12 + AppTokens.space2;
-    final t = (h - AppTokens.avatarSizeSm) / 2;
-    return Positioned(
-      top: t,
-      right: -AppTokens.space2,
-      child: Material(
-        color: AppTokens.white,
-        shape: const CircleBorder(
-          side: BorderSide(
-            color: AppTokens.neutral200,
-            width: AppTokens.borderWidthSm,
-          ),
-        ),
-        child: InkWell(
-          onTap: widget.onToggleEdgeExpand,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: AppTokens.avatarSizeSm,
-            height: AppTokens.avatarSizeSm,
-            child: Center(
-              child: Icon(
-                widget.isRailExpanded
-                    ? LucideIcons.chevronLeft
-                    : LucideIcons.chevronRight,
-                size: AppTokens.iconButtonIconSm,
-                color: AppTokens.neutral600,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
 class _LogoRow extends StatelessWidget {
   const _LogoRow({
-    required this.isRailExpanded,
+    required this.isExpanded,
     required this.isDrawer,
     this.onExpandFromLogo,
+    this.onToggle,
     required this.appName,
     this.appSubtitle,
     required this.logo,
+    required this.logoBoxSize,
   });
 
-  final bool isRailExpanded;
+  final bool isExpanded;
   final bool isDrawer;
   final VoidCallback? onExpandFromLogo;
+  final VoidCallback? onToggle;
   final String appName;
   final String? appSubtitle;
   final Widget logo;
+  final double logoBoxSize;
+
+  static double get _rowHeight => AppTokens.space12 + AppTokens.space2;
 
   @override
   Widget build(BuildContext context) {
-    final h = AppTokens.space12 + AppTokens.space2;
-    if (!isRailExpanded && !isDrawer) {
-      return SizedBox(
-        height: h,
-        child: Center(
-          child: InkWell(
-            onTap: onExpandFromLogo,
-            child: _LogoBox(logo: logo),
+    final showToggle = !isDrawer && onToggle != null;
+
+    if (!isExpanded && !isDrawer) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 56,
+            child: Center(
+              child: GestureDetector(
+                onTap: onExpandFromLogo,
+                child: _LogoBox(logo: logo, size: logoBoxSize),
+              ),
+            ),
           ),
-        ),
+          if (showToggle)
+            SizedBox(
+              height: 32,
+              child: Center(
+                child: GestureDetector(
+                  onTap: onToggle!,
+                  child: const Icon(
+                    LucideIcons.chevronRight,
+                    color: AppTokens.sidebarIcon,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     }
-    return SizedBox(
-      height: h,
-      child: InkWell(
-        onTap: onExpandFromLogo,
+
+    if (isDrawer) {
+      return SizedBox(
+        height: _rowHeight,
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: AppTokens.space3),
           child: Row(
             children: [
-              _LogoBox(logo: logo),
+              _LogoBox(logo: logo, size: logoBoxSize),
               SizedBox(width: AppTokens.space2),
               Expanded(
                 child: Column(
@@ -276,7 +269,7 @@ class _LogoRow extends StatelessWidget {
                         style: const TextStyle(
                           fontFamily: 'Inter',
                           fontSize: AppTokens.textXs,
-                          color: AppTokens.neutral400,
+                          color: AppTokens.sidebarInactiveText,
                         ),
                       ),
                     ],
@@ -286,23 +279,75 @@ class _LogoRow extends StatelessWidget {
             ],
           ),
         ),
+      );
+    }
+
+    return SizedBox(
+      height: _rowHeight,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: AppTokens.space3),
+        child: Row(
+          children: [
+            _LogoBox(logo: logo, size: logoBoxSize),
+            SizedBox(width: AppTokens.space2),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    appName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: AppTokens.textMd,
+                      fontWeight: AppTokens.weightSemibold,
+                      color: AppTokens.white,
+                    ),
+                  ),
+                  if (appSubtitle != null && appSubtitle!.isNotEmpty) ...[
+                    Text(
+                      appSubtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: AppTokens.textXs,
+                        color: AppTokens.sidebarInactiveText,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (showToggle)
+              GestureDetector(
+                onTap: onToggle!,
+                child: const Icon(
+                  LucideIcons.chevronLeft,
+                  color: AppTokens.sidebarIcon,
+                  size: 16,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _LogoBox extends StatelessWidget {
-  const _LogoBox({required this.logo});
+  const _LogoBox({required this.logo, required this.size});
 
   final Widget logo;
-  static double get _d =>
-      AppTokens.tableRowHeight - AppTokens.space3;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: _d,
-      height: _d,
+      width: size,
+      height: size,
       child: FittedBox(child: logo),
     );
   }
@@ -336,8 +381,9 @@ class _SectionOrDivider extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: AppTokens.textXs,
-              color: AppTokens.neutral400,
+              color: AppTokens.sidebarSectionLabel,
               fontWeight: AppTokens.weightSemibold,
+              letterSpacing: 0.8,
             ),
           ),
         ),
@@ -349,10 +395,141 @@ class _SectionOrDivider extends StatelessWidget {
         vertical: AppTokens.space2,
       ),
       child: const Divider(
-        color: AppTokens.neutral500,
-        height: AppTokens.borderWidthSm,
-        thickness: AppTokens.borderWidthSm,
+        color: AppTokens.neutral700,
+        height: AppTokens.borderWidthHairline,
+        thickness: AppTokens.borderWidthHairline,
       ),
+    );
+  }
+}
+
+/// Parent row plus animated children list (accordion block).
+class _NavParentBlock extends StatelessWidget {
+  const _NavParentBlock({
+    required this.item,
+    required this.isRailExpanded,
+    required this.currentPath,
+    required this.navExpanded,
+    required this.onParentTap,
+    required this.onPathSelected,
+  });
+
+  final NavItem item;
+  final bool isRailExpanded;
+  final String currentPath;
+  final bool navExpanded;
+  final VoidCallback onParentTap;
+  final void Function(String path) onPathSelected;
+
+  static const double _childRowHeight = 30.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final showChildren = item.isExpandable &&
+        isRailExpanded &&
+        navExpanded &&
+        item.children != null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ParentTile(
+          item: item,
+          isRailExpanded: isRailExpanded,
+          currentPath: currentPath,
+          navExpanded: navExpanded,
+          onParentTap: onParentTap,
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: showChildren
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final c in item.children!)
+                      _ChildTile(
+                        item: c,
+                        currentPath: currentPath,
+                        rowHeight: _childRowHeight,
+                        onPathSelected: onPathSelected,
+                      ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccordionChevron extends StatefulWidget {
+  const _AccordionChevron({
+    required this.expanded,
+    required this.iconColor,
+  });
+
+  final bool expanded;
+  final Color iconColor;
+
+  @override
+  State<_AccordionChevron> createState() => _AccordionChevronState();
+}
+
+class _AccordionChevronState extends State<_AccordionChevron>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+  );
+  late final Animation<double> _turn = CurvedAnimation(
+    parent: _ctrl,
+    curve: Curves.easeInOut,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.expanded) {
+      _ctrl.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_AccordionChevron oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expanded != widget.expanded) {
+      if (widget.expanded) {
+        _ctrl.forward();
+      } else {
+        _ctrl.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _turn,
+      builder: (context, _) {
+        return Transform.rotate(
+          angle: _turn.value * math.pi / 2,
+          child: Icon(
+            LucideIcons.chevronRight,
+            size: AppTokens.iconButtonIconSm,
+            color: widget.iconColor,
+          ),
+        );
+      },
     );
   }
 }
@@ -388,71 +565,41 @@ class _ParentTileState extends State<_ParentTile> {
         true;
 
     final selfMatch = widget.currentPath == item.path;
-    final fullAccent = selfMatch && ( !isExpandable || !hasChildActive);
-    final subtleAccent = isExpandable && hasChildActive;
-    final idleHover = _hovering && !fullAccent && !subtleAccent;
+    final isActiveParent = selfMatch || hasChildActive;
 
-    final Color bg = fullAccent
-        ? AppTokens.accent500
-        : subtleAccent
-        ? AppTokens.accent500.withValues(alpha: 0.15)
-        : idleHover
-        ? AppTokens.neutral700
-        : AppTokens.primary800;
+    final Color bg;
+    if (isActiveParent) {
+      bg = AppTokens.sidebarActiveItem;
+    } else if (_hovering && !isActiveParent) {
+      bg = AppTokens.neutral700;
+    } else {
+      bg = Colors.transparent;
+    }
 
-    const iconDim = AppTokens.neutral300;
-    final onAccent = (fullAccent || subtleAccent) ? AppTokens.white : iconDim;
+    final labelColor = isActiveParent
+        ? AppTokens.sidebarActiveText
+        : AppTokens.sidebarInactiveText;
+
     const iconSize = AppTokens.iconButtonIconMd;
-
-    final row = Row(
-      mainAxisAlignment: widget.isRailExpanded
-          ? MainAxisAlignment.start
-          : MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.max,
-      children: [
-        SizedBox(
-          width: iconSize,
-          height: iconSize,
-          child: IconTheme.merge(
-            data: IconThemeData(
-              size: AppTokens.iconButtonIconMd,
-              color: onAccent,
-            ),
-            child: item.icon,
-          ),
-        ),
-        if (widget.isRailExpanded) ...[
-          SizedBox(width: AppTokens.space2),
-          Expanded(
-            child: Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: AppTokens.textBase,
-                color: (fullAccent || subtleAccent) ? AppTokens.white : AppTokens.neutral300,
-                fontWeight: AppTokens.weightRegular,
-              ),
-            ),
-          ),
-          if (isExpandable)
-            Icon(
-              widget.navExpanded
-                  ? LucideIcons.chevronDown
-                  : LucideIcons.chevronRight,
-              size: AppTokens.iconButtonIconSm,
-              color: onAccent,
-            ),
-        ],
-      ],
+    const iconColor = AppTokens.sidebarIcon;
+    final iconTheme = IconThemeData(
+      size: AppTokens.iconButtonIconMd,
+      color: iconColor,
     );
 
-    final content = Material(
+    final hasRoundedBg = isActiveParent;
+    Widget clipIfNeeded(Widget child) => hasRoundedBg
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            child: child,
+          )
+        : child;
+
+    final material = Material(
       color: bg,
       child: MouseRegion(
         onEnter: (_) {
-          if (!fullAccent && !subtleAccent) {
+          if (!isActiveParent) {
             setState(() => _hovering = true);
           }
         },
@@ -461,35 +608,72 @@ class _ParentTileState extends State<_ParentTile> {
           onTap: widget.onParentTap,
           hoverColor: Colors.transparent,
           splashColor: AppTokens.primary700.withValues(alpha: 0.2),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppTokens.space3),
-            child: SizedBox(
-              height: AppTokens.navItemHeight,
-              child: row,
-            ),
-          ),
+          child: widget.isRailExpanded
+              ? Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppTokens.space3),
+                  child: SizedBox(
+                    height: AppTokens.navItemHeight,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: iconSize,
+                          height: iconSize,
+                          child: IconTheme.merge(
+                            data: iconTheme,
+                            child: item.icon,
+                          ),
+                        ),
+                        SizedBox(width: AppTokens.space2),
+                        Expanded(
+                          child: Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: AppTokens.textBase,
+                              color: labelColor,
+                              fontWeight: isActiveParent
+                                  ? AppTokens.weightSemibold
+                                  : AppTokens.weightRegular,
+                            ),
+                          ),
+                        ),
+                        if (isExpandable)
+                          _AccordionChevron(
+                            expanded: widget.navExpanded,
+                            iconColor: iconColor,
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  width: AppTokens.sidebarCollapsed,
+                  height: AppTokens.navItemHeight,
+                  child: Center(
+                    child: IconTheme.merge(
+                      data: iconTheme,
+                      child: item.icon,
+                    ),
+                  ),
+                ),
         ),
       ),
-    );
-
-    final r = (fullAccent || subtleAccent) ? AppTokens.radiusMd : AppTokens.space0;
-    final padded = Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppTokens.space1),
-      child: r > 0
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(r),
-              child: content,
-            )
-          : content,
     );
 
     if (!widget.isRailExpanded) {
       return Tooltip(
         message: item.label,
-        child: padded,
+        child: clipIfNeeded(material),
       );
     }
-    return padded;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppTokens.space1),
+      child: clipIfNeeded(material),
+    );
   }
 }
 
@@ -497,11 +681,13 @@ class _ChildTile extends StatefulWidget {
   const _ChildTile({
     required this.item,
     required this.currentPath,
+    required this.rowHeight,
     required this.onPathSelected,
   });
 
   final NavItem item;
   final String currentPath;
+  final double rowHeight;
   final void Function(String path) onPathSelected;
 
   @override
@@ -509,75 +695,59 @@ class _ChildTile extends StatefulWidget {
 }
 
 class _ChildTileState extends State<_ChildTile> {
-  bool _hover = false;
-
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final active = widget.currentPath == item.path;
-    final h = AppTokens.navItemHeight - AppTokens.space1;
-    return Padding(
-      padding: EdgeInsets.only(
-        left: AppTokens.space8,
-        right: AppTokens.space3,
-      ),
-      child: MouseRegion(
-        onEnter: (_) {
-          if (!active) {
-            setState(() => _hover = true);
-          }
-        },
-        onExit: (_) {
-          if (!active) {
-            setState(() => _hover = false);
-          }
-        },
-        child: Material(
-          color: !active && _hover
-              ? AppTokens.neutral700
-              : AppTokens.primary800,
-          child: InkWell(
-            onTap: () => widget.onPathSelected(item.path),
-            hoverColor: Colors.transparent,
-            splashColor: AppTokens.primary700.withValues(alpha: 0.2),
-            child: SizedBox(
-              height: h,
-              child: Row(
-                children: [
-                  if (active) ...[
-                    Container(
-                      width: AppTokens.borderWidthSm * 2,
-                      height: h,
-                      decoration: const BoxDecoration(
-                        color: AppTokens.accent500,
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(AppTokens.radiusSm),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: AppTokens.space2),
-                  ] else
-                    SizedBox(
-                      width: AppTokens.borderWidthSm * 2 + AppTokens.space2,
-                    ),
-                  Expanded(
-                    child: Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: AppTokens.textSm,
-                        color: active
-                            ? AppTokens.white
-                            : AppTokens.neutral400,
-                      ),
-                    ),
-                  ),
-                ],
+    final isActiveChild = widget.currentPath == item.path;
+    return InkWell(
+      onTap: () => widget.onPathSelected(item.path),
+      hoverColor: Colors.transparent,
+      splashColor: AppTokens.primary700.withValues(alpha: 0.2),
+      child: Container(
+        height: widget.rowHeight,
+        margin: EdgeInsets.symmetric(horizontal: AppTokens.space2),
+        padding: EdgeInsets.only(
+          left: AppTokens.space6,
+          right: AppTokens.space2,
+        ),
+        decoration: BoxDecoration(
+          color: isActiveChild
+              // ignore: deprecated_member_use — spec: sidebarActiveItem.withOpacity(0.40)
+              ? AppTokens.sidebarActiveItem.withOpacity(0.40)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: isActiveChild
+                    ? AppTokens.sidebarActiveText
+                    : AppTokens.sidebarInactiveText,
+                shape: BoxShape.circle,
               ),
             ),
-          ),
+            SizedBox(width: AppTokens.space3),
+            Expanded(
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: AppTokens.textSm,
+                  color: isActiveChild
+                      ? AppTokens.sidebarActiveText
+                      : AppTokens.sidebarInactiveText,
+                  fontWeight: isActiveChild
+                      ? AppTokens.weightSemibold
+                      : AppTokens.weightRegular,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -600,7 +770,7 @@ class _BottomBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Divider(
-          color: AppTokens.neutral500,
+          color: AppTokens.neutral700,
           height: AppTokens.borderWidthHairline,
           thickness: AppTokens.borderWidthHairline,
         ),
@@ -619,7 +789,7 @@ class _BottomBlock extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: AppTokens.textXs,
-                  color: AppTokens.neutral500,
+                  color: AppTokens.sidebarInactiveText,
                 ),
               ),
             ),
@@ -647,10 +817,11 @@ class _HelpRowState extends State<_HelpRow> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppTokens.space1),
       child: Material(
-        color: _hover ? AppTokens.neutral700 : AppTokens.primary800,
+        color: _hover ? AppTokens.neutral700 : Colors.transparent,
         child: InkWell(
           onTap: () {},
-          hoverColor: AppTokens.neutral700,
+          hoverColor: Colors.transparent,
+          splashColor: AppTokens.primary700.withValues(alpha: 0.2),
           child: MouseRegion(
             onEnter: (_) => setState(() => _hover = true),
             onExit: (_) => setState(() => _hover = false),
@@ -664,7 +835,7 @@ class _HelpRowState extends State<_HelpRow> {
                           Icon(
                             LucideIcons.helpCircle,
                             size: AppTokens.iconButtonIconMd,
-                            color: AppTokens.neutral300,
+                            color: AppTokens.sidebarIcon,
                           ),
                           SizedBox(width: AppTokens.space2),
                           Text(
@@ -672,7 +843,7 @@ class _HelpRowState extends State<_HelpRow> {
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: AppTokens.textBase,
-                              color: AppTokens.neutral300,
+                              color: AppTokens.sidebarInactiveText,
                             ),
                           ),
                         ],
@@ -683,7 +854,7 @@ class _HelpRowState extends State<_HelpRow> {
                           child: Icon(
                             LucideIcons.helpCircle,
                             size: AppTokens.iconButtonIconMd,
-                            color: AppTokens.neutral300,
+                            color: AppTokens.sidebarIcon,
                           ),
                         ),
                       ),

@@ -54,7 +54,8 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _sidebarExpanded = true;
+  bool _isExpanded = true;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +69,7 @@ class _AppShellState extends State<AppShell> {
     }
     if (prefs.containsKey(_kSidebarExpanded)) {
       setState(() {
-        _sidebarExpanded = prefs.getBool(_kSidebarExpanded)!;
+        _isExpanded = prefs.getBool(_kSidebarExpanded)!;
       });
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -80,7 +81,7 @@ class _AppShellState extends State<AppShell> {
           return;
         }
         setState(() {
-          _sidebarExpanded = w >= 1024;
+          _isExpanded = w >= 1024;
         });
       });
     }
@@ -93,9 +94,13 @@ class _AppShellState extends State<AppShell> {
 
   void _setExpanded(bool v) {
     setState(() {
-      _sidebarExpanded = v;
+      _isExpanded = v;
     });
     unawaited(_persistExpanded(v));
+  }
+
+  void _toggleSidebar() {
+    _setExpanded(!_isExpanded);
   }
 
   @override
@@ -149,12 +154,11 @@ class _AppShellState extends State<AppShell> {
           child: AppSidebar(
             navItems: widget.navItems,
             currentPath: widget.currentPath,
-            isRailExpanded: true,
+            isExpanded: true,
             isDrawer: true,
             onPathSelected: _onNavPath,
-            showEdgeChevron: false,
             onExpandFromLogo: null,
-            onToggleEdgeExpand: null,
+            onToggle: null,
             appName: widget.appName,
             appSubtitle: widget.appSubtitle,
             logoWidget: widget.logoWidget,
@@ -193,53 +197,50 @@ class _AppShellState extends State<AppShell> {
       child: ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
         child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppSidebar(
-            navItems: widget.navItems,
-            currentPath: widget.currentPath,
-            isRailExpanded: _sidebarExpanded,
-            isDrawer: false,
-            onPathSelected: _onNavPath,
-            showEdgeChevron: desktop,
-            onExpandFromLogo: () {
-              if (!_sidebarExpanded) {
-                _setExpanded(true);
-              }
-            },
-            onToggleEdgeExpand: () {
-              _setExpanded(!_sidebarExpanded);
-            },
-            appName: widget.appName,
-            appSubtitle: widget.appSubtitle,
-            logoWidget: widget.logoWidget,
-            appVersion: widget.appVersion,
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppTopbar(
-                  searchWidth: _searchPillWidth(w),
-                  onSearchTap: widget.onSearchTap,
-                  notificationCount: widget.notificationCount,
-                  onNotificationTap: widget.onNotificationTap,
-                  currentUser: widget.currentUser,
-                  onProfileTap: widget.onProfileTap,
-                  onSettingsTap: widget.onSettingsTap,
-                  onSignOutTap: widget.onSignOutTap,
-                  showUserText: desktop,
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.zero,
-                    child: widget.child,
-                  ),
-                ),
-              ],
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppSidebar(
+              navItems: widget.navItems,
+              currentPath: widget.currentPath,
+              isExpanded: _isExpanded,
+              isDrawer: false,
+              onPathSelected: _onNavPath,
+              onExpandFromLogo: () {
+                if (!_isExpanded) {
+                  _setExpanded(true);
+                }
+              },
+              onToggle: _toggleSidebar,
+              appName: widget.appName,
+              appSubtitle: widget.appSubtitle,
+              logoWidget: widget.logoWidget,
+              appVersion: widget.appVersion,
             ),
-          ),
-        ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppTopbar(
+                    searchWidth: _searchPillWidth(w),
+                    onSearchTap: widget.onSearchTap,
+                    notificationCount: widget.notificationCount,
+                    onNotificationTap: widget.onNotificationTap,
+                    currentUser: widget.currentUser,
+                    onProfileTap: widget.onProfileTap,
+                    onSettingsTap: widget.onSettingsTap,
+                    onSignOutTap: widget.onSignOutTap,
+                    showUserText: desktop,
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.zero,
+                      child: widget.child,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

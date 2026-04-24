@@ -1,12 +1,12 @@
 # FLUTTER_CLAUDE.md
 
-Canonical guardrails for the **limsv1** Flutter codebase. Rules match **what exists in the repository today** (design system + shell preview). Items not present in `lib/` or `pubspec.yaml` are labeled **TO BE BUILT** with the intended pattern.
+Canonical guardrails for the **limsv1** Flutter codebase. Rules match **what exists in the repository today** (design system + `GoRouter` placeholder, Provider + GetIt). Items not present in `lib/` or `pubspec.yaml` are labeled **TO BE BUILT** with the intended pattern.
 
 ---
 
 ## 1. What this project is
 
-**Ultra LIMS** (`MaterialApp` title in `lib/main.dart`) is a Flutter app scaffolded as a **laboratory information management–style portal**. The runnable app today is a **shell preview**: `AppShell` with sample `NavItem`s and placeholder page content—**no business features, API, or routing layer** are implemented yet.
+**Ultra LIMS** (`MaterialApp.router` title in `lib/main.dart`) is a Flutter app scaffolded as a **laboratory information management–style portal**. The runnable app today shows a **GoRouter placeholder** at `/` (`lib/core/router/app_router.dart`); the **AppShell** design system and templates exist but are **not wired** as a home screen yet—**no business features or API** are implemented yet.
 
 **Product modules (target areas, not yet under `lib/features/`):** the repo does not define sub-module folders or counts. When feature work starts, a typical seven-area LIMS split aligned with the route naming guide (Section 13) is:
 
@@ -32,12 +32,15 @@ Exact dependency constraints from `pubspec.yaml` (SDK and declared packages):
 |---------|------|
 | `flutter` (SDK `^3.11.5`) | UI framework |
 | `cupertino_icons` `^1.0.8` | Optional Cupertino icon font (default template dep) |
-| `shared_preferences` `^2.5.3` | Persists sidebar expanded state (`AppShell`) and theme config (`ThemeConfig` / `ThemeNotifier` in `app_theme.dart`) |
+| `shared_preferences` `^2.5.3` | Persists sidebar expanded state (`AppShell`) and theme config (`ThemeConfig` / `ThemeNotifier` in `app_theme.dart`); registered in GetIt as `sl<SharedPreferences>()` |
 | `lucide_flutter` `^1.7.0` | Sidebar, topbar, listing, error icons |
+| `provider` `^6.1.2` | State management (`ChangeNotifier`; app-level `ThemeNotifier`, route-level feature providers) |
+| `get_it` `^8.0.0` | Dependency injection / service locator (`lib/core/di/service_locator.dart`) |
+| `go_router` `^16.0.0` | Declarative routing; `appRouter` in `lib/core/router/app_router.dart` (placeholder) |
 | `flutter_test` (SDK) | Unit/widget tests |
 | `flutter_lints` `^6.0.0` | Static analysis rules |
 
-**Not in `pubspec.yaml` yet (TO BE BUILT):** `flutter_riverpod`, `go_router`, `dio`, `flutter_secure_storage`, code generation packages, etc.
+**Not in `pubspec.yaml` yet (TO BE BUILT):** `dio`, `flutter_secure_storage`, code generation packages, etc.
 
 **Fonts:** `AppTheme` sets `fontFamily: 'Inter'`. The pubspec does **not** declare Inter font assets or `google_fonts`; ensure Inter is bundled or switch to a registered family before shipping.
 
@@ -45,11 +48,23 @@ Exact dependency constraints from `pubspec.yaml` (SDK and declared packages):
 
 ## 3. Project structure
 
-**Actual tree** (only paths that exist). `lib/core/` and `lib/features/` **do not exist** yet.
+**Actual tree** (only paths that exist). Feature modules live under `lib/features/`.
 
 ```text
 lib/
   main.dart
+  features/
+    coming_soon/
+      coming_soon_screen.dart
+    shell/
+      shell_screen.dart
+  core/
+    di/
+      service_locator.dart
+    providers/
+      base_provider.dart
+    router/
+      app_router.dart   # full GoRouter; ShellRoute + module GoRoutes
   design_system/
     tokens.dart
     app_theme.dart
@@ -86,10 +101,10 @@ lib/
         template_pulse.dart
 ```
 
-**Planned (not created):**
+**Planned (not created yet under `lib/core/` or as additional `lib/features/` modules):**
 
-- `lib/core/` — shared API client, env config, auth helpers.
-- `lib/features/<module>/` — one folder per product module when implemented.
+- `lib/core/api/` — shared API client, env config, auth helpers.
+- `lib/features/<module>/` — additional folders per product module as they are built (beyond `coming_soon` and `shell`).
 
 ---
 
@@ -99,7 +114,7 @@ All visual constants live on **`AppTokens`** (`lib/design_system/tokens.dart`): 
 
 ### How to use tokens
 
-**Colors (examples):** `AppTokens.primary900` … `primary50`, `accent600` … `accent50`, `neutral900` … `neutral50`, `success500` / `success100` / `success50`, `warning500` / `warning100` / `warning50`, `error500` / `error100` / `error50`, `info500` / `info100` / `info50`, `white`, `surfaceCard`, `background`, `border`, `borderLight`, `filledSecondarySurface`.
+**Colors (examples):** `AppTokens.primary900` … `primary50`, `accent600` … `accent50`, `neutral900` … `neutral50`, `success500` / `success100` / `success50`, `warning500` / `warning100` / `warning50`, `error500` / `error100` / `error50`, `info500` / `info100` / `info50`, `white`, `surfaceCard`, `background`, `border`, `borderLight`, `filledSecondarySurface`, `sidebarBg`, `sidebarActiveItem`, `sidebarInactiveText`, `sidebarActiveText`, `sidebarSectionLabel`, `sidebarIcon`.
 
 **Spacing (4px base):** `space0`, `space1` (4), `space2` (8), `space3` (12), `space4` (16), `space5` (20), `space6` (24), `space8` (32), `space10` (40), `space12` (48).
 
@@ -107,11 +122,36 @@ All visual constants live on **`AppTokens`** (`lib/design_system/tokens.dart`): 
 
 **Typography sizes:** `textXs` … `text3xl`. **Weights:** `weightRegular`, `weightMedium`, `weightSemibold`.
 
-**Sizing / chrome:** `buttonHeightSm` / `Md` / `Lg`, `inputHeight`, `inputHeightLg`, `tableRowHeight`, `listingSearchWidthTablet` / `Desktop`, `listingFilterPanelWidth`, `tableCheckboxColumnWidth`, `tableActionsColumnWidth`, `tableToggleColumnWidth`, `topbarHeight`, `topbarSearchWidthTablet` / `Desktop`, `sidebarExpanded`, `sidebarCollapsed`, `navItemHeight`, border widths, `iconSizeMd`, `iconButtonIconSm` / `Md`, `inlineProgressIndicatorSize`, `inlineProgressIndicatorStrokeWidth`, `badgeHeight`, `avatarSizeXs` / `Sm`, `disabledOpacity`, `opacityFull`, `statusChipHeight`, `luminanceInkThreshold`, `elevationPopupMenu`, `overlayPrimaryAlpha`.
+**Sizing / chrome:** `buttonHeightSm` / `Md` / `Lg`, `inputHeight`, `inputHeightLg`, `tableRowHeight`, `listingSearchWidthTablet` / `Desktop`, `listingFilterPanelWidth`, `tableCheckboxColumnWidth`, `tableActionsColumnWidth`, `tableToggleColumnWidth`, `topbarHeight`, `topbarSearchWidthTablet` / `Desktop`, `sidebarExpanded`, `sidebarCollapsed`, `navItemHeight`, border widths, `focusRingWidth`, `iconSizeMd`, `iconButtonIconSm` / `Md`, `inlineProgressIndicatorSize`, `inlineProgressIndicatorStrokeWidth`, `badgeHeight`, `avatarSizeXs` / `Sm`, `disabledOpacity`, `opacityFull`, `statusChipHeight`, `luminanceInkThreshold`, `elevationPopupMenu`, `overlayPrimaryAlpha` (focus ring color: `focusRingColor`).
 
 **Shadows:** `AppTokens.shadowSm`, `shadowMd`, `shadowLg` — each is `List<BoxShadow>`.
 
 **Semantic / theme colors:** Prefer `Theme.of(context).colorScheme` / `textTheme` for values that must track light/dark (Section 5). Use `AppTokens` for explicit brand neutrals and layout metrics.
+
+### Color token reference
+
+| Token | Hex | Usage |
+|-------|-----|--------|
+| `accent500` | `#E53935` | Primary accent red—CTAs, active navigation emphasis, strong interactive highlights. |
+| `sidebarBg` | `#1A2744` | Sidebar background. |
+| `sidebarActiveItem` | `#E53935` | Active nav item background. |
+| `sidebarInactiveText` | `#A8B3C7` | Inactive nav item text. |
+| `sidebarActiveText` | `#FFFFFF` | Active nav item text. |
+| `sidebarSectionLabel` | `#A8B3C7` | Section label (CORE, ENTITIES). |
+| `sidebarIcon` | `#FFFFFF` | All nav icons, active and inactive. |
+| `sidebarActiveItem.withOpacity(0.40)` | — | Active parent/section background (use in widgets; not a separate token). |
+
+### Sidebar color tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| sidebarBg | #1A2744 | Sidebar background |
+| sidebarActiveItem | #E53935 | Active nav item bg |
+| sidebarActiveItem.withOpacity(0.40) | — | Active parent/section bg |
+| sidebarInactiveText | #A8B3C7 | Inactive nav item text |
+| sidebarActiveText | #FFFFFF | Active nav item text |
+| sidebarSectionLabel | #A8B3C7 | Section label (CORE, ENTITIES) |
+| sidebarIcon | #FFFFFF | All nav icons, active and inactive |
 
 ### Rules (enforce strictly)
 
@@ -145,6 +185,11 @@ All visual constants live on **`AppTokens`** (`lib/design_system/tokens.dart`): 
   const SizedBox(height: AppTokens.topbarHeight)
   ```
 
+- **Opacity variants:** ❌ NEVER create a separate color token for opacity variants — use `.withOpacity()` directly:
+
+  - ✅ `AppTokens.sidebarActiveItem.withOpacity(0.40)`
+  - ❌ `AppTokens.sidebarSectionActiveBg`
+
 ---
 
 ## 5. Import rules — CRITICAL
@@ -165,7 +210,7 @@ import 'package:limsv1/design_system/components/display/kpi_metric.dart';
 
 **Do not** deep-import other primitives if the barrel already exports them.
 
-`lib/main.dart` currently imports `app_shell.dart` and `nav_item.dart` directly—when touching `main.dart`, align with the barrel rule above.
+`lib/main.dart` imports `core/di/service_locator.dart`, `core/router/app_router.dart`, and `design_system/app_theme.dart`—when adding shell or feature routes, prefer the components barrel for design-system imports.
 
 ### Cross-feature imports
 
@@ -177,6 +222,7 @@ import 'package:limsv1/design_system/components/display/kpi_metric.dart';
 ### Theme access
 
 - Prefer `Theme.of(context).colorScheme.*` and `Theme.of(context).textTheme.*` for semantic text and surfaces.
+- **App theme + brand color:** `context.watch<ThemeNotifier>()` (from `package:provider/provider.dart`) in widgets; `sl<ThemeNotifier>()` from GetIt only **outside** the widget tree (never `sl()` in `build()`). `ThemeNotifier` is registered in `setupServiceLocator()`.
 - Avoid raw `Colors.*` from `material/colors.dart` for app styling.
 - Avoid ad-hoc `TextStyle(fontSize: 14)` when a `textTheme` role fits; pair with `AppTokens` font sizes when you need fine tuning consistent with the system.
 
@@ -273,7 +319,7 @@ AppCard(
 
 `NavItem` fields: `path`, `label`, `icon` (required `Widget`), optional `sectionLabel`, optional `children` (nested `NavItem` list). **Expandable** when `children` is non-empty. Section headers render when `sectionLabel` changes between consecutive items.
 
-`AppSidebar` bottom includes **Help & Docs** (fixed row; `onTap` is currently empty in `_HelpRow`—wire when needed).
+`AppSidebar` bottom includes **Help & Docs** (fixed row; `onTap` is currently empty in `_HelpRow`—wire when needed). **In-app use:** the shell is mounted for authenticated app routes: `appRouter` uses a `ShellRoute` whose builder returns `ShellScreen`, which wraps page content in `AppShell` (see Section 13). Build new screens in `lib/features/<module>/` and register them in `app_router` / `appNavItems` when ready.
 
 Example:
 
@@ -284,20 +330,20 @@ navItems: [
     label: 'Dashboard',
     sectionLabel: 'CORE',
     icon: Icon(LucideIcons.layoutDashboard,
-        size: AppTokens.iconButtonIconMd, color: AppTokens.neutral400),
+        size: AppTokens.iconButtonIconMd, color: AppTokens.sidebarIcon),
   ),
   NavItem(
     path: '/samples',
     label: 'Samples',
     sectionLabel: 'LAB',
     icon: Icon(LucideIcons.testTube2,
-        size: AppTokens.iconButtonIconMd, color: AppTokens.neutral400),
+        size: AppTokens.iconButtonIconMd, color: AppTokens.sidebarIcon),
   ),
   NavItem(
     path: '/assays',
     label: 'Assays',
     icon: Icon(LucideIcons.microscope,
-        size: AppTokens.iconButtonIconMd, color: AppTokens.neutral400),
+        size: AppTokens.iconButtonIconMd, color: AppTokens.sidebarIcon),
     children: const [
       NavItem(path: '/assays/panels', label: 'Panels', icon: SizedBox.shrink()),
       NavItem(path: '/assays/runs', label: 'Runs', icon: SizedBox.shrink()),
@@ -323,7 +369,7 @@ const UserInfo(
 
 `AppShell` requires: `child`, `navItems`, `currentPath`, `appName`, `logoWidget`, `onPathSelected`. Optional: `appSubtitle`, notification callbacks, `currentUser`, profile/settings/sign-out/search callbacks, `appVersion`.
 
-**TO BE BUILT (GoRouter):** today `main.dart` uses `setState` to swap `_path`. With GoRouter, pass `currentPath` from `GoRouterState.uri.path` (or similar) and in `onPathSelected` call `context.go(path)` (see Section 13).
+**With GoRouter:** the live `ShellScreen` holds `_currentPath`, initialized and updated from `GoRouterState.uri.path` (`didUpdateWidget` on route changes) and in `onPathSelected` along with `context.go(path)` (see Section 13).
 
 ```dart
 AppShell(
@@ -344,9 +390,23 @@ AppShell(
 
 ### Sidebar behavior (implemented)
 
-- **Desktop** (`width >= 1024`): Persistent sidebar + edge chevron. Default expanded if no saved preference (first frame uses width). **Logo row** calls `onExpandFromLogo` when collapsed to expand. **Chevron** toggles expand/collapse and persists to `SharedPreferences` key `interics:sidebar_expanded`.
-- **Tablet** (`600–1023`): Persistent **rail**; initial expansion from same preference logic (collapsed when width `< 1024` on first load if no key). Logo tap expands from collapsed rail; chevron hidden on non-desktop in shell (chevron only when `showEdgeChevron: desktop`).
-- **Mobile** (`width < 600`): **Drawer**; menu button on `AppTopbar` opens it; `AppShell` closes drawer on route change (`didUpdateWidget` when `currentPath` changes) and after `onPathSelected` on mobile.
+- **Desktop** (`≥1024px`): Persistent sidebar, expanded (`210px`) default when no saved preference (first frame uses width). Collapse arrow **inside** the sidebar, top-right of the logo row. Logo click when collapsed → expands. Arrow click → toggles expand/collapse. State persisted to `SharedPreferences` key `interics:sidebar_expanded`.
+- **Tablet** (`600–1023px`): Persistent sidebar, collapsed (`56px`) default when no saved preference. Same toggle behavior as desktop. No hamburger menu (sidebar is always visible).
+- **Mobile** (`<600px`): No persistent sidebar. Hamburger in `AppTopbar` opens the drawer (`210px` width). `AppShell` closes the drawer on route change (`didUpdateWidget` when `currentPath` changes) and after `onPathSelected` on mobile.
+
+**Accordion rules:**
+
+- Only one parent with children can be expanded at a time; expanding one closes all others.
+- Children are hidden when the sidebar is collapsed (rail); parent rows show icons only with a tooltip for the label.
+- Active child row: white label and a `2px` left border in `AppTokens.sidebarActiveItem`.
+
+**Icon and color rules:**
+
+- All sidebar chrome icons use `AppTokens.sidebarIcon` (white) always.
+- Active leaf item: solid red background `AppTokens.sidebarActiveItem` (`#E53935`).
+- Active parent (expanded with an active child): `AppTokens.sidebarActiveItem.withOpacity(0.40)` background.
+- Inactive labels: `AppTokens.sidebarInactiveText` (`#A8B3C7`).
+- Section labels: `AppTokens.sidebarSectionLabel`, uppercase, shown only when expanded; when collapsed they are replaced by a thin horizontal divider (`AppTokens.neutral700`).
 
 ---
 
@@ -625,11 +685,50 @@ LayoutBuilder(
 
 ---
 
-## 12. State management — Riverpod patterns
+## 12. State management — Provider + GetIt
 
-**TO BE BUILT** — Riverpod is not a dependency yet; `main.dart` uses `StatefulWidget` + `setState` for the shell preview only.
+### GetIt service locator
 
-**Intended layout:**
+All singletons are registered in:
+
+- `lib/core/di/service_locator.dart`
+
+Access from anywhere **outside the widget tree**:
+
+```text
+sl<ThemeNotifier>()
+sl<SharedPreferences>()
+sl<ApiClient>()          ← TO BE BUILT
+```
+
+### Provider (widget tree)
+
+Feature-scoped `ChangeNotifier` providers. **Register at the route level, not the app level** (except `ThemeNotifier`, which is app-wide via `ChangeNotifierProvider<ThemeNotifier>.value` in `main.dart`).
+
+**Pattern for every feature provider:**
+
+```dart
+class XProvider extends BaseProvider {
+  List<XModel> _items = [];
+  List<XModel> get items => _items;
+
+  Future<void> fetchAll() async {
+    await runAsync(() async {
+      _items = await sl<XApi>().fetchAll();
+      notifyListeners();
+    });
+  }
+
+  Future<void> create(XDto dto) async {
+    await runAsync(() async {
+      await sl<XApi>().create(dto);
+      await fetchAll();
+    });
+  }
+}
+```
+
+**Intended feature layout:**
 
 ```text
 features/<name>/
@@ -640,41 +739,122 @@ features/<name>/
   ui/sub_modules/<sub_name>/   // when needed
 ```
 
-**Intended patterns:**
+**How to provide at route level:**
 
-- **`AsyncNotifierProvider`** (or equivalent) for list + detail loads.
-- **`AppListingScreen`** receives `rows` / callbacks from a widget that **`ref.watch`**es the provider.
+```dart
+ChangeNotifierProvider(
+  create: (_) => XProvider()..fetchAll(),
+  child: const XScreen(),
+)
+```
 
-**Never (for server-backed data):**
+**How to consume in widgets:**
 
-- `setState` as the primary pattern for fetched lists/details in real features.
-- Direct `Dio` / HTTP calls inside leaf widgets.
-- Global mutable singletons for session data.
+```dart
+// Watch (rebuilds on change):
+final provider = context.watch<XProvider>();
+
+// Read (no rebuild, for actions):
+context.read<XProvider>().create(dto);
+```
+
+`AppListingScreen` should receive `rows` / callbacks from a widget that **`context.watch`**es the feature provider.
+
+#### NEVER
+
+- `setState` for server data in real features
+- Direct API calls from widgets (use providers + `sl<…Api>()`)
+- Global variables for app state
+- **App-level providers for feature data** (only `ThemeNotifier` is app-level)
+
+**Never (for server-backed data):** global mutable singletons for **session** state—use GetIt-registered services and a dedicated auth session pattern when built.
 
 ---
 
 ## 13. Navigation — GoRouter rules
 
-**TO BE BUILT** — the app uses `MaterialApp(home: …)` without `go_router`.
+`MaterialApp.router` in `lib/main.dart` uses **`appRouter`** from `lib/core/router/app_router.dart` (`initialLocation: '/dashboard'`; `/` redirects to `/dashboard`).
 
-**Target path conventions:**
+**From widgets:** use `context.go` / `context.push`; avoid raw `Navigator.push` for app-level navigation.
 
-- `/dashboard`
-- `/transactions`, `/transactions/:id`
-- `/masters`, `/masters/:subModule`, `/masters/:subModule/:id`
-- `/housekeeping`
-- `/reports`
-- `/users`
-- `/settings`
-- `/login`
+### Route structure
 
-**Auth guard:** redirect unauthenticated users to `/login` based on auth state (Riverpod + `GoRouter` refresh). **TO BE BUILT.**
+All authenticated routes are wrapped in **`ShellRoute`**, which mounts **`AppShell`** via **`ShellScreen`**.
 
-**From widgets (when GoRouter exists):** use `context.go` / `context.push`; avoid raw `Navigator.push` for app-level navigation.
+**`ShellScreen`:**
+
+- Exposes the full **nav config** as `appNavItems` in `lib/features/shell/shell_screen.dart` (kept in sync with registered routes).
+- Passes the **`child`** from the `ShellRoute` builder (nested navigator outlet) to **`AppShell`**. That child is the active **`GoRoute`** page (e.g. a module screen or `ComingSoonScreen`).
+- On nav item selection, calls **`context.go(path)`** and updates **`_currentPath`** for active state in the sidebar.
+- Tracks **`_currentPath`** from **`GoRouterState.uri.path`** so the shell stays aligned when the location changes (including `didUpdateWidget` when the router state updates).
+
+**Auth guard:** redirect unauthenticated users to `/login` using auth state (e.g. a `Listenable` / `ChangeNotifier` + `GoRouter`’s `refreshListenable`). **TO BE BUILT.**
+
+### All routes (current)
+
+| Path | Notes |
+|------|--------|
+| `/` | Redirects to `/dashboard` |
+| `/dashboard` | |
+| `/transactions` | |
+| `/transactions/sample-receipt` | |
+| `/transactions/lab-code` | |
+| `/masters` | |
+| `/masters/customer` | |
+| `/masters/site` | |
+| `/masters/courier` | |
+| `/masters/plant` | |
+| `/masters/bank` | |
+| `/masters/item` | |
+| `/masters/equipment` | |
+| `/masters/sample-type` | |
+| `/masters/grade` | |
+| `/masters/department` | |
+| `/masters/designation` | |
+| `/masters/test` | |
+| `/masters/method` | |
+| `/masters/instrument` | |
+| `/masters/parameter` | |
+| `/masters/unit` | |
+| `/masters/storage` | |
+| `/housekeeping` | |
+| `/reports` | |
+| `/users` | |
+| `/login` | **TO BE BUILT** (auth phase) |
+| `/settings` | **Not registered yet** — add when product needs it |
+
+### Coming soon pattern
+
+Any module that is not implemented yet is represented by a **`GoRoute`** whose builder returns **`ComingSoonScreen(moduleName: '…', subtitle: '…')`**.
+
+- Do **not** leave a **route** without a **builder** (or equivalent).
+- Do **not** use a one-off **placeholder** `Scaffold` directly in **`app_router.dart`**; use **`ComingSoonScreen`**.
+
+### Adding a new route
+
+1. Add a **`GoRoute`** to **`appRouter`**, inside the **`ShellRoute`’s `routes`**, with the full path and builder (or **`ComingSoonScreen`** until the real UI exists).
+2. Add a matching **`NavItem`** to **`appNavItems`** in **`shell_screen.dart`** (path and label; optional **`sectionLabel`** and **`children`** for nested items).
+3. When the feature is ready, **replace** **`ComingSoonScreen`** in that route’s **builder** with the real **screen** widget.
 
 ---
 
-## 14. API layer rules
+## 14. Dependency injection — GetIt rules
+
+**Register order in `setupServiceLocator()`:**
+
+1. `SharedPreferences` (async singleton)
+2. `ThemeNotifier` (singleton, needs config loaded; uses persisted `ThemeConfig`)
+3. `ApiClient` (singleton, needs prefs for token) — **TO BE BUILT**
+4. Feature APIs (lazy singletons) — **TO BE BUILT** per feature
+
+- Services and APIs **→** GetIt (`sl`)
+- UI state **→** Provider (`ChangeNotifier` / `BaseProvider`)
+- **Never** inject UI providers into GetIt
+- **Never** use `sl()` inside the `build()` method — use `context.watch` / `context.read` for UI-facing state
+
+---
+
+## 15. API layer rules
 
 **TO BE BUILT** — no `lib/core/api/client.dart`, no feature APIs, no Dio.
 
@@ -687,7 +867,7 @@ features/<name>/
 
 ---
 
-## 15. Self-check before every file
+## 16. Self-check before every file
 
 **Architecture**
 
@@ -696,6 +876,9 @@ features/<name>/
 - **`Theme.of(context)`** for semantic scheme / text roles where appropriate.
 - No stray hex colors / arbitrary pixel literals for things covered by tokens.
 - No cross-feature imports (when features exist).
+- **ShellRoute / `AppShell` child screens:**
+  - ☐ Screen is inside **`ShellRoute`**? → **No** `Scaffold`, **no** `AppBar`. → Return the **content** widget directly. → **`Column`** must use **`mainAxisSize: MainAxisSize.min`**, or sit inside **`Expanded`** / **`SingleChildScrollView`** (the shell body is scrollable—avoid nested unbounded `Scaffold` + `Center` + `Column`).
+  - `ShellScreen` + `AppShell` already provide chrome. Use **`Center`**, **`SingleChildScrollView`**, **`Column`** as needed (see Section 7 / `AppShell` scroll).
 
 **Components**
 
@@ -711,8 +894,8 @@ features/<name>/
 
 **State**
 
-- No `setState`-driven server lists in real features (preview-only today).
-- Async data in providers once Riverpod lands.
+- No `setState`-driven server lists in real features.
+- Async data in feature `ChangeNotifier` providers extending `BaseProvider`, with APIs from `sl<…>()`.
 
 **Quality**
 
@@ -721,20 +904,26 @@ features/<name>/
 
 ---
 
-## 16. Module scaffolding guide
+## 17. Module scaffolding guide
 
 Use when adding **`lib/features/<module>/…`** for the first time.
 
 1. Create `data/`, `state/`, `ui/` (and `ui/sub_modules/` if needed).
-2. **API:** class with client, `fetchAll`, `fetchById`, `create`, `update`, `delete` as required.
-3. **Provider:** `AsyncNotifier` + provider; `build()` loads list; mutations refresh.
+2. **API:** class with client, `fetchAll`, `fetchById`, `create`, `update`, `delete` as required; register the API in GetIt (lazy singleton) and inject `ApiClient` / prefs as needed.
+3. **Provider:** `ChangeNotifier` extending `BaseProvider`; `fetchAll` in `runAsync`; route-level `ChangeNotifierProvider` wraps the screen.
 4. **Screen:** default **`AppListingScreen<Model>`** with columns, `rowActions`, `mobileCardBuilder`, forms (`AppFormModal` / … when built), `AppConfirmDialog` for delete when available.
+
+   **IMPORTANT:** Routes registered **inside** the shell (`ShellRoute`) must **not** use **`Scaffold`** or **`AppBar`**. The shell already provides layout and top bar. Start the screen with content only, for example:
+
+   - **Do:** `return SingleChildScrollView(child: …);`, `return Column(children: […]);` (with `mainAxisSize: MainAxisSize.min` or proper scroll/expanded when needed).
+   - **Don’t:** `return Scaffold(body: …);` or an `AppBar` in the feature screen.
+
 5. **Register** GoRouter route(s).
 6. **Add** `NavItem` to shell `navItems`.
 
 ---
 
-## 17. Common Claude Code prompts
+## 18. Common Claude Code prompts
 
 Start prompts with:
 

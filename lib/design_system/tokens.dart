@@ -34,10 +34,10 @@ abstract final class AppTokens {
   // --- Accent (red: active nav, danger, CTA) ---
 
   /// Dark accent red; pressed states and strong danger emphasis.
-  static const Color accent600 = Color(0xFFA0302A);
+  static const Color accent600 = Color(0xFFCC2B2B);
 
-  /// Primary accent red; CTAs, active navigation, error emphasis.
-  static const Color accent500 = Color(0xFFC0392B);
+  /// Primary accent red; CTAs, active navigation, error emphasis (brighter red).
+  static const Color accent500 = Color(0xFFE53935);
 
   /// Light accent wash for badges and soft warnings.
   static const Color accent100 = Color(0xFFF5C4B3);
@@ -134,6 +134,31 @@ abstract final class AppTokens {
 
   /// Muted fill for secondary [FilledButton] backgrounds (light theme).
   static const Color filledSecondarySurface = Color(0xFFE8EAF0);
+
+  // --- Sidebar ---
+
+  /// Sidebar panel background (matches [primary800]).
+  static const Color sidebarBg = Color(0xFF1A2744);
+
+  /// Active nav item background (solid accent fill).
+  static const Color sidebarActiveItem = Color(0xFFE53935);
+
+  // Active parent section = sidebarActiveItem.withOpacity(0.40)
+  // Do NOT create a separate token for this —
+  // use sidebarActiveItem.withOpacity(0.40) directly in the widget.
+
+  /// Inactive nav item text.
+  static const Color sidebarInactiveText = Color(0xFFA8B3C7);
+
+  /// Active nav item text.
+  static const Color sidebarActiveText = Color(0xFFFFFFFF);
+
+  /// Section label (e.g. CORE, ENTITIES).
+  static const Color sidebarSectionLabel = Color(0xFFA8B3C7);
+
+  // All icons white regardless of active/inactive state
+  /// All nav icons in the sidebar rail.
+  static const Color sidebarIcon = Color(0xFFFFFFFF);
 
   // --- Spacing (4px base) ---
 
@@ -325,6 +350,14 @@ abstract final class AppTokens {
 
   /// Primary overlay alpha for pressed/hovered elevated buttons.
   static const double overlayPrimaryAlpha = 0.12;
+
+  // Focus / Keyboard navigation
+
+  /// Focus ring stroke width for keyboard-focused controls.
+  static const double focusRingWidth = 2.0;
+
+  /// Focus ring color (matches [accent500]).
+  static const Color focusRingColor = Color(0xFFE53935);
 
   // --- Shadows (neutral900 base, opacity in ARGB) ---
 

@@ -38,89 +38,89 @@ class AppTopbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final showHint = AppBreakpoints.isDesktopWidth(
-      MediaQuery.sizeOf(context).width,
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final showHint = AppBreakpoints.isDesktopWidth(width);
+    final showHamburger =
+        showMenuButton && AppBreakpoints.isMobileWidth(width);
 
-    return ColoredBox(
-      color: theme.colorScheme.surface,
-      child: DecoratedBox(
+    return Material(
+      color: AppTokens.white,
+      elevation: 0,
+      child: Container(
+        height: AppTokens.topbarHeight,
         decoration: const BoxDecoration(
+          color: AppTokens.white,
           border: Border(
             bottom: BorderSide(
-              color: AppTokens.neutral200,
-              width: AppTokens.borderWidthHairline,
+              color: AppTokens.border,
+              width: 0.5,
             ),
           ),
         ),
-        child: SizedBox(
-          height: AppTokens.topbarHeight,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppTokens.space2),
-            child: Row(
-              children: [
-                if (showMenuButton) ...[
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: AppTokens.space2),
+          child: Row(
+            children: [
+              if (showHamburger) ...[
+                AppIconButton(
+                  icon: const Icon(LucideIcons.menu),
+                  onPressed: onMenuPressed,
+                  size: AppIconButtonSize.md,
+                  variant: AppIconButtonVariant.ghost,
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
+              _SearchPill(
+                width: searchWidth,
+                onSearchTap: onSearchTap,
+                showKeyboardHint: showHint,
+              ),
+              const Spacer(),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
                   AppIconButton(
-                    icon: const Icon(LucideIcons.menu),
-                    onPressed: onMenuPressed,
+                    icon: const Icon(LucideIcons.bell),
+                    onPressed: onNotificationTap,
                     size: AppIconButtonSize.md,
                     variant: AppIconButtonVariant.ghost,
                   ),
-                  SizedBox(width: AppTokens.space2),
-                ],
-                _SearchPill(
-                  width: searchWidth,
-                  onSearchTap: onSearchTap,
-                  showKeyboardHint: showHint,
-                ),
-                const Spacer(),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AppIconButton(
-                      icon: const Icon(LucideIcons.bell),
-                      onPressed: onNotificationTap,
-                      size: AppIconButtonSize.md,
-                      variant: AppIconButtonVariant.ghost,
-                    ),
-                    if (notificationCount > 0)
-                      Positioned(
-                        right: AppTokens.space0,
-                        top: AppTokens.space0,
-                        child: Container(
-                          width: AppTokens.space2,
-                          height: AppTokens.space2,
-                          decoration: const BoxDecoration(
-                            color: AppTokens.accent500,
-                            shape: BoxShape.circle,
-                          ),
+                  if (notificationCount > 0)
+                    Positioned(
+                      right: AppTokens.space0,
+                      top: AppTokens.space0,
+                      child: Container(
+                        width: AppTokens.space2,
+                        height: AppTokens.space2,
+                        decoration: const BoxDecoration(
+                          color: AppTokens.accent500,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                  ],
+                    ),
+                ],
+              ),
+              SizedBox(width: AppTokens.space2),
+              const SizedBox(
+                height: 20,
+                child: VerticalDivider(
+                  color: AppTokens.neutral200,
+                  width: 20,
+                  thickness: AppTokens.borderWidthSm,
                 ),
-                SizedBox(width: AppTokens.space2),
-                const SizedBox(
-                  height: 20,
-                  child: VerticalDivider(
-                    color: AppTokens.neutral200,
-                    width: 20,
-                    thickness: AppTokens.borderWidthSm,
-                  ),
-                ),
-                SizedBox(width: AppTokens.space2),
-                if (currentUser != null)
-                  _UserMenu(
-                    currentUser!,
-                    showText: showUserText,
-                    onProfileTap: onProfileTap,
-                    onSettingsTap: onSettingsTap,
-                    onSignOutTap: onSignOutTap,
-                  )
-                else
-                  const SizedBox.shrink(),
-              ],
-            ),
+              ),
+              SizedBox(width: AppTokens.space2),
+              if (currentUser != null)
+                _UserMenu(
+                  currentUser!,
+                  showText: showUserText,
+                  onProfileTap: onProfileTap,
+                  onSettingsTap: onSettingsTap,
+                  onSignOutTap: onSignOutTap,
+                )
+              else
+                const SizedBox.shrink(),
+            ],
           ),
         ),
       ),
