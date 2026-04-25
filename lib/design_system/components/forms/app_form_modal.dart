@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../tokens.dart';
@@ -47,6 +48,7 @@ class AppFormModal extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (ctx) {
         return Dialog(
           insetPadding: EdgeInsets.symmetric(
@@ -54,10 +56,10 @@ class AppFormModal extends StatelessWidget {
             vertical: AppTokens.space6,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+            borderRadius: BorderRadius.circular(AppTokens.radiusXl),
           ),
           clipBehavior: Clip.antiAlias,
-          elevation: AppTokens.space0,
+          elevation: 16,
           child: AppFormModal(
             title: title,
             subtitle: subtitle,
@@ -85,7 +87,7 @@ class AppFormModal extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: AppTokens.formModalMaxWidth,
+        maxWidth: 480,
         maxHeight: maxH,
       ),
       child: Material(
@@ -122,7 +124,10 @@ class AppFormModal extends StatelessWidget {
                 ),
               ),
               child: Padding(
-                padding: EdgeInsets.all(AppTokens.space4),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppTokens.space5,
+                  vertical: AppTokens.space4,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -133,7 +138,7 @@ class AppFormModal extends StatelessWidget {
                       variant: AppButtonVariant.tertiary,
                       size: AppButtonSize.md,
                     ),
-                    SizedBox(width: AppTokens.space3),
+                    SizedBox(width: AppTokens.space2),
                     AppButton(
                       label: primaryLabel,
                       onPressed: primaryEnabled && !isPrimaryLoading
@@ -189,8 +194,8 @@ class _FormHeader extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: AppTokens.textXl,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
                       fontWeight: AppTokens.weightSemibold,
                       color: theme.colorScheme.onSurface,
                     ),
@@ -199,7 +204,7 @@ class _FormHeader extends StatelessWidget {
                     SizedBox(height: AppTokens.space1),
                     Text(
                       subtitle!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: GoogleFonts.poppins(
                         fontSize: AppTokens.textSm,
                         color: theme.brightness == Brightness.dark
                             ? AppTokens.neutral400

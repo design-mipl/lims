@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../tokens.dart';
 
@@ -17,63 +18,40 @@ class StatusChip extends StatelessWidget {
     return raw.trim().toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
   }
 
-  static _StatusVisual? _visualFor(String normalizedKey) {
+  static _StatusColors? _colorsFor(String normalizedKey) {
     switch (normalizedKey) {
       case 'active':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.success50,
-          foregroundLight: AppTokens.success500,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.success500,
-          showDot: false,
+      case 'completed':
+        return const _StatusColors(
+          background: AppTokens.success100,
+          foreground: AppTokens.success500,
         );
       case 'inactive':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.neutral100,
-          foregroundLight: AppTokens.neutral700,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.neutral100,
-          showDot: false,
+      case 'disabled':
+        return const _StatusColors(
+          background: AppTokens.surfaceSubtle,
+          foreground: AppTokens.textSecondary,
         );
       case 'pending':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.warning50,
-          foregroundLight: AppTokens.warning500,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.warning500,
-          showDot: true,
+        return const _StatusColors(
+          background: AppTokens.warning100,
+          foreground: AppTokens.warning500,
         );
-      case 'inreview':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.info50,
-          foregroundLight: AppTokens.info500,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.info500,
-          showDot: true,
-        );
-      case 'completed':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.success50,
-          foregroundLight: AppTokens.success500,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.success500,
-          showDot: false,
-        );
+      case 'error':
       case 'cancelled':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.error50,
-          foregroundLight: AppTokens.error500,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.error500,
-          showDot: false,
+        return const _StatusColors(
+          background: AppTokens.error100,
+          foreground: AppTokens.error500,
         );
       case 'draft':
-        return const _StatusVisual(
-          backgroundLight: AppTokens.neutral100,
-          foregroundLight: AppTokens.neutral700,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.neutral100,
-          showDot: false,
+        return const _StatusColors(
+          background: AppTokens.primary50,
+          foreground: AppTokens.primary800,
+        );
+      case 'inreview':
+        return const _StatusColors(
+          background: AppTokens.info100,
+          foreground: AppTokens.info500,
         );
       default:
         return null;
@@ -86,6 +64,8 @@ class StatusChip extends StatelessWidget {
         return 'Active';
       case 'inactive':
         return 'Inactive';
+      case 'disabled':
+        return 'Disabled';
       case 'pending':
         return 'Pending';
       case 'inreview':
@@ -96,6 +76,8 @@ class StatusChip extends StatelessWidget {
         return 'Cancelled';
       case 'draft':
         return 'Draft';
+      case 'error':
+        return 'Error';
       default:
         return original;
     }
@@ -103,68 +85,37 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final normalized = _normalizeKey(status);
-    final visual = _visualFor(normalized);
-    final brightness = theme.brightness;
-    final isDark = brightness == Brightness.dark;
-
-    final _StatusVisual resolved = visual ??
-        const _StatusVisual(
-          backgroundLight: AppTokens.neutral100,
-          foregroundLight: AppTokens.neutral700,
-          backgroundDark: AppTokens.neutral800,
-          foregroundDark: AppTokens.neutral100,
-          showDot: false,
+    final mapped = _colorsFor(normalized);
+    final resolved = mapped ??
+        const _StatusColors(
+          background: AppTokens.surfaceSubtle,
+          foreground: AppTokens.textSecondary,
         );
-
-    final background =
-        isDark ? resolved.backgroundDark : resolved.backgroundLight;
-    final foreground =
-        isDark ? resolved.foregroundDark : resolved.foregroundLight;
-
+    final hasNamed = mapped != null;
     final label = customLabel ??
-        (visual == null ? status : _defaultLabel(normalized, status));
+        (hasNamed ? _defaultLabel(normalized, status) : status);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        color: resolved.background,
+        borderRadius: BorderRadius.circular(AppTokens.chipRadius),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: AppTokens.statusChipHeight,
-        ),
+      child: SizedBox(
+        height: AppTokens.chipHeight,
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: AppTokens.space3,
-            vertical: AppTokens.space1,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (resolved.showDot) ...[
-                Container(
-                  width: AppTokens.space2,
-                  height: AppTokens.space2,
-                  decoration: BoxDecoration(
-                    color: foreground,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(width: AppTokens.space2),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily:
-                      theme.textTheme.labelMedium?.fontFamily ?? AppTokens.fontFamily,
-                  fontSize: AppTokens.textSm,
-                  fontWeight: AppTokens.weightSemibold,
-                  color: foreground,
-                ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Center(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.chipSize,
+                fontWeight: AppTokens.chipWeight,
+                color: resolved.foreground,
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -172,18 +123,12 @@ class StatusChip extends StatelessWidget {
   }
 }
 
-class _StatusVisual {
-  const _StatusVisual({
-    required this.backgroundLight,
-    required this.foregroundLight,
-    required this.backgroundDark,
-    required this.foregroundDark,
-    required this.showDot,
+class _StatusColors {
+  const _StatusColors({
+    required this.background,
+    required this.foreground,
   });
 
-  final Color backgroundLight;
-  final Color foregroundLight;
-  final Color backgroundDark;
-  final Color foregroundDark;
-  final bool showDot;
+  final Color background;
+  final Color foreground;
 }

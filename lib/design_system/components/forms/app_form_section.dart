@@ -1,28 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../breakpoints.dart';
 import '../../tokens.dart';
+import 'app_form_field_row.dart';
 
-/// Card-style section for medium/large forms (sentence case, optional action).
+/// Card-style section for medium/large forms.
+///
+/// Provide either [children] (preferred — renders a responsive 2-column Wrap
+/// grid) or the legacy [child] (renders as-is).
 class AppFormSection extends StatelessWidget {
   const AppFormSection({
     super.key,
     required this.title,
     this.description,
     this.trailing,
-    required this.child,
-  });
+    this.children,
+    this.child,
+  }) : assert(
+          children != null || child != null,
+          'Provide either children or child',
+        );
 
   final String title;
   final String? description;
   final Widget? trailing;
-  final Widget child;
+
+  /// Grid children. [AppFormFullWidth] items span both columns.
+  final List<Widget>? children;
+
+  /// Legacy single-child passthrough.
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final surface = theme.brightness == Brightness.dark
         ? theme.cardColor
-        : AppTokens.surfaceSubtle;
+        : AppTokens.cardBg;
     final borderColor = theme.brightness == Brightness.dark
         ? AppTokens.neutral700
         : AppTokens.borderDefault;
@@ -35,9 +50,10 @@ class AppFormSection extends StatelessWidget {
           color: borderColor,
           width: AppTokens.borderWidthSm,
         ),
+        boxShadow: AppTokens.shadowSm,
       ),
       child: Padding(
-        padding: EdgeInsets.all(AppTokens.space4),
+        padding: const EdgeInsets.all(AppTokens.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -52,9 +68,7 @@ class AppFormSection extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
-                          fontFamily: theme.textTheme.titleSmall?.fontFamily ??
-                              AppTokens.fontFamily,
+                        style: GoogleFonts.poppins(
                           fontSize: AppTokens.sectionTitleSize,
                           fontWeight: AppTokens.sectionTitleWeight,
                           color: theme.brightness == Brightness.dark
@@ -66,7 +80,7 @@ class AppFormSection extends StatelessWidget {
                         SizedBox(height: AppTokens.space1),
                         Text(
                           description!,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: GoogleFonts.poppins(
                             fontSize: AppTokens.bodySize,
                             fontWeight: AppTokens.bodyWeight,
                             color: theme.brightness == Brightness.dark
@@ -85,10 +99,51 @@ class AppFormSection extends StatelessWidget {
               ],
             ),
             SizedBox(height: AppTokens.space3),
-            child,
+            if (children != null)
+              _GridBody(children: children!)
+            else
+              child!,
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GridBody extends StatelessWidget {
+  const _GridBody({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile =
+            AppBreakpoints.isMobileWidth(constraints.maxWidth);
+        final colWidth = isMobile
+            ? constraints.maxWidth
+            : (constraints.maxWidth - AppTokens.space3) / 2;
+
+        final wrappedChildren = children.map((child) {
+          if (child is AppFormFullWidth) {
+            return SizedBox(
+              width: constraints.maxWidth,
+              child: child.child,
+            );
+          }
+          return SizedBox(
+            width: isMobile ? constraints.maxWidth : colWidth,
+            child: child,
+          );
+        }).toList();
+
+        return Wrap(
+          spacing: AppTokens.space3,
+          runSpacing: AppTokens.space4,
+          children: wrappedChildren,
+        );
+      },
     );
   }
 }

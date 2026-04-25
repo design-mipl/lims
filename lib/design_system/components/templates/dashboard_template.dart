@@ -207,7 +207,7 @@ class _DashboardKpiGrid extends StatelessWidget {
       ),
       itemCount: cards.length,
       itemBuilder: (context, i) =>
-          KpiMetricTile(card: cards[i], compact: compact),
+          KpiMetricTile(card: cards[i]),
     );
   }
 }

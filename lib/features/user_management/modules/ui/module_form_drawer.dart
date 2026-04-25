@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -302,17 +303,14 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
                   hint: 'None (root)',
                   value: _parentId,
                   items: [
-                    const DropdownMenuItem<String?>(
+                    const AppSelectItem<String?>(
                       value: null,
-                      child: Text('None (root)'),
+                      label: 'None (root)',
                     ),
                     ...parents.map(
-                      (m) => DropdownMenuItem<String?>(
+                      (m) => AppSelectItem<String?>(
                         value: m.id,
-                        child: Text(
-                          m.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label: m.name,
                       ),
                     ),
                   ],
@@ -380,30 +378,21 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
                 SizedBox(height: AppTokens.space4),
                 Text(
                   'Status',
-                  style: TextStyle(
-                    fontFamily:
-                        theme.textTheme.labelMedium?.fontFamily ?? AppTokens.fontFamily,
+                  style: GoogleFonts.poppins(
                     fontSize: AppTokens.fieldLabelSize,
                     fontWeight: AppTokens.fieldLabelWeight,
                     color: AppTokens.labelColor,
                   ),
                 ),
                 SizedBox(height: AppTokens.space1),
-                AppSegmentedControl<ModuleStatus>(
-                  segments: const [
-                    AppSegment<ModuleStatus>(
-                      value: ModuleStatus.active,
-                      label: 'Active',
-                      icon: LucideIcons.circleCheck,
-                    ),
-                    AppSegment<ModuleStatus>(
-                      value: ModuleStatus.inactive,
-                      label: 'Inactive',
-                      icon: LucideIcons.circleOff,
-                    ),
+                AppSegmentedControl(
+                  options: const [
+                    AppSegmentOption(value: 'active', label: 'Active', icon: LucideIcons.circleCheck),
+                    AppSegmentOption(value: 'inactive', label: 'Inactive', icon: LucideIcons.circleOff),
                   ],
-                  selected: _status,
-                  onChanged: (v) => setState(() => _status = v),
+                  value: _status.name,
+                  onChanged: (v) => setState(() =>
+                      _status = ModuleStatus.values.firstWhere((s) => s.name == v)),
                 ),
               ],
             ),

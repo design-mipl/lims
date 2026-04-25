@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../features/coming_soon/coming_soon_screen.dart';
+import '../../features/ui_kit/ui_kit_screen.dart';
 import '../../features/dev/form_template_preview_screen.dart';
 import '../../features/shell/shell_screen.dart';
 import '../../features/user_management/departments/state/departments_provider.dart';
@@ -179,6 +180,10 @@ final GoRouter appRouter = GoRouter(
           builder: (context, _) => const ComingSoonScreen(
             moduleName: 'Reports',
           ),
+        ),
+        GoRoute(
+          path: '/ui-kit',
+          builder: (context, _) => const UIKitScreen(),
         ),
         GoRoute(
           path: '/users',

@@ -164,6 +164,11 @@ const List<NavItem> appNavItems = [
       ),
     ],
   ),
+  NavItem(
+    path: '/ui-kit',
+    label: 'UI Kit',
+    icon: Icon(LucideIcons.palette, size: 16),
+  ),
 ];
 
 /// Mounts [AppShell] with real navigation for all authenticated routes.

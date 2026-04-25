@@ -161,73 +161,64 @@ class _DepartmentFormDrawerHostState extends State<_DepartmentFormDrawerHost> {
   Widget build(BuildContext context) {
     return AppFormDrawer(
       title: _isEdit ? 'Edit Department' : 'Add Department',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: AppFormSection(
+        title: 'Basic Details',
         children: [
-          AppFormSection(
-            title: 'Basic Details',
-            child: AppFormFieldRow(
-              children: [
-                AppFormFieldSpan(
-                  child: AppInput(
-                    label: 'Department Name',
-                    hint: 'e.g. Laboratory',
-                    controller: _nameCtrl,
-                    required: true,
-                    size: AppInputSize.sm,
-                    errorText: _nameError,
-                    onChanged: (_) {
-                      if (_nameError != null) {
-                        setState(() => _nameError = null);
-                      }
-                    },
-                  ),
-                ),
-                AppFormFieldSpan(
-                  child: AppInput(
-                    label: 'Department Code',
-                    hint: 'e.g. LAB',
-                    controller: _codeCtrl,
-                    required: true,
-                    size: AppInputSize.sm,
-                    errorText: _codeError,
-                    onChanged: (_) {
-                      if (_codeError != null) {
-                        setState(() => _codeError = null);
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
+          AppInput(
+            label: 'Department Name',
+            hint: 'e.g. Laboratory',
+            controller: _nameCtrl,
+            required: true,
+            size: AppInputSize.sm,
+            errorText: _nameError,
+            onChanged: (_) {
+              if (_nameError != null) {
+                setState(() => _nameError = null);
+              }
+            },
           ),
-          SizedBox(height: AppTokens.space3),
-          AppFormSection(
-            title: 'Description',
+          AppInput(
+            label: 'Department Code',
+            hint: 'e.g. LAB',
+            controller: _codeCtrl,
+            required: true,
+            size: AppInputSize.sm,
+            errorText: _codeError,
+            onChanged: (_) {
+              if (_codeError != null) {
+                setState(() => _codeError = null);
+              }
+            },
+          ),
+          AppFormFullWidth(
             child: AppTextarea(
               label: 'Description',
               hint: 'Optional',
               controller: _descCtrl,
+              minLines: 2,
+              maxLines: 4,
             ),
           ),
-          SizedBox(height: AppTokens.space3),
-          AppFormSection(
-            title: 'Status',
-            child: AppSegmentedControl<DepartmentStatus>(
-              segments: const [
-                AppSegment<DepartmentStatus>(
-                  value: DepartmentStatus.active,
+          AppFormFullWidth(
+            child: AppSegmentedControl(
+              label: 'Status',
+              options: const [
+                AppSegmentOption(
+                  value: 'active',
                   label: 'Active',
-                  icon: LucideIcons.circleCheck,
+                  icon: LucideIcons.check,
                 ),
-                AppSegment<DepartmentStatus>(
-                  value: DepartmentStatus.inactive,
+                AppSegmentOption(
+                  value: 'inactive',
                   label: 'Inactive',
-                  icon: LucideIcons.circleOff,
+                  icon: LucideIcons.ban,
                 ),
               ],
-              selected: _status,
-              onChanged: (v) => setState(() => _status = v),
+              value: _status.name,
+              onChanged: (v) => setState(
+                () => _status = DepartmentStatus.values
+                    .firstWhere((s) => s.name == v),
+              ),
             ),
           ),
         ],

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../tokens.dart';
 
-/// Multi-line field with the same label and border treatment as [AppInput].
+/// Multi-line text input matching [AppInput] label and border treatment.
 class AppTextarea extends StatelessWidget {
   const AppTextarea({
     super.key,
@@ -16,8 +17,11 @@ class AppTextarea extends StatelessWidget {
     this.controller,
     this.focusNode,
     this.onChanged,
+    this.validator,
+    this.isRequired = false,
+    this.minLines = 3,
+    this.maxLines = 6,
     this.maxLength,
-    this.required = false,
   });
 
   final String? label;
@@ -29,48 +33,46 @@ class AppTextarea extends StatelessWidget {
   final TextEditingController? controller;
   final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
+  final FormFieldValidator<String>? validator;
+  final bool isRequired;
+  final int minLines;
+  final int maxLines;
   final int? maxLength;
-  final bool required;
 
   OutlineInputBorder _border(Color color, double width) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      borderRadius: BorderRadius.circular(AppTokens.inputRadius),
       borderSide: BorderSide(color: color, width: width),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final hasError = errorText != null && errorText!.isNotEmpty;
 
     final defaultBorder = _border(AppTokens.borderDefault, AppTokens.borderWidthSm);
-    final focusBorder =
-        _border(AppTokens.primary800, AppTokens.borderWidthMd);
-    final errorBorder =
-        _border(AppTokens.error500, AppTokens.borderWidthMd);
+    final focusBorder = _border(AppTokens.borderFocus, AppTokens.borderWidthMd);
+    final errorBorder = _border(AppTokens.error500, AppTokens.borderWidthSm);
 
-    final fieldStyle = TextStyle(
-      fontFamily: theme.textTheme.bodyMedium?.fontFamily ?? AppTokens.fontFamily,
-      fontSize: AppTokens.bodySize,
-      fontWeight: AppTokens.bodyWeight,
-      color: theme.brightness == Brightness.dark
-          ? theme.colorScheme.onSurface
-          : AppTokens.textPrimary,
+    final fieldStyle = GoogleFonts.poppins(
+      fontSize: 12.0,
+      fontWeight: FontWeight.w400,
+      color: AppTokens.textPrimary,
+    );
+
+    final hintStyle = GoogleFonts.poppins(
+      fontSize: 12.0,
+      fontWeight: FontWeight.w400,
+      color: AppTokens.hintColor,
     );
 
     final decoration = InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: AppTokens.white,
+      fillColor: enabled ? AppTokens.cardBg : AppTokens.surfaceSubtle,
       hintText: hint,
-      hintStyle: TextStyle(
-        fontFamily: theme.textTheme.bodyMedium?.fontFamily ?? AppTokens.fontFamily,
-        fontSize: AppTokens.bodySize,
-        fontWeight: AppTokens.bodyWeight,
-        color: AppTokens.hintColor,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      hintStyle: hintStyle,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       border: defaultBorder,
       enabledBorder: hasError ? errorBorder : defaultBorder,
       focusedBorder: hasError ? errorBorder : focusBorder,
@@ -79,45 +81,26 @@ class AppTextarea extends StatelessWidget {
       disabledBorder: defaultBorder,
     );
 
-    final textField = TextField(
-      controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
-      readOnly: readOnly,
-      minLines: 3,
-      maxLines: 6,
-      maxLength: maxLength,
-      maxLengthEnforcement: maxLength != null
-          ? MaxLengthEnforcement.enforced
-          : MaxLengthEnforcement.none,
-      onChanged: onChanged,
-      style: fieldStyle,
-      cursorColor: theme.colorScheme.primary,
-      decoration: decoration,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (label != null && label!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppTokens.space1),
-            child: Text.rich(
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (label != null && label!.isNotEmpty) ...[
+            Text.rich(
               TextSpan(
-                style: TextStyle(
-                  fontFamily:
-                      theme.textTheme.bodyMedium?.fontFamily ?? AppTokens.fontFamily,
+                style: GoogleFonts.poppins(
                   fontSize: AppTokens.fieldLabelSize,
                   fontWeight: AppTokens.fieldLabelWeight,
                   color: AppTokens.labelColor,
                 ),
                 children: [
                   TextSpan(text: label),
-                  if (required)
-                    const TextSpan(
+                  if (isRequired)
+                    TextSpan(
                       text: ' *',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         color: AppTokens.error500,
                         fontSize: AppTokens.fieldLabelSize,
                         fontWeight: AppTokens.fieldLabelWeight,
@@ -126,39 +109,50 @@ class AppTextarea extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 4),
+          ],
+          TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            readOnly: readOnly,
+            minLines: minLines,
+            maxLines: maxLines,
+            maxLength: maxLength,
+            maxLengthEnforcement: maxLength != null
+                ? MaxLengthEnforcement.enforced
+                : MaxLengthEnforcement.none,
+            onChanged: onChanged,
+            style: fieldStyle,
+            cursorColor: AppTokens.borderFocus,
+            decoration: decoration,
           ),
-        textField,
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              errorText!,
-              style: TextStyle(
-                fontFamily:
-                    theme.textTheme.bodySmall?.fontFamily ?? AppTokens.fontFamily,
-                fontSize: AppTokens.captionSize,
-                fontWeight: AppTokens.captionWeight,
-                color: AppTokens.error500,
+          if (hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                errorText!,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: AppTokens.captionWeight,
+                  color: AppTokens.error500,
+                ),
               ),
             ),
-          ),
-        if (helperText != null &&
-            helperText!.isNotEmpty &&
-            !hasError)
-          Padding(
-            padding: const EdgeInsets.only(top: AppTokens.space1),
-            child: Text(
-              helperText!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: AppTokens.captionSize,
-                fontWeight: AppTokens.captionWeight,
-                color: theme.brightness == Brightness.dark
-                    ? AppTokens.textMuted
-                    : AppTokens.textSecondary,
+          if (helperText != null && helperText!.isNotEmpty && !hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: AppTokens.space1),
+              child: Text(
+                helperText!,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: AppTokens.captionWeight,
+                  color: AppTokens.textSecondary,
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

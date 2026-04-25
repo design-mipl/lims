@@ -5,6 +5,20 @@ enum FilterType {
   dateRange,
 }
 
+/// Filter type for inline column-header filter popovers.
+enum ColumnFilterType { text, select }
+
+/// Per-column filter configuration. Attach to [TableColumn.filterConfig] to
+/// enable the filter icon and popover on that column header.
+class ColumnFilterConfig {
+  const ColumnFilterConfig({required this.type, this.options});
+
+  final ColumnFilterType type;
+
+  /// Option labels for [ColumnFilterType.select].
+  final List<String>? options;
+}
+
 /// Declarative filter field shown in the filter sheet / side panel.
 class FilterField {
   const FilterField({

@@ -21,6 +21,7 @@ export 'templates/detail_template.dart';
 export 'templates/auth_template.dart';
 export 'templates/error_template.dart';
 export 'templates/section_card.dart';
+export 'forms/app_confirm_dialog.dart';
 export 'forms/app_form_drawer.dart';
 export 'forms/app_form_field_row.dart';
 export 'forms/app_form_modal.dart';

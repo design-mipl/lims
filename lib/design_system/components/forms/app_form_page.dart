@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
+import '../../breakpoints.dart';
 import '../../tokens.dart';
 import '../primitives/app_button.dart';
 
@@ -43,10 +45,10 @@ class AppFormPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final borderTop = theme.brightness == Brightness.dark
-        ? AppTokens.neutral700
-        : AppTokens.borderDefault;
-    final borderBottom = borderTop;
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppTokens.neutral700 : AppTokens.borderDefault;
+    final surfaceColor = isDark ? theme.colorScheme.surface : AppTokens.cardBg;
+    final contentBg = isDark ? theme.scaffoldBackgroundColor : AppTokens.pageBg;
 
     final showFooter = onCancel != null ||
         onPrimary != null ||
@@ -57,18 +59,15 @@ class AppFormPage extends StatelessWidget {
     final saveContinueText = saveAndContinueLabel ?? 'Save & continue';
 
     return Material(
-      color: theme.scaffoldBackgroundColor,
+      color: contentBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
+              color: surfaceColor,
               border: Border(
-                bottom: BorderSide(
-                  color: borderBottom,
-                  width: AppTokens.borderWidthSm,
-                ),
+                bottom: BorderSide(color: borderColor, width: AppTokens.borderWidthSm),
               ),
             ),
             child: Padding(
@@ -77,20 +76,20 @@ class AppFormPage extends StatelessWidget {
                 vertical: AppTokens.space3,
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (onBack != null)
+                  if (onBack != null) ...[
                     IconButton(
                       tooltip: 'Back',
                       onPressed: onBack,
                       icon: Icon(
                         LucideIcons.arrowLeft,
                         size: AppTokens.iconSizeMd,
-                        color: theme.brightness == Brightness.dark
-                            ? AppTokens.neutral300
-                            : AppTokens.neutral600,
+                        color: isDark ? AppTokens.neutral300 : AppTokens.neutral600,
                       ),
                     ),
+                    SizedBox(width: AppTokens.space2),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,12 +97,10 @@ class AppFormPage extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: TextStyle(
-                            fontFamily: theme.textTheme.headlineSmall?.fontFamily ??
-                                AppTokens.fontFamily,
+                          style: GoogleFonts.poppins(
                             fontSize: AppTokens.pageTitleSize,
                             fontWeight: AppTokens.pageTitleWeight,
-                            color: theme.brightness == Brightness.dark
+                            color: isDark
                                 ? theme.colorScheme.onSurface
                                 : AppTokens.textPrimary,
                           ),
@@ -112,9 +109,7 @@ class AppFormPage extends StatelessWidget {
                           SizedBox(height: AppTokens.space1),
                           Text(
                             subtitle!,
-                            style: TextStyle(
-                              fontFamily: theme.textTheme.bodyMedium?.fontFamily ??
-                                  AppTokens.fontFamily,
+                            style: GoogleFonts.poppins(
                               fontSize: AppTokens.pageSubtitleSize,
                               fontWeight: AppTokens.pageSubtitleWeight,
                               color: AppTokens.textMuted,
@@ -137,12 +132,7 @@ class AppFormPage extends StatelessWidget {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                AppTokens.space5,
-                AppTokens.space3,
-                AppTokens.space5,
-                AppTokens.space5,
-              ),
+              padding: EdgeInsets.all(AppTokens.space5),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
@@ -157,18 +147,16 @@ class AppFormPage extends StatelessWidget {
           if (showFooter)
             DecoratedBox(
               decoration: BoxDecoration(
-                color: theme.brightness == Brightness.dark
-                    ? theme.colorScheme.surface
-                    : AppTokens.white,
+                color: surfaceColor,
                 border: Border(
-                  top: BorderSide(
-                    color: borderTop,
-                    width: AppTokens.borderWidthSm,
-                  ),
+                  top: BorderSide(color: borderColor, width: AppTokens.borderWidthSm),
                 ),
               ),
               child: Padding(
-                padding: EdgeInsets.all(AppTokens.space5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppTokens.space5,
+                  vertical: AppTokens.space3,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -180,7 +168,7 @@ class AppFormPage extends StatelessWidget {
                         variant: AppButtonVariant.tertiary,
                         size: AppButtonSize.md,
                       ),
-                      SizedBox(width: AppTokens.space3),
+                      SizedBox(width: AppTokens.space2),
                     ],
                     if (onSaveAndContinue != null) ...[
                       AppButton(
@@ -191,7 +179,7 @@ class AppFormPage extends StatelessWidget {
                         variant: AppButtonVariant.secondary,
                         size: AppButtonSize.md,
                       ),
-                      SizedBox(width: AppTokens.space3),
+                      SizedBox(width: AppTokens.space2),
                     ],
                     if (onPrimary != null)
                       AppButton(
@@ -209,6 +197,66 @@ class AppFormPage extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Two-panel side-by-side layout for full-page forms.
+/// Stacks vertically on tablet/mobile (< 1024px).
+class AppFormPageLayout extends StatelessWidget {
+  const AppFormPageLayout({
+    super.key,
+    required this.leftPanel,
+    required this.rightPanel,
+  });
+
+  final List<Widget> leftPanel;
+  final List<Widget> rightPanel;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = AppBreakpoints.isDesktopWidth(constraints.maxWidth);
+        if (isDesktop) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 55,
+                child: _panel(leftPanel),
+              ),
+              SizedBox(width: AppTokens.space4),
+              Expanded(
+                flex: 45,
+                child: _panel(rightPanel),
+              ),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _panel(leftPanel),
+            SizedBox(height: AppTokens.space3),
+            _panel(rightPanel),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _panel(List<Widget> sections) {
+    if (sections.isEmpty) return const SizedBox.shrink();
+    final children = <Widget>[sections.first];
+    for (var i = 1; i < sections.length; i++) {
+      children
+        ..add(SizedBox(height: AppTokens.space3))
+        ..add(sections[i]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 }

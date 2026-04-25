@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../breakpoints.dart';
@@ -10,6 +11,7 @@ import '../display/kpi_metric.dart';
 import '../primitives/app_button.dart';
 import '../primitives/app_icon_button.dart';
 import '../primitives/app_input.dart';
+import '../primitives/app_select.dart';
 import 'bulk_action.dart';
 import 'filter_config.dart';
 import 'table_column.dart';
@@ -20,10 +22,11 @@ import 'table_column.dart';
 
 double get _kListingTableOuterGutter => AppTokens.space0;
 
-EdgeInsets get _kListingTableCellPadding => const EdgeInsets.symmetric(
-  horizontal: 12,
-  vertical: 10,
-);
+EdgeInsets _listingTableCellPadding({required bool isHeader}) =>
+    EdgeInsets.symmetric(
+      horizontal: 12,
+      vertical: isHeader ? 0 : 0,
+    );
 
 Alignment _alignmentForTableColumn<T>(TableColumn<T> col) {
   if (col.key == 'status') {
@@ -49,11 +52,12 @@ Widget _listingTableCellShell({
   required double width,
   required Alignment alignment,
   required Widget child,
+  bool isHeader = false,
 }) {
   return SizedBox(
     width: width,
     child: Padding(
-      padding: _kListingTableCellPadding,
+      padding: _listingTableCellPadding(isHeader: isHeader),
       child: Align(
         alignment: alignment,
         child: child,
@@ -220,6 +224,18 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 
   final TextEditingController _searchController = TextEditingController();
 
+  // Column selector overlay
+  final LayerLink _columnsButtonLink = LayerLink();
+  OverlayEntry? _columnSelectorEntry;
+
+  // Column filter overlays
+  final Map<String, LayerLink> _colFilterLinks = {};
+  OverlayEntry? _colFilterEntry;
+
+  // Column filter applied values (key = column key)
+  final Map<String, String> _colFilterText = {};
+  final Map<String, Set<String>> _colFilterMulti = {};
+
   final Map<String, TextEditingController> _filterTextCtrls = {};
   final Map<String, Set<String>> _draftMulti = {};
   final Map<String, DateTime?> _draftDateFrom = {};
@@ -309,6 +325,10 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 
   @override
   void dispose() {
+    _columnSelectorEntry?.remove();
+    _columnSelectorEntry = null;
+    _colFilterEntry?.remove();
+    _colFilterEntry = null;
     _pulseController.dispose();
     _searchController.dispose();
     _disposeFilterControllers();
@@ -610,80 +630,119 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   }
 
   void _showColumnPicker() {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text('Columns', style: Theme.of(ctx).textTheme.titleSmall),
-          content: SizedBox(
-            width: AppTokens.listingFilterPanelWidth,
-            child: StatefulBuilder(
-              builder: (context, setLocal) {
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(widget.columns.length, (i) {
-                      final col = widget.columns[i];
-                      return CheckboxTheme(
-                        data: CheckboxThemeData(
-                          fillColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return AppTokens.primary800;
-                            }
-                            return null;
-                          }),
-                        ),
-                        child: CheckboxListTile(
-                          dense: true,
-                          visualDensity: VisualDensity.compact,
-                          value: _columnVisibility[i],
-                          onChanged: (v) {
-                            setLocal(() {
-                              setState(() {
-                                _columnVisibility[i] = v ?? false;
-                              });
-                            });
-                          },
-                          title: Text(
-                            col.label,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Done'),
-            ),
-          ],
-        );
-      },
+    if (_columnSelectorEntry != null) {
+      _columnSelectorEntry?.remove();
+      _columnSelectorEntry = null;
+      return;
+    }
+    _columnSelectorEntry = OverlayEntry(
+      builder: (ctx) => _ColumnSelectorOverlay(
+        link: _columnsButtonLink,
+        columns: widget.columns,
+        visibility: List<bool>.from(_columnVisibility),
+        onToggle: (i, v) {
+          setState(() => _columnVisibility[i] = v);
+          // Re-build the overlay so its checkboxes stay in sync.
+          _columnSelectorEntry?.markNeedsBuild();
+        },
+        onDismiss: () {
+          _columnSelectorEntry?.remove();
+          _columnSelectorEntry = null;
+        },
+      ),
     );
+    Overlay.of(context).insert(_columnSelectorEntry!);
+  }
+
+  LayerLink _colFilterLink(String key) =>
+      _colFilterLinks.putIfAbsent(key, LayerLink.new);
+
+  bool get _anyColFilterActive =>
+      _colFilterText.values.any((v) => v.isNotEmpty) ||
+      _colFilterMulti.values.any((s) => s.isNotEmpty);
+
+  void _showColFilterOverlay(TableColumn<T> col) {
+    _colFilterEntry?.remove();
+    _colFilterEntry = null;
+    final config = col.filterConfig;
+    if (config == null) return;
+    _colFilterEntry = OverlayEntry(
+      builder: (ctx) => _ColumnFilterOverlay(
+        link: _colFilterLink(col.key),
+        columnKey: col.key,
+        config: config,
+        initialText: _colFilterText[col.key] ?? '',
+        initialMulti: Set<String>.from(_colFilterMulti[col.key] ?? {}),
+        onApply: (text, multi) {
+          setState(() {
+            if (text != null) {
+              if (text.isEmpty) {
+                _colFilterText.remove(col.key);
+              } else {
+                _colFilterText[col.key] = text;
+              }
+            }
+            if (multi != null) {
+              if (multi.isEmpty) {
+                _colFilterMulti.remove(col.key);
+              } else {
+                _colFilterMulti[col.key] = multi;
+              }
+            }
+          });
+          _colFilterEntry?.remove();
+          _colFilterEntry = null;
+        },
+        onDismiss: () {
+          _colFilterEntry?.remove();
+          _colFilterEntry = null;
+        },
+      ),
+    );
+    Overlay.of(context).insert(_colFilterEntry!);
+  }
+
+  void _onFilterToolbarPressed() {
+    if (widget.filterFields == null || widget.filterFields!.isEmpty) {
+      return;
+    }
+    final w = MediaQuery.sizeOf(context).width;
+    if (AppBreakpoints.isDesktopWidth(w)) {
+      setState(() {
+        _filterPanelOpen = !_filterPanelOpen;
+        if (_filterPanelOpen) {
+          _hydrateDraftFromActiveFilters();
+        }
+      });
+    } else {
+      _openFilters();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final isDesktopFilters =
         AppBreakpoints.isDesktopWidth(width) &&
         widget.filterFields != null &&
         widget.filterFields!.isNotEmpty;
 
-    return ColoredBox(
-      color: theme.scaffoldBackgroundColor,
+    final topSection = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space5,
+        AppTokens.space4,
+        AppTokens.space5,
+        AppTokens.space4,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PageHeader<T>(widget: widget, theme: theme),
+          _PageHeader<T>(widget: widget),
           if (widget.kpiCards != null && widget.kpiCards!.isNotEmpty)
-            _KpiStrip(cards: widget.kpiCards!, width: width),
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppTokens.space3),
+              child: KpiRow(cards: widget.kpiCards!),
+            ),
           if (widget.tabs != null && widget.tabs!.isNotEmpty)
             _TabStrip(
               tabs: widget.tabs!,
@@ -692,104 +751,136 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                 setState(() => _selectedTab = i);
                 widget.onTabChanged?.call(i);
               },
-              theme: theme,
             ),
+        ],
+      ),
+    );
+
+    final expandedBody = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space5,
+        0,
+        AppTokens.space5,
+        AppTokens.space4,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppTokens.space6,
-                AppTokens.space3,
-                AppTokens.space6,
-                AppTokens.space4,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: AppCard(
-                      padding: EdgeInsets.zero,
-                      child: AppBreakpoints.isMobileWidth(width)
-                          ? _buildMobileBody(theme)
-                          : _buildDesktopTableBody(theme),
-                    ),
-                  ),
-                  if (isDesktopFilters)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOut,
-                      width: _filterPanelOpen
-                          ? AppTokens.listingFilterPanelWidth
-                          : AppTokens.space0,
-                      child: ClipRect(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          widthFactor: _filterPanelOpen ? 1 : 0,
-                          child: SizedBox(
-                            width: AppTokens.listingFilterPanelWidth,
-                            child: _FilterPanelContent<T>(
-                              filterFields: widget.filterFields!,
-                              filterTextCtrls: _filterTextCtrls,
-                              draftMulti: _draftMulti,
-                              draftDateFrom: _draftDateFrom,
-                              draftDateTo: _draftDateTo,
-                              draftDateFromText: _draftDateFromText,
-                              draftDateToText: _draftDateToText,
-                              onClearDraft: () => setState(_clearFilterDraft),
-                              onApply: () {
-                                final next = _collectFiltersFromDraft();
-                                widget.onFiltersChanged?.call(next);
-                                setState(() => _filterPanelOpen = false);
-                              },
-                              syncDateText: _syncDateTextControllers,
-                              onClose: () =>
-                                  setState(() => _filterPanelOpen = false),
-                              pickDate: _pickDate,
-                              onDraftChanged: () => setState(() {}),
-                            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, anim) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.08),
+                        end: Offset.zero,
+                      ).animate(anim),
+                      child: FadeTransition(opacity: anim, child: child),
+                    );
+                  },
+                  child: _selectedRows.isNotEmpty
+                      ? KeyedSubtree(
+                          key: const ValueKey<String>('bulk'),
+                          child: _BulkBar<T>(
+                            count: _selectedRows.length,
+                            bulkActions: widget.bulkActions,
+                            onBulk: (fn) => fn(_selectedRowValues()),
+                            onDeselectAll: () => setState(_selectedRows.clear),
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey<String>('toolbar'),
+                          child: _ToolbarRow<T>(
+                            widget: widget,
+                            searchController: _searchController,
+                            onToggleFilters: _onFilterToolbarPressed,
+                            onColumnPicker: _showColumnPicker,
+                            columnsButtonLink: _columnsButtonLink,
+                            anyColFilterActive: _anyColFilterActive,
                           ),
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                ),
+                if (widget.activeFilters.isNotEmpty)
+                  _ActiveFilterChips(
+                    activeFilters: widget.activeFilters,
+                    onRemove: (f) {
+                      final next = widget.activeFilters
+                          .where((a) => a.key != f.key)
+                          .toList();
+                      widget.onFiltersChanged?.call(next);
+                    },
+                    onClearAll: () => widget.onFiltersChanged?.call([]),
+                  ),
+                Expanded(
+                  child: AppBreakpoints.isMobileWidth(width)
+                      ? _buildMobileBody()
+                      : _buildDesktopTableBody(),
+                ),
+              ],
             ),
           ),
+          if (isDesktopFilters)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              width: _filterPanelOpen
+                  ? AppTokens.listingFilterPanelWidth
+                  : AppTokens.space0,
+              child: ClipRect(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  widthFactor: _filterPanelOpen ? 1 : 0,
+                  child: SizedBox(
+                    width: AppTokens.listingFilterPanelWidth,
+                    child: _FilterPanelContent<T>(
+                      filterFields: widget.filterFields!,
+                      filterTextCtrls: _filterTextCtrls,
+                      draftMulti: _draftMulti,
+                      draftDateFrom: _draftDateFrom,
+                      draftDateTo: _draftDateTo,
+                      draftDateFromText: _draftDateFromText,
+                      draftDateToText: _draftDateToText,
+                      onClearDraft: () => setState(_clearFilterDraft),
+                      onApply: () {
+                        final next = _collectFiltersFromDraft();
+                        widget.onFiltersChanged?.call(next);
+                        setState(() => _filterPanelOpen = false);
+                      },
+                      syncDateText: _syncDateTextControllers,
+                      onClose: () =>
+                          setState(() => _filterPanelOpen = false),
+                      pickDate: _pickDate,
+                      onDraftChanged: () => setState(() {}),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    return ColoredBox(
+      color: AppTokens.pageBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          topSection,
+          Expanded(child: expandedBody),
         ],
       ),
     );
   }
 
-  Widget _buildMobileBody(ThemeData theme) {
+  Widget _buildMobileBody() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ToolbarRow<T>(
-          theme: theme,
-          widget: widget,
-          searchController: _searchController,
-          onToggleFilters: _openFilters,
-          onColumnPicker: _showColumnPicker,
-        ),
-        if (widget.activeFilters.isNotEmpty)
-          _ActiveFilterChips(
-            activeFilters: widget.activeFilters,
-            onRemove: (f) {
-              final next = widget.activeFilters
-                  .where((a) => a.key != f.key)
-                  .toList();
-              widget.onFiltersChanged?.call(next);
-            },
-            onClearAll: () => widget.onFiltersChanged?.call([]),
-            theme: theme,
-          ),
-        if (_selectedRows.isNotEmpty)
-          _BulkBar<T>(
-            count: _selectedRows.length,
-            bulkActions: widget.bulkActions,
-            onBulk: (fn) => fn(_selectedRowValues()),
-            onDeselectAll: () => setState(_selectedRows.clear),
-            theme: theme,
-          ),
         Expanded(
           child: widget.isLoading
               ? _SkeletonTable(animation: _pulseAnimation)
@@ -797,7 +888,6 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
               ? widget.emptyWidget ??
                     _EmptyState(
                       message: widget.emptyMessage ?? 'No records found',
-                      theme: theme,
                     )
               : ListView.separated(
                   padding: EdgeInsets.all(AppTokens.space4),
@@ -822,7 +912,6 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                 ),
         ),
         _PaginationRow(
-          theme: theme,
           totalCount: widget.totalCount,
           currentPage: widget.currentPage,
           pageSize: widget.pageSize,
@@ -834,162 +923,154 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     );
   }
 
-  Widget _buildDesktopTableBody(ThemeData theme) {
+  Widget _buildDesktopTableBody() {
+    final tableRadius = BorderRadius.only(
+      bottomLeft: Radius.circular(AppTokens.cardRadius),
+      bottomRight: Radius.circular(AppTokens.cardRadius),
+    );
+
+    Widget tableCore() {
+      if (widget.isLoading) {
+        return _SkeletonTable(animation: _pulseAnimation);
+      }
+      if (widget.rows.isEmpty) {
+        return widget.emptyWidget ??
+            _EmptyState(
+              message: widget.emptyMessage ?? 'No records found',
+            );
+      }
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final innerW =
+              (constraints.maxWidth - 2 * _kListingTableOuterGutter)
+                  .clamp(0.0, double.infinity);
+          final widths = _computeColumnWidths(innerW);
+          final totalW = widths.fold<double>(
+            AppTokens.space0,
+            (a, b) => a + b,
+          );
+          final tableCol = Column(
+            children: [
+              _ListingTableHeader<T>(
+                widths: widths,
+                columns: _visibleColumnDefs,
+                showCheckboxes: widget.showCheckboxes,
+                showToggle: widget.showToggle,
+                hasRowActions:
+                    widget.rowActions != null &&
+                    widget.rowActions!.isNotEmpty,
+                sortKey: _sortKey,
+                sortAscending: _sortAscending,
+                selectAll: _selectAllState(),
+                onSelectAll: widget.showCheckboxes
+                    ? _toggleSelectAll
+                    : null,
+                onSortTap: (col) {
+                  if (!col.sortable) {
+                    return;
+                  }
+                  setState(() {
+                    if (_sortKey == col.key) {
+                      _sortAscending = !_sortAscending;
+                    } else {
+                      _sortKey = col.key;
+                      _sortAscending = true;
+                    }
+                  });
+                  widget.onSortChanged?.call((
+                    columnKey: col.key,
+                    ascending: _sortAscending,
+                  ));
+                },
+                onFilterTap: _showColFilterOverlay,
+                activeColFilters: {
+                  ..._colFilterText.keys,
+                  ..._colFilterMulti.keys,
+                },
+                colFilterLinks: _colFilterLinks,
+                getColFilterLink: _colFilterLink,
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: widget.rows.length,
+                  itemBuilder: (context, index) {
+                    final row = widget.rows[index];
+                    final selected = _selectedRows.contains(index);
+                    final isLast = index == widget.rows.length - 1;
+                    return _ListingDataRow<T>(
+                      widths: widths,
+                      columns: _visibleColumnDefs,
+                      row: row,
+                      index: index,
+                      isLast: isLast,
+                      selected: selected,
+                      showCheckboxes: widget.showCheckboxes,
+                      showToggle: widget.showToggle,
+                      hasRowActions:
+                          widget.rowActions != null &&
+                          widget.rowActions!.isNotEmpty,
+                      rowActions: widget.rowActions,
+                      onToggleChanged: widget.onToggleChanged,
+                      onRowTap: widget.onRowTap,
+                      onSelectRow: (v) {
+                        setState(() {
+                          if (v) {
+                            _selectedRows.add(index);
+                          } else {
+                            _selectedRows.remove(index);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+          if (totalW > innerW + 0.5) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: totalW + 2 * _kListingTableOuterGutter,
+                child: tableCol,
+              ),
+            );
+          }
+          return tableCol;
+        },
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ToolbarRow<T>(
-          theme: theme,
-          widget: widget,
-          searchController: _searchController,
-          onToggleFilters: () {
-            if (widget.filterFields == null || widget.filterFields!.isEmpty) {
-              return;
-            }
-            final w = MediaQuery.sizeOf(context).width;
-            if (AppBreakpoints.isDesktopWidth(w)) {
-              setState(() {
-                _filterPanelOpen = !_filterPanelOpen;
-                if (_filterPanelOpen) {
-                  _hydrateDraftFromActiveFilters();
-                }
-              });
-            } else {
-              _openFilters();
-            }
-          },
-          onColumnPicker: _showColumnPicker,
-        ),
-        if (widget.activeFilters.isNotEmpty)
-          _ActiveFilterChips(
-            activeFilters: widget.activeFilters,
-            onRemove: (f) {
-              final next = widget.activeFilters
-                  .where((a) => a.key != f.key)
-                  .toList();
-              widget.onFiltersChanged?.call(next);
-            },
-            onClearAll: () => widget.onFiltersChanged?.call([]),
-            theme: theme,
-          ),
-        if (_selectedRows.isNotEmpty)
-          _BulkBar<T>(
-            count: _selectedRows.length,
-            bulkActions: widget.bulkActions,
-            onBulk: (fn) => fn(_selectedRowValues()),
-            onDeselectAll: () => setState(_selectedRows.clear),
-            theme: theme,
-          ),
         Expanded(
-          child: widget.isLoading
-              ? _SkeletonTable(animation: _pulseAnimation)
-              : widget.rows.isEmpty
-              ? widget.emptyWidget ??
-                    _EmptyState(
-                      message: widget.emptyMessage ?? 'No records found',
-                      theme: theme,
-                    )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Header and data rows use symmetric horizontal gutter;
-                    // column sums must use the inner Row width or the header
-                    // overflows by 2 * gutter.
-                    final innerW =
-                        (constraints.maxWidth - 2 * _kListingTableOuterGutter)
-                            .clamp(0.0, double.infinity);
-                    final widths = _computeColumnWidths(innerW);
-                    final totalW = widths.fold<double>(
-                      AppTokens.space0,
-                      (a, b) => a + b,
-                    );
-                    final tableCol = Column(
-                      children: [
-                        _ListingTableHeader<T>(
-                          widths: widths,
-                          columns: _visibleColumnDefs,
-                          showCheckboxes: widget.showCheckboxes,
-                          showToggle: widget.showToggle,
-                          hasRowActions:
-                              widget.rowActions != null &&
-                              widget.rowActions!.isNotEmpty,
-                          sortKey: _sortKey,
-                          sortAscending: _sortAscending,
-                          selectAll: _selectAllState(),
-                          onSelectAll: widget.showCheckboxes
-                              ? _toggleSelectAll
-                              : null,
-                          onSortTap: (col) {
-                            if (!col.sortable) {
-                              return;
-                            }
-                            setState(() {
-                              if (_sortKey == col.key) {
-                                _sortAscending = !_sortAscending;
-                              } else {
-                                _sortKey = col.key;
-                                _sortAscending = true;
-                              }
-                            });
-                            widget.onSortChanged?.call((
-                              columnKey: col.key,
-                              ascending: _sortAscending,
-                            ));
-                          },
-                          theme: theme,
-                        ),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: widget.rows.length,
-                            itemBuilder: (context, index) {
-                              final row = widget.rows[index];
-                              final selected = _selectedRows.contains(index);
-                              return _ListingDataRow<T>(
-                                widths: widths,
-                                columns: _visibleColumnDefs,
-                                row: row,
-                                index: index,
-                                selected: selected,
-                                showCheckboxes: widget.showCheckboxes,
-                                showToggle: widget.showToggle,
-                                hasRowActions:
-                                    widget.rowActions != null &&
-                                    widget.rowActions!.isNotEmpty,
-                                rowActions: widget.rowActions,
-                                onToggleChanged: widget.onToggleChanged,
-                                onRowTap: widget.onRowTap,
-                                onSelectRow: (v) {
-                                  setState(() {
-                                    if (v) {
-                                      _selectedRows.add(index);
-                                    } else {
-                                      _selectedRows.remove(index);
-                                    }
-                                  });
-                                },
-                                theme: theme,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                        // Cross-axis (vertical) stays bounded: parent is Expanded;
-                        // ListView in tableCol gets a finite max height.
-                        if (totalW > innerW + 0.5) {
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SizedBox(
-                              width: totalW + 2 * _kListingTableOuterGutter,
-                              child: tableCol,
-                            ),
-                          );
-                        }
-                    return tableCol;
-                  },
+          child: ClipRRect(
+            borderRadius: tableRadius,
+            clipBehavior: Clip.antiAlias,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppTokens.cardBg,
+                border: Border(
+                  left: BorderSide(
+                    color: AppTokens.borderDefault,
+                    width: AppTokens.borderWidthSm,
+                  ),
+                  right: BorderSide(
+                    color: AppTokens.borderDefault,
+                    width: AppTokens.borderWidthSm,
+                  ),
+                  bottom: BorderSide(
+                    color: AppTokens.borderDefault,
+                    width: AppTokens.borderWidthSm,
+                  ),
                 ),
+              ),
+              child: tableCore(),
+            ),
+          ),
         ),
         _PaginationRow(
-          theme: theme,
           totalCount: widget.totalCount,
           currentPage: widget.currentPage,
           pageSize: widget.pageSize,
@@ -1007,165 +1088,68 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 // -----------------------------------------------------------------------------
 
 class _PageHeader<T> extends StatelessWidget {
-  const _PageHeader({required this.widget, required this.theme});
+  const _PageHeader({required this.widget});
 
   final AppListingScreen<T> widget;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppTokens.space6,
-            AppTokens.space4,
-            AppTokens.space6,
-            AppTokens.space2,
+        if (widget.titleIcon != null) ...[
+          IconTheme(
+            data: const IconThemeData(
+              size: AppTokens.avatarSizeSm,
+              color: AppTokens.primary800,
+            ),
+            child: widget.titleIcon!,
           ),
-          child: Row(
+          SizedBox(width: AppTokens.space3),
+        ],
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.titleIcon != null) ...[
-                IconTheme(
-                  data: const IconThemeData(
-                    size: AppTokens.avatarSizeSm,
-                    color: AppTokens.primary800,
-                  ),
-                  child: widget.titleIcon!,
-                ),
-                SizedBox(width: AppTokens.space3),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: TextStyle(
-                        fontFamily: theme.textTheme.titleLarge?.fontFamily ??
-                            AppTokens.fontFamily,
-                        fontSize: AppTokens.pageTitleSize,
-                        fontWeight: AppTokens.pageTitleWeight,
-                        color: theme.brightness == Brightness.dark
-                            ? theme.colorScheme.onSurface
-                            : AppTokens.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: AppTokens.space1),
-                    Text(
-                      widget.subtitle,
-                      style: TextStyle(
-                        fontFamily: theme.textTheme.bodySmall?.fontFamily ??
-                            AppTokens.fontFamily,
-                        fontSize: AppTokens.pageSubtitleSize,
-                        fontWeight: AppTokens.pageSubtitleWeight,
-                        color: AppTokens.textMuted,
-                      ),
-                    ),
-                  ],
+              Text(
+                widget.title,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.pageTitleSize,
+                  fontWeight: AppTokens.pageTitleWeight,
+                  color: AppTokens.textPrimary,
                 ),
               ),
-              if (widget.extraActions != null)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final a in widget.extraActions!) ...[
-                      a,
-                      SizedBox(width: AppTokens.space2),
-                    ],
-                  ],
+              SizedBox(height: AppTokens.space1),
+              Text(
+                widget.subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.pageSubtitleSize,
+                  fontWeight: AppTokens.pageSubtitleWeight,
+                  color: AppTokens.textSecondary,
                 ),
-              if (widget.primaryActionLabel != null &&
-                  widget.onPrimaryAction != null)
-                AppButton(
-                  label: widget.primaryActionLabel!,
-                  onPressed: widget.onPrimaryAction,
-                  variant: AppButtonVariant.primary,
-                  size: AppButtonSize.md,
-                ),
+              ),
             ],
           ),
         ),
-        Divider(
-          height: AppTokens.borderWidthHairline,
-          color: theme.brightness == Brightness.dark
-              ? AppTokens.neutral700
-              : AppTokens.neutral200,
-        ),
+        if (widget.extraActions != null)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final a in widget.extraActions!) ...[
+                a,
+                SizedBox(width: AppTokens.space2),
+              ],
+            ],
+          ),
+        if (widget.primaryActionLabel != null &&
+            widget.onPrimaryAction != null)
+          AppButton(
+            label: widget.primaryActionLabel!,
+            onPressed: widget.onPrimaryAction,
+            variant: AppButtonVariant.primary,
+            size: AppButtonSize.md,
+          ),
       ],
-    );
-  }
-}
-
-// -----------------------------------------------------------------------------
-// KPI strip
-// -----------------------------------------------------------------------------
-
-class _KpiStrip extends StatelessWidget {
-  const _KpiStrip({required this.cards, required this.width});
-
-  final List<KpiCard> cards;
-  final double width;
-
-  int _crossAxisCount() {
-    if (AppBreakpoints.isDesktopWidth(width)) {
-      if (width > 1400) {
-        return 4;
-      }
-      if (width > 1000) {
-        return 3;
-      }
-      return 2;
-    }
-    if (!AppBreakpoints.isMobileWidth(width)) {
-      return 2;
-    }
-    return 1;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isMobile = AppBreakpoints.isMobileWidth(width);
-
-    if (isMobile) {
-      return SizedBox(
-        height: AppTokens.inputHeightLg + AppTokens.space4,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: AppTokens.space6),
-          itemCount: cards.length,
-          separatorBuilder: (context, index) =>
-              SizedBox(key: ValueKey<int>(index), width: AppTokens.space3),
-          itemBuilder: (context, i) {
-            return SizedBox(
-              width: AppTokens.space8 * 5,
-              child: KpiMetricTile(card: cards[i]),
-            );
-          },
-        ),
-      );
-    }
-
-    final n = _crossAxisCount();
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppTokens.space6,
-        vertical: AppTokens.space2,
-      ),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: n,
-          mainAxisSpacing: AppTokens.space3,
-          crossAxisSpacing: AppTokens.space3,
-          childAspectRatio: 2.1,
-        ),
-        itemCount: cards.length,
-        itemBuilder: (context, i) => KpiMetricTile(card: cards[i]),
-      ),
     );
   }
 }
@@ -1179,102 +1163,90 @@ class _TabStrip extends StatelessWidget {
     required this.tabs,
     required this.selected,
     required this.onSelect,
-    required this.theme,
   });
 
   final List<TabConfig> tabs;
   final int selected;
   final ValueChanged<int> onSelect;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppTokens.space6),
-            child: Row(
-              children: List.generate(tabs.length, (i) {
-                final t = tabs[i];
-                final active = i == selected;
-                return InkWell(
-                  onTap: () => onSelect(i),
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppTokens.space3,
-                      AppTokens.space2,
-                      AppTokens.space3,
-                      AppTokens.space2,
-                    ),
-                    child: IntrinsicWidth(
-                      child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 36,
+          child: Row(
+            children: List.generate(tabs.length, (i) {
+              final t = tabs[i];
+              final active = i == selected;
+              return InkWell(
+                onTap: () => onSelect(i),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                t.label,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: active
-                                      ? AppTokens.weightSemibold
-                                      : AppTokens.weightRegular,
-                                  color: active
-                                      ? AppTokens.accent500
-                                      : AppTokens.neutral500,
+                          Text(
+                            t.label,
+                            style: GoogleFonts.poppins(
+                              fontSize: AppTokens.textSm,
+                              fontWeight: AppTokens.weightMedium,
+                              color: active
+                                  ? AppTokens.primary800
+                                  : AppTokens.textSecondary,
+                            ),
+                          ),
+                          if (t.count != null && t.count! > 0) ...[
+                            SizedBox(width: AppTokens.space2),
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppTokens.primary50,
+                                borderRadius: BorderRadius.circular(
+                                  AppTokens.radiusFull,
                                 ),
                               ),
-                              if (t.count != null) ...[
-                                SizedBox(width: AppTokens.space2),
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: AppTokens.neutral100,
-                                    borderRadius: BorderRadius.circular(
-                                      AppTokens.radiusFull,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: AppTokens.space2,
-                                      vertical: AppTokens.space1 / 2,
-                                    ),
-                                    child: Text(
-                                      '${t.count}',
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: AppTokens.neutral600,
-                                          ),
-                                    ),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: AppTokens.space2,
+                                  vertical: AppTokens.space1 / 2,
+                                ),
+                                child: Text(
+                                  '${t.count}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: AppTokens.captionSize,
+                                    fontWeight: AppTokens.weightMedium,
+                                    color: AppTokens.primary800,
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
-                          SizedBox(height: AppTokens.space2),
-                          Container(
-                            height: 2,
-                            color: active
-                                ? AppTokens.accent500
-                                : AppTokens.white.withValues(alpha: 0),
-                          ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                    ),
+                      const Spacer(),
+                      Container(
+                        height: 2,
+                        color: active
+                            ? AppTokens.accent500
+                            : AppTokens.white.withValues(alpha: 0),
+                      ),
+                    ],
                   ),
-                );
-              }),
-            ),
+                ),
+              );
+            }),
           ),
-          Divider(
-            height: AppTokens.borderWidthHairline,
-            color: AppTokens.neutral200,
-          ),
-        ],
-      ),
+        ),
+        Container(
+          height: AppTokens.borderWidthSm,
+          color: AppTokens.borderDefault,
+        ),
+      ],
     );
   }
 }
@@ -1285,147 +1257,156 @@ class _TabStrip extends StatelessWidget {
 
 class _ToolbarRow<T> extends StatelessWidget {
   const _ToolbarRow({
-    required this.theme,
     required this.widget,
     required this.searchController,
     required this.onToggleFilters,
     required this.onColumnPicker,
+    required this.columnsButtonLink,
+    required this.anyColFilterActive,
   });
 
-  final ThemeData theme;
   final AppListingScreen<T> widget;
   final TextEditingController searchController;
   final VoidCallback onToggleFilters;
   final VoidCallback onColumnPicker;
-
-  double _searchWidth(double w) {
-    if (AppBreakpoints.isMobileWidth(w)) {
-      return w;
-    }
-    if (AppBreakpoints.isTabletWidth(w)) {
-      return AppTokens.listingSearchWidthTablet;
-    }
-    return AppTokens.listingSearchWidthDesktop;
-  }
+  final LayerLink columnsButtonLink;
+  final bool anyColFilterActive;
 
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
-    final showLabels = AppBreakpoints.isDesktopWidth(w);
     final hasFilters =
         widget.filterFields != null && widget.filterFields!.isNotEmpty;
 
-    return SizedBox(
-      height: AppTokens.inputHeightLg,
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppTokens.space4,
-          vertical: (AppTokens.inputHeightLg - AppTokens.buttonHeightMd) / 2,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTokens.cardBg,
+        border: Border(
+          bottom: BorderSide(
+            color: AppTokens.borderDefault,
+            width: AppTokens.borderWidthSm,
+          ),
         ),
-        child: Row(
-          children: [
-            if (widget.showSearch)
-              if (AppBreakpoints.isMobileWidth(w))
-                Expanded(
-                  child: _ListingSearchField(
-                    controller: searchController,
-                    hint: widget.searchHint,
-                    onChanged: widget.onSearch,
-                    theme: theme,
+      ),
+      child: SizedBox(
+        height: AppTokens.inputHeightLg,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+          child: Row(
+            children: [
+              if (widget.showSearch)
+                if (AppBreakpoints.isMobileWidth(w))
+                  Expanded(
+                    child: _ListingSearchField(
+                      controller: searchController,
+                      hint: widget.searchHint,
+                      onChanged: widget.onSearch,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: AppTokens.topbarSearchWidthDesktop,
+                    child: _ListingSearchField(
+                      controller: searchController,
+                      hint: widget.searchHint,
+                      onChanged: widget.onSearch,
+                    ),
                   ),
-                )
-              else
-                SizedBox(
-                  width: _searchWidth(w),
-                  child: _ListingSearchField(
-                    controller: searchController,
-                    hint: widget.searchHint,
-                    onChanged: widget.onSearch,
-                    theme: theme,
+              if (!AppBreakpoints.isMobileWidth(w)) const Spacer(),
+              if (hasFilters) ...[
+                _FilterButton(
+                  activeCount: widget.activeFilters.length,
+                  onPressed: onToggleFilters,
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
+              if (widget.showColumnToggle) ...[
+                CompositedTransformTarget(
+                  link: columnsButtonLink,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AppButton(
+                        label: 'Columns',
+                        leadingIcon: Icon(
+                          LucideIcons.columns,
+                          size: AppTokens.iconButtonIconSm,
+                          color: AppTokens.textPrimary,
+                        ),
+                        onPressed: onColumnPicker,
+                        variant: AppButtonVariant.secondary,
+                        size: AppButtonSize.sm,
+                      ),
+                      if (anyColFilterActive)
+                        const Positioned(
+                          right: -2,
+                          top: -2,
+                          child: _ToolbarAccentDot(),
+                        ),
+                    ],
                   ),
                 ),
-            if (!AppBreakpoints.isMobileWidth(w)) const Spacer(),
-            SizedBox(width: AppTokens.space2),
-            if (hasFilters)
-              _FilterButton(
-                showLabels: showLabels,
-                activeCount: widget.activeFilters.length,
-                onPressed: onToggleFilters,
-              ),
-            if (widget.showColumnToggle) ...[
-              SizedBox(width: AppTokens.space2),
-              showLabels
-                  ? AppButton(
-                      label: 'Columns',
-                      leadingIcon: const Icon(LucideIcons.columns3),
-                      onPressed: onColumnPicker,
-                      variant: AppButtonVariant.outlined,
-                      size: AppButtonSize.sm,
-                    )
-                  : AppIconButton(
-                      icon: const Icon(LucideIcons.columns3),
-                      onPressed: onColumnPicker,
-                      variant: AppIconButtonVariant.outlined,
-                      size: AppIconButtonSize.sm,
-                      tooltip: 'Columns',
-                    ),
+                SizedBox(width: AppTokens.space2),
+              ],
+              if (widget.showExport && widget.onExport != null) ...[
+                AppButton(
+                  label: 'Export',
+                  leadingIcon: Icon(
+                    LucideIcons.download,
+                    size: AppTokens.iconButtonIconSm,
+                    color: AppTokens.textPrimary,
+                  ),
+                  onPressed: widget.onExport,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
+              if (widget.showImport && widget.onImport != null) ...[
+                AppButton(
+                  label: 'Import',
+                  leadingIcon: Icon(
+                    LucideIcons.upload,
+                    size: AppTokens.iconButtonIconSm,
+                    color: AppTokens.textPrimary,
+                  ),
+                  onPressed: widget.onImport,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
+              if (widget.showPrint && widget.onPrint != null)
+                AppButton(
+                  label: 'Print',
+                  leadingIcon: Icon(
+                    LucideIcons.printer,
+                    size: AppTokens.iconButtonIconSm,
+                    color: AppTokens.textPrimary,
+                  ),
+                  onPressed: widget.onPrint,
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                ),
             ],
-            if (widget.showExport) ...[
-              SizedBox(width: AppTokens.space2),
-              showLabels
-                  ? AppButton(
-                      label: 'Export',
-                      leadingIcon: const Icon(LucideIcons.download),
-                      onPressed: widget.onExport,
-                      variant: AppButtonVariant.outlined,
-                      size: AppButtonSize.sm,
-                    )
-                  : AppIconButton(
-                      icon: const Icon(LucideIcons.download),
-                      onPressed: widget.onExport,
-                      variant: AppIconButtonVariant.outlined,
-                      size: AppIconButtonSize.sm,
-                      tooltip: 'Export',
-                    ),
-            ],
-            if (widget.showImport) ...[
-              SizedBox(width: AppTokens.space2),
-              showLabels
-                  ? AppButton(
-                      label: 'Import',
-                      leadingIcon: const Icon(LucideIcons.upload),
-                      onPressed: widget.onImport,
-                      variant: AppButtonVariant.outlined,
-                      size: AppButtonSize.sm,
-                    )
-                  : AppIconButton(
-                      icon: const Icon(LucideIcons.upload),
-                      onPressed: widget.onImport,
-                      variant: AppIconButtonVariant.outlined,
-                      size: AppIconButtonSize.sm,
-                      tooltip: 'Import',
-                    ),
-            ],
-            if (widget.showPrint) ...[
-              SizedBox(width: AppTokens.space2),
-              showLabels
-                  ? AppButton(
-                      label: 'Print',
-                      leadingIcon: const Icon(LucideIcons.printer),
-                      onPressed: widget.onPrint,
-                      variant: AppButtonVariant.outlined,
-                      size: AppButtonSize.sm,
-                    )
-                  : AppIconButton(
-                      icon: const Icon(LucideIcons.printer),
-                      onPressed: widget.onPrint,
-                      variant: AppIconButtonVariant.outlined,
-                      size: AppIconButtonSize.sm,
-                      tooltip: 'Print',
-                    ),
-            ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _ToolbarAccentDot extends StatelessWidget {
+  const _ToolbarAccentDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(
+        color: AppTokens.accent500,
+        shape: BoxShape.circle,
       ),
     );
   }
@@ -1436,22 +1417,19 @@ class _ListingSearchField extends StatelessWidget {
     required this.controller,
     required this.hint,
     required this.onChanged,
-    required this.theme,
   });
 
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String>? onChanged;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
-    final base = theme.inputDecorationTheme;
     final decoration = InputDecoration(
       hintText: hint,
       isDense: true,
       filled: true,
-      fillColor: AppTokens.neutral50,
+      fillColor: AppTokens.cardBg,
       contentPadding: EdgeInsets.symmetric(
         horizontal: AppTokens.space3,
         vertical: (AppTokens.buttonHeightMd - AppTokens.textSm) / 2,
@@ -1463,8 +1441,8 @@ class _ListingSearchField extends StatelessWidget {
         ),
         child: Icon(
           LucideIcons.search,
-          size: AppTokens.iconButtonIconSm,
-          color: AppTokens.neutral400,
+          size: 14,
+          color: AppTokens.textMuted,
         ),
       ),
       prefixIconConstraints: const BoxConstraints(
@@ -1472,74 +1450,62 @@ class _ListingSearchField extends StatelessWidget {
         minHeight: AppTokens.buttonHeightMd,
       ),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        borderRadius: BorderRadius.circular(AppTokens.inputRadius),
         borderSide: const BorderSide(
-          color: AppTokens.neutral200,
-          width: AppTokens.borderWidthHairline,
+          color: AppTokens.borderDefault,
+          width: AppTokens.borderWidthSm,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        borderRadius: BorderRadius.circular(AppTokens.inputRadius),
         borderSide: const BorderSide(
-          color: AppTokens.neutral200,
-          width: AppTokens.borderWidthHairline,
+          color: AppTokens.borderDefault,
+          width: AppTokens.borderWidthSm,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+        borderRadius: BorderRadius.circular(AppTokens.inputRadius),
         borderSide: const BorderSide(
           color: AppTokens.primary800,
           width: AppTokens.borderWidthMd,
         ),
       ),
-    ).applyDefaults(base);
+    );
 
-    return SizedBox(
-      height: AppTokens.buttonHeightMd,
-      child: TextField(
-        controller: controller,
-        style: theme.textTheme.bodySmall?.copyWith(
-          fontSize: AppTokens.textSm,
-          color: theme.colorScheme.onSurface,
-        ),
-        cursorColor: theme.colorScheme.primary,
-        decoration: decoration,
-        onChanged: onChanged,
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.poppins(
+        fontSize: AppTokens.textSm,
+        fontWeight: FontWeight.w400,
+        color: AppTokens.textPrimary,
       ),
+      cursorColor: AppTokens.primary800,
+      decoration: decoration,
+      onChanged: onChanged,
     );
   }
 }
 
 class _FilterButton extends StatelessWidget {
   const _FilterButton({
-    required this.showLabels,
     required this.activeCount,
     required this.onPressed,
   });
 
-  final bool showLabels;
   final int activeCount;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final badge = activeCount > 0;
-    final child = showLabels
-        ? AppButton(
-            label: 'Filters',
-            leadingIcon: const Icon(LucideIcons.filter),
-            trailingIcon: const Icon(LucideIcons.chevronDown, size: 14),
-            onPressed: onPressed,
-            variant: AppButtonVariant.outlined,
-            size: AppButtonSize.sm,
-          )
-        : AppIconButton(
-            icon: const Icon(LucideIcons.filter),
-            onPressed: onPressed,
-            variant: AppIconButtonVariant.outlined,
-            size: AppIconButtonSize.sm,
-            tooltip: 'Filters',
-          );
+    final child = AppButton(
+      label: 'Filters',
+      leadingIcon: const Icon(LucideIcons.filter),
+      trailingIcon: const Icon(LucideIcons.chevronDown, size: 14),
+      onPressed: onPressed,
+      variant: AppButtonVariant.secondary,
+      size: AppButtonSize.sm,
+    );
     if (!badge) {
       return child;
     }
@@ -1559,9 +1525,10 @@ class _FilterButton extends StatelessWidget {
               padding: EdgeInsets.all(AppTokens.space1),
               child: Text(
                 '$activeCount',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                style: GoogleFonts.poppins(
                   color: AppTokens.white,
                   fontSize: AppTokens.textXs,
+                  fontWeight: AppTokens.weightSemibold,
                 ),
               ),
             ),
@@ -1581,13 +1548,11 @@ class _ActiveFilterChips extends StatelessWidget {
     required this.activeFilters,
     required this.onRemove,
     required this.onClearAll,
-    required this.theme,
   });
 
   final List<ActiveFilter> activeFilters;
   final ValueChanged<ActiveFilter> onRemove;
   final VoidCallback onClearAll;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -1605,7 +1570,9 @@ class _ActiveFilterChips extends StatelessWidget {
             InputChip(
               label: Text(
                 '${f.label}: ${f.value}',
-                style: theme.textTheme.labelSmall?.copyWith(
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: AppTokens.weightMedium,
                   color: AppTokens.primary800,
                 ),
               ),
@@ -1615,7 +1582,17 @@ class _ActiveFilterChips extends StatelessWidget {
               side: BorderSide.none,
               padding: EdgeInsets.symmetric(horizontal: AppTokens.space2),
             ),
-          TextButton(onPressed: onClearAll, child: const Text('Clear all')),
+          TextButton(
+            onPressed: onClearAll,
+            style: TextButton.styleFrom(
+              foregroundColor: AppTokens.primary800,
+              textStyle: GoogleFonts.poppins(
+                fontSize: AppTokens.textSm,
+                fontWeight: AppTokens.weightMedium,
+              ),
+            ),
+            child: const Text('Clear all'),
+          ),
         ],
       ),
     );
@@ -1632,37 +1609,29 @@ class _BulkBar<T> extends StatelessWidget {
     required this.bulkActions,
     required this.onBulk,
     required this.onDeselectAll,
-    required this.theme,
   });
 
   final int count;
   final List<BulkAction<T>>? bulkActions;
   final void Function(void Function(List<T> rows) fn) onBulk;
   final VoidCallback onDeselectAll;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppTokens.primary50,
-        border: Border(
-          bottom: BorderSide(
-            color: AppTokens.primary100,
-            width: AppTokens.borderWidthHairline,
-          ),
-        ),
-      ),
+      decoration: const BoxDecoration(color: AppTokens.primary800),
       child: SizedBox(
         height: AppTokens.inputHeightLg,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppTokens.space4),
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
           child: Row(
             children: [
               Text(
                 '$count selected',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: AppTokens.primary800,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.textSm,
+                  fontWeight: AppTokens.weightMedium,
+                  color: AppTokens.white,
                 ),
               ),
               const Spacer(),
@@ -1680,17 +1649,18 @@ class _BulkBar<T> extends StatelessWidget {
                           label: a.label,
                           leadingIcon: a.icon,
                           onPressed: () => onBulk(a.onTap),
-                          variant: AppButtonVariant.secondary,
+                          variant: AppButtonVariant.tertiary,
                           size: AppButtonSize.sm,
+                          foregroundColor: AppTokens.white,
                         ),
                   SizedBox(width: AppTokens.space2),
                 ],
-              AppIconButton(
-                icon: const Icon(LucideIcons.x),
+              AppButton(
+                label: 'Clear selection',
                 onPressed: onDeselectAll,
-                variant: AppIconButtonVariant.ghost,
-                size: AppIconButtonSize.sm,
-                tooltip: 'Deselect all',
+                variant: AppButtonVariant.tertiary,
+                size: AppButtonSize.sm,
+                foregroundColor: AppTokens.white,
               ),
             ],
           ),
@@ -1716,7 +1686,10 @@ class _ListingTableHeader<T> extends StatelessWidget {
     required this.selectAll,
     required this.onSelectAll,
     required this.onSortTap,
-    required this.theme,
+    required this.onFilterTap,
+    required this.activeColFilters,
+    required this.colFilterLinks,
+    required this.getColFilterLink,
   });
 
   final List<double> widths;
@@ -1729,7 +1702,10 @@ class _ListingTableHeader<T> extends StatelessWidget {
   final bool? selectAll;
   final ValueChanged<bool?>? onSelectAll;
   final ValueChanged<TableColumn<T>> onSortTap;
-  final ThemeData theme;
+  final ValueChanged<TableColumn<T>> onFilterTap;
+  final Set<String> activeColFilters;
+  final Map<String, LayerLink> colFilterLinks;
+  final LayerLink Function(String key) getColFilterLink;
 
   @override
   Widget build(BuildContext context) {
@@ -1739,22 +1715,17 @@ class _ListingTableHeader<T> extends StatelessWidget {
       return _listingTableCellShell(
         width: width,
         alignment: align,
+        isHeader: true,
         child: child,
       );
     }
 
-    final headerBg = theme.brightness == Brightness.dark
-        ? AppTokens.neutral800
-        : AppTokens.surfaceSubtle;
-
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: headerBg,
+      decoration: const BoxDecoration(
+        color: AppTokens.surfaceSubtle,
         border: Border(
           bottom: BorderSide(
-            color: theme.brightness == Brightness.dark
-                ? AppTokens.neutral700
-                : AppTokens.borderDefault,
+            color: AppTokens.borderDefault,
             width: AppTokens.borderWidthSm,
           ),
         ),
@@ -1762,7 +1733,7 @@ class _ListingTableHeader<T> extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: SizedBox(
-          height: AppTokens.tableRowHeight,
+          height: AppTokens.tableHeaderHeight,
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: _kListingTableOuterGutter),
             child: Row(
@@ -1787,46 +1758,81 @@ class _ListingTableHeader<T> extends StatelessWidget {
                   shell(
                     widths[wi++],
                     _alignmentForTableColumn(col),
-                    InkWell(
-                      onTap: col.sortable ? () => onSortTap(col) : null,
-                      child: Row(
-                        mainAxisSize: col.key == 'status'
-                            ? MainAxisSize.min
-                            : MainAxisSize.max,
-                        mainAxisAlignment: _headerMainAxisForColumn(col),
-                        children: [
+                    Row(
+                      mainAxisSize: col.key == 'status'
+                          ? MainAxisSize.min
+                          : MainAxisSize.max,
+                      mainAxisAlignment: _headerMainAxisForColumn(col),
+                      children: [
+                        if (col.sortable)
+                          Flexible(
+                            child: InkWell(
+                              onTap: () => onSortTap(col),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      col.label.toUpperCase(),
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: AppTokens.tableHeaderSize,
+                                        fontWeight: AppTokens.tableHeaderWeight,
+                                        letterSpacing: 0.3,
+                                        color: AppTokens.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: AppTokens.space1),
+                                  Icon(
+                                    sortKey != col.key
+                                        ? LucideIcons.chevronsUpDown
+                                        : (sortAscending
+                                            ? LucideIcons.chevronUp
+                                            : LucideIcons.chevronDown),
+                                    size: 12,
+                                    color: sortKey == col.key
+                                        ? AppTokens.primary800
+                                        : AppTokens.textMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
                           Flexible(
                             child: Text(
                               col.label.toUpperCase(),
                               maxLines: 1,
                               softWrap: false,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: theme.textTheme.labelSmall?.fontFamily ??
-                                    AppTokens.fontFamily,
-                                fontSize: AppTokens.textXs,
-                                fontWeight: AppTokens.weightSemibold,
+                              style: GoogleFonts.poppins(
+                                fontSize: AppTokens.tableHeaderSize,
+                                fontWeight: AppTokens.tableHeaderWeight,
                                 letterSpacing: 0.3,
                                 color: AppTokens.textSecondary,
                               ),
                             ),
                           ),
-                          if (col.sortable) ...[
-                            SizedBox(width: AppTokens.space1),
-                            Icon(
-                              sortKey != col.key
-                                  ? LucideIcons.chevronsUpDown
-                                  : (sortAscending
-                                      ? LucideIcons.chevronUp
-                                      : LucideIcons.chevronDown),
-                              size: AppTokens.iconButtonIconSm,
-                              color: sortKey == col.key
-                                  ? AppTokens.primary800
-                                  : AppTokens.neutral300,
+                        if (col.filterConfig != null) ...[
+                          SizedBox(width: AppTokens.space1),
+                          CompositedTransformTarget(
+                            link: getColFilterLink(col.key),
+                            child: GestureDetector(
+                              onTap: () => onFilterTap(col),
+                              child: Icon(
+                                LucideIcons.listFilter,
+                                size: 11,
+                                color: activeColFilters.contains(col.key)
+                                    ? AppTokens.accent500
+                                    : AppTokens.textMuted,
+                              ),
                             ),
-                          ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 if (hasRowActions)
@@ -1850,6 +1856,7 @@ class _ListingDataRow<T> extends StatefulWidget {
     required this.columns,
     required this.row,
     required this.index,
+    required this.isLast,
     required this.selected,
     required this.showCheckboxes,
     required this.showToggle,
@@ -1858,13 +1865,13 @@ class _ListingDataRow<T> extends StatefulWidget {
     required this.onToggleChanged,
     required this.onRowTap,
     required this.onSelectRow,
-    required this.theme,
   });
 
   final List<double> widths;
   final List<TableColumn<T>> columns;
   final T row;
   final int index;
+  final bool isLast;
   final bool selected;
   final bool showCheckboxes;
   final bool showToggle;
@@ -1873,7 +1880,6 @@ class _ListingDataRow<T> extends StatefulWidget {
   final ValueChanged<T>? onToggleChanged;
   final ValueChanged<T>? onRowTap;
   final ValueChanged<bool> onSelectRow;
-  final ThemeData theme;
 
   @override
   State<_ListingDataRow<T>> createState() => _ListingDataRowState<T>();
@@ -1884,14 +1890,13 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = widget.theme;
-    final dark = theme.brightness == Brightness.dark;
     var wi = 0;
 
     Widget shell(double width, Alignment align, Widget child) {
       return _listingTableCellShell(
         width: width,
         alignment: align,
+        isHeader: false,
         child: child,
       );
     }
@@ -1899,8 +1904,8 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
     final Color bg = widget.selected
         ? AppTokens.primary50
         : _hover
-            ? (dark ? AppTokens.neutral800 : AppTokens.surfaceSubtle)
-            : (dark ? AppTokens.neutral800 : AppTokens.white);
+            ? AppTokens.surfaceSubtle
+            : AppTokens.cardBg;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -1915,12 +1920,14 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
             height: AppTokens.tableRowHeight,
             padding: EdgeInsets.symmetric(horizontal: _kListingTableOuterGutter),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: dark ? AppTokens.neutral700 : AppTokens.tableRowDivider,
-                  width: AppTokens.borderWidthSm,
-                ),
-              ),
+              border: widget.isLast
+                  ? null
+                  : const Border(
+                      bottom: BorderSide(
+                        color: AppTokens.borderDefault,
+                        width: AppTokens.borderWidthSm,
+                      ),
+                    ),
             ),
             child: Row(
               children: [
@@ -1950,12 +1957,10 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       softWrap: false,
-                      style: TextStyle(
-                        fontFamily: theme.textTheme.bodyMedium?.fontFamily ??
-                            AppTokens.fontFamily,
-                        fontSize: AppTokens.bodySize,
-                        fontWeight: AppTokens.bodyWeight,
-                        color: dark ? AppTokens.neutral100 : AppTokens.textPrimary,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.tableCellSize,
+                        fontWeight: FontWeight.w400,
+                        color: AppTokens.textPrimary,
                       ),
                       child: ClipRect(
                         child: col.cellBuilder(widget.row),
@@ -1966,18 +1971,13 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
                   shell(
                     widget.widths[wi++],
                     Alignment.centerRight,
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppTokens.space2,
-                        vertical: AppTokens.space1,
-                      ),
-                      child: PopupMenuButton<String>(
+                    PopupMenuButton<String>(
                         tooltip: 'Actions',
                         padding: EdgeInsets.zero,
-                        icon: Icon(
-                          LucideIcons.ellipsis,
-                          size: AppTokens.iconButtonIconMd,
-                          color: AppTokens.neutral600,
+                        icon: const Icon(
+                          LucideIcons.moreHorizontal,
+                          size: 16,
+                          color: AppTokens.textMuted,
                         ),
                         onSelected: (key) {
                           final a = widget.rowActions!.firstWhere(
@@ -2008,12 +2008,13 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
                                       SizedBox(width: AppTokens.space2),
                                       Text(
                                         a.label,
-                                        style: widget.theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: a.isDanger
-                                                  ? AppTokens.error500
-                                                  : null,
-                                            ),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: AppTokens.textSm,
+                                          fontWeight: AppTokens.weightRegular,
+                                          color: a.isDanger
+                                              ? AppTokens.error500
+                                              : AppTokens.textPrimary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -2022,7 +2023,6 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
                               .toList();
                         },
                       ),
-                    ),
                   ),
               ],
             ),
@@ -2125,46 +2125,28 @@ class _SkeletonTable extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       builder: (context, child) {
-        return Opacity(
-          opacity: animation.value,
-          child: ListView.builder(
-            padding: EdgeInsets.all(AppTokens.space4),
-            itemCount: 8,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: EdgeInsets.only(bottom: AppTokens.space2),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        height: AppTokens.space3,
-                        decoration: BoxDecoration(
-                          color: AppTokens.neutral200,
-                          borderRadius: BorderRadius.circular(
-                            AppTokens.radiusSm,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: AppTokens.space3),
-                    Expanded(
-                      flex: 2,
-                      child: Container(
-                        height: AppTokens.space3,
-                        decoration: BoxDecoration(
-                          color: AppTokens.neutral100,
-                          borderRadius: BorderRadius.circular(
-                            AppTokens.radiusSm,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+        final barColor = Color.lerp(
+          AppTokens.surfaceSubtle,
+          AppTokens.borderDefault,
+          animation.value,
+        )!;
+        return ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: 8,
+          itemBuilder: (context, index) {
+            return Container(
+              height: AppTokens.tableRowHeight,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+              child: Container(
+                height: AppTokens.space3,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -2176,39 +2158,32 @@ class _SkeletonTable extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.message, required this.theme});
+  const _EmptyState({required this.message});
 
   final String message;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(AppTokens.space8),
+        padding: const EdgeInsets.symmetric(vertical: AppTokens.space10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               LucideIcons.inbox,
-              size: AppTokens.space10,
-              color: AppTokens.neutral300,
+              size: 32,
+              color: AppTokens.textMuted,
             ),
             SizedBox(height: AppTokens.space4),
             Text(
-              'No records found',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: AppTokens.neutral500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: AppTokens.space2),
-            Text(
               message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppTokens.neutral400,
-              ),
               textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.bodySize,
+                fontWeight: AppTokens.bodyWeight,
+                color: AppTokens.textSecondary,
+              ),
             ),
           ],
         ),
@@ -2223,7 +2198,6 @@ class _EmptyState extends StatelessWidget {
 
 class _PaginationRow extends StatelessWidget {
   const _PaginationRow({
-    required this.theme,
     required this.totalCount,
     required this.currentPage,
     required this.pageSize,
@@ -2232,7 +2206,6 @@ class _PaginationRow extends StatelessWidget {
     required this.onPageSizeChanged,
   });
 
-  final ThemeData theme;
   final int totalCount;
   final int currentPage;
   final int pageSize;
@@ -2246,125 +2219,86 @@ class _PaginationRow extends StatelessWidget {
     final end = totalCount == 0
         ? 0
         : (currentPage * pageSize).clamp(0, totalCount);
-    final lastPage = totalCount == 0 ? 1 : ((totalCount - 1) ~/ pageSize) + 1;
     final canPrev = currentPage > 1;
+    final lastPage = totalCount == 0 ? 1 : ((totalCount - 1) ~/ pageSize) + 1;
     final canNext = totalCount > 0 && currentPage < lastPage;
+    final resolvedSize =
+        pageSizeOptions.contains(pageSize) ? pageSize : pageSizeOptions.first;
 
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
+        color: AppTokens.cardBg,
         border: Border(
           top: BorderSide(
-            color: theme.brightness == Brightness.dark
-                ? AppTokens.neutral700
-                : AppTokens.neutral200,
-            width: AppTokens.borderWidthHairline,
+            color: AppTokens.borderDefault,
+            width: AppTokens.borderWidthSm,
           ),
         ),
       ),
       child: SizedBox(
-        height: AppTokens.inputHeightLg,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxW = constraints.maxWidth;
-            final narrow = maxW < 420;
-            const gap = AppTokens.space2;
-            const gapLg = AppTokens.space3;
-
-            Widget pageControls() {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Rows per page:',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppTokens.neutral500,
-                    ),
-                  ),
-                  SizedBox(width: gap),
-                  SizedBox(
-                    height: AppTokens.buttonHeightSm,
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: pageSizeOptions.contains(pageSize)
-                            ? pageSize
-                            : pageSizeOptions.first,
-                        items: pageSizeOptions
-                            .map(
-                              (n) => DropdownMenuItem<int>(
-                                value: n,
-                                child: Text(
-                                  '$n',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    fontSize: AppTokens.textSm,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            onPageSizeChanged(v);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  if (!narrow) const Spacer(),
-                  if (narrow) SizedBox(width: gapLg),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: narrow
-                          ? (maxW * 0.32).clamp(64.0, 160.0)
-                          : double.infinity,
-                    ),
-                    child: Text(
-                      '$start-$end of $totalCount',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppTokens.neutral500,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: gap),
-                  AppIconButton(
-                    icon: const Icon(LucideIcons.chevronLeft),
-                    onPressed: canPrev
-                        ? () => onPageChanged(currentPage - 1)
-                        : null,
-                    variant: AppIconButtonVariant.ghost,
-                    size: AppIconButtonSize.sm,
-                    tooltip: 'Previous page',
-                  ),
-                  AppIconButton(
-                    icon: const Icon(LucideIcons.chevronRight),
-                    onPressed: canNext
-                        ? () => onPageChanged(currentPage + 1)
-                        : null,
-                    variant: AppIconButtonVariant.ghost,
-                    size: AppIconButtonSize.sm,
-                    tooltip: 'Next page',
-                  ),
-                ],
-              );
-            }
-
-            final child = pageControls();
-            if (narrow) {
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: AppTokens.space4),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: child,
+        height: 40,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+          child: Row(
+            children: [
+              Text(
+                'Rows per page:',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.textSm,
+                  fontWeight: AppTokens.weightMedium,
+                  color: AppTokens.textSecondary,
                 ),
-              );
-            }
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: AppTokens.space4),
-              child: child,
-            );
-          },
+              ),
+              SizedBox(width: AppTokens.space2),
+              SizedBox(
+                width: 70,
+                height: 28,
+                child: AppSelect<int>(
+                  value: resolvedSize,
+                  items: [
+                    for (final n in pageSizeOptions)
+                      AppSelectItem<int>(value: n, label: '$n'),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) {
+                      onPageSizeChanged(v);
+                    }
+                  },
+                  size: AppInputSize.sm,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$start–$end of $totalCount',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.textSm,
+                  fontWeight: AppTokens.weightRegular,
+                  color: AppTokens.textSecondary,
+                ),
+              ),
+              SizedBox(width: AppTokens.space2),
+              AppIconButton(
+                icon: const Icon(LucideIcons.chevronLeft),
+                onPressed: canPrev
+                    ? () => onPageChanged(currentPage - 1)
+                    : null,
+                variant: AppIconButtonVariant.outlined,
+                size: AppIconButtonSize.sm,
+                tooltip: 'Previous page',
+              ),
+              AppIconButton(
+                icon: const Icon(LucideIcons.chevronRight),
+                onPressed: canNext
+                    ? () => onPageChanged(currentPage + 1)
+                    : null,
+                variant: AppIconButtonVariant.outlined,
+                size: AppIconButtonSize.sm,
+                tooltip: 'Next page',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2425,7 +2359,14 @@ class _FilterPanelContent<T> extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('Filters', style: theme.textTheme.titleSmall),
+                    child: Text(
+                      'Filters',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.textMd,
+                        fontWeight: AppTokens.weightSemibold,
+                        color: AppTokens.textPrimary,
+                      ),
+                    ),
                   ),
                   AppIconButton(
                     icon: const Icon(LucideIcons.x),
@@ -2472,7 +2413,6 @@ class _FilterPanelContent<T> extends StatelessWidget {
                           draftDateToText: draftDateToText,
                           onDraftChanged: onDraftChanged,
                           pickDate: pickDate,
-                          theme: theme,
                         ),
                       ),
                   ],
@@ -2519,6 +2459,506 @@ class _FilterPanelContent<T> extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// Column selector overlay (anchored to Columns button)
+// -----------------------------------------------------------------------------
+
+class _ColumnSelectorOverlay extends StatefulWidget {
+  const _ColumnSelectorOverlay({
+    required this.link,
+    required this.columns,
+    required this.visibility,
+    required this.onToggle,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final List<TableColumn<Object?>> columns;
+  final List<bool> visibility;
+  final void Function(int index, bool visible) onToggle;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_ColumnSelectorOverlay> createState() => _ColumnSelectorOverlayState();
+}
+
+class _ColumnSelectorOverlayState extends State<_ColumnSelectorOverlay> {
+  late List<bool> _vis;
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _vis = List<bool>.from(widget.visibility);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ColumnSelectorOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _vis = List<bool>.from(widget.visibility);
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = <(int, TableColumn<Object?>)>[];
+    for (var i = 0; i < widget.columns.length; i++) {
+      final col = widget.columns[i];
+      if (_query.isEmpty ||
+          col.label.toLowerCase().contains(_query.toLowerCase())) {
+        filtered.add((i, col));
+      }
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onDismiss,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: widget.link,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomRight,
+          followerAnchor: Alignment.topRight,
+          offset: const Offset(0, 4),
+          child: Material(
+            color: AppTokens.cardBg,
+            borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+            elevation: 0,
+            child: Container(
+              width: 220,
+              constraints: const BoxConstraints(maxHeight: 320),
+              decoration: BoxDecoration(
+                color: AppTokens.cardBg,
+                border: Border.all(
+                  color: AppTokens.borderDefault,
+                  width: AppTokens.borderWidthSm,
+                ),
+                borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+                boxShadow: AppTokens.shadowMd,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppTokens.borderDefault,
+                          width: AppTokens.borderWidthSm,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Columns',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.textSm,
+                        fontWeight: AppTokens.weightSemibold,
+                        color: AppTokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                  // Search
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                    child: SizedBox(
+                      height: 28,
+                      child: TextField(
+                        controller: _search,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppTokens.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search columns…',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppTokens.textMuted,
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusMd),
+                            borderSide: const BorderSide(
+                              color: AppTokens.borderDefault,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusMd),
+                            borderSide: const BorderSide(
+                              color: AppTokens.borderDefault,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusMd),
+                            borderSide: const BorderSide(
+                              color: AppTokens.primary800,
+                              width: AppTokens.borderWidthMd,
+                            ),
+                          ),
+                        ),
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                    ),
+                  ),
+                  // Column list
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, idx) {
+                        final (i, col) = filtered[idx];
+                        return SizedBox(
+                          height: 32,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: Checkbox(
+                                    value: _vis[i],
+                                    onChanged: (v) {
+                                      final next = v ?? false;
+                                      setState(() => _vis[i] = next);
+                                      widget.onToggle(i, next);
+                                    },
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    activeColor: AppTokens.primary800,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    col.label,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: AppTokens.textSm,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppTokens.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(
+                                  LucideIcons.gripVertical,
+                                  size: 14,
+                                  color: AppTokens.textMuted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Column filter overlay (anchored to filter icon in column header)
+// -----------------------------------------------------------------------------
+
+class _ColumnFilterOverlay extends StatefulWidget {
+  const _ColumnFilterOverlay({
+    required this.link,
+    required this.columnKey,
+    required this.config,
+    required this.initialText,
+    required this.initialMulti,
+    required this.onApply,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final String columnKey;
+  final ColumnFilterConfig config;
+  final String initialText;
+  final Set<String> initialMulti;
+  final void Function(String? text, Set<String>? multi) onApply;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_ColumnFilterOverlay> createState() => _ColumnFilterOverlayState();
+}
+
+class _ColumnFilterOverlayState extends State<_ColumnFilterOverlay> {
+  late final TextEditingController _textCtrl;
+  late Set<String> _multi;
+
+  @override
+  void initState() {
+    super.initState();
+    _textCtrl = TextEditingController(text: widget.initialText);
+    _multi = Set<String>.from(widget.initialMulti);
+  }
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onDismiss,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: widget.link,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, 4),
+          child: Material(
+            color: AppTokens.cardBg,
+            borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+            elevation: 0,
+            child: Container(
+              width: 200,
+              decoration: BoxDecoration(
+                color: AppTokens.cardBg,
+                border: Border.all(
+                  color: AppTokens.borderDefault,
+                  width: AppTokens.borderWidthSm,
+                ),
+                borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+                boxShadow: AppTokens.shadowMd,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: widget.config.type == ColumnFilterType.text
+                    ? _buildTextFilter()
+                    : _buildSelectFilter(),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextFilter() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 30,
+          child: TextField(
+            controller: _textCtrl,
+            autofocus: true,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.textSm,
+              color: AppTokens.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Filter...',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: AppTokens.textSm,
+                color: AppTokens.textMuted,
+              ),
+              isDense: true,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                borderSide: const BorderSide(color: AppTokens.borderDefault),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                borderSide: const BorderSide(color: AppTokens.borderDefault),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                borderSide: const BorderSide(
+                  color: AppTokens.primary800,
+                  width: AppTokens.borderWidthMd,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _FilterPopoverButton(
+                label: 'Clear',
+                onTap: () => widget.onApply('', null),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _FilterPopoverButton(
+                label: 'Apply',
+                primary: true,
+                onTap: () => widget.onApply(_textCtrl.text.trim(), null),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectFilter() {
+    final options = widget.config.options ?? [];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 200),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: options.map((opt) {
+                return SizedBox(
+                  height: 30,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: Checkbox(
+                          value: _multi.contains(opt),
+                          onChanged: (v) {
+                            setState(() {
+                              if (v == true) {
+                                _multi.add(opt);
+                              } else {
+                                _multi.remove(opt);
+                              }
+                            });
+                          },
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          activeColor: AppTokens.primary800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          opt,
+                          style: GoogleFonts.poppins(
+                            fontSize: AppTokens.textSm,
+                            color: AppTokens.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _FilterPopoverButton(
+                label: 'Clear',
+                onTap: () => widget.onApply(null, {}),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _FilterPopoverButton(
+                label: 'Apply',
+                primary: true,
+                onTap: () => widget.onApply(null, Set<String>.from(_multi)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterPopoverButton extends StatelessWidget {
+  const _FilterPopoverButton({
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 26,
+        decoration: BoxDecoration(
+          color: primary ? AppTokens.primary800 : AppTokens.surfaceSubtle,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          border: Border.all(
+            color: primary ? AppTokens.primary800 : AppTokens.borderDefault,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.textXs,
+            fontWeight: AppTokens.weightSemibold,
+            color: primary ? AppTokens.white : AppTokens.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Filter side panel / bottom sheet body
+// -----------------------------------------------------------------------------
+
 class _FilterFieldBlock extends StatelessWidget {
   const _FilterFieldBlock({
     required this.field,
@@ -2528,7 +2968,6 @@ class _FilterFieldBlock extends StatelessWidget {
     required this.draftDateToText,
     required this.onDraftChanged,
     required this.pickDate,
-    required this.theme,
   });
 
   final FilterField field;
@@ -2538,7 +2977,6 @@ class _FilterFieldBlock extends StatelessWidget {
   final Map<String, TextEditingController> draftDateToText;
   final VoidCallback onDraftChanged;
   final Future<void> Function(String fieldKey, bool isFrom) pickDate;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -2547,10 +2985,10 @@ class _FilterFieldBlock extends StatelessWidget {
       children: [
         Text(
           field.label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.brightness == Brightness.dark
-                ? theme.colorScheme.onSurface
-                : AppTokens.neutral700,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.fieldLabelSize,
+            fontWeight: AppTokens.fieldLabelWeight,
+            color: AppTokens.neutral700,
           ),
         ),
         SizedBox(height: AppTokens.space2),
@@ -2568,7 +3006,14 @@ class _FilterFieldBlock extends StatelessWidget {
                   dense: true,
                   visualDensity: VisualDensity.compact,
                   contentPadding: EdgeInsets.zero,
-                  title: Text(opt, style: theme.textTheme.bodySmall),
+                  title: Text(
+                    opt,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.bodySmSize,
+                      fontWeight: AppTokens.weightRegular,
+                      color: AppTokens.textPrimary,
+                    ),
+                  ),
                   value: (draftMulti[field.key] ?? {}).contains(opt),
                   onChanged: (v) {
                     draftMulti.putIfAbsent(field.key, () => <String>{});

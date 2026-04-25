@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
@@ -243,175 +244,140 @@ class _UserFormPageState extends State<UserFormPage> {
                 ),
               ),
             )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          : AppFormPageLayout(
+              leftPanel: [
                 AppFormSection(
                   title: 'Basic Details',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppFormFieldRow(
-                        children: [
-                          AppInput(
-                            label: 'Name',
-                            controller: _nameCtrl,
-                            required: true,
-                            errorText: _nameError,
-                            size: AppInputSize.sm,
-                          ),
-                          AppInput(
-                            label: 'Email',
-                            controller: _emailCtrl,
-                            keyboardType: TextInputType.emailAddress,
-                            required: true,
-                            errorText: _emailError,
-                            size: AppInputSize.sm,
-                          ),
-                        ],
+                  children: [
+                    AppInput(
+                      label: 'Name',
+                      controller: _nameCtrl,
+                      required: true,
+                      errorText: _nameError,
+                      size: AppInputSize.sm,
+                    ),
+                    AppInput(
+                      label: 'Email',
+                      controller: _emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      required: true,
+                      errorText: _emailError,
+                      size: AppInputSize.sm,
+                    ),
+                    AppInput(
+                      label: 'Phone',
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      size: AppInputSize.sm,
+                    ),
+                    AppInput(
+                      label: 'Username',
+                      controller: _usernameCtrl,
+                      required: true,
+                      errorText: _usernameError,
+                      size: AppInputSize.sm,
+                    ),
+                    if (!widget.isEdit)
+                      AppFormFullWidth(
+                        child: AppInput(
+                          label: 'Password',
+                          controller: _passwordCtrl,
+                          obscureText: true,
+                          required: true,
+                          errorText: _passwordError,
+                          size: AppInputSize.sm,
+                        ),
                       ),
-                      SizedBox(height: AppTokens.space3),
-                      AppFormFieldRow(
-                        children: [
-                          AppInput(
-                            label: 'Phone',
-                            controller: _phoneCtrl,
-                            keyboardType: TextInputType.phone,
-                            size: AppInputSize.sm,
-                          ),
-                          AppInput(
-                            label: 'Username',
-                            controller: _usernameCtrl,
-                            required: true,
-                            errorText: _usernameError,
-                            size: AppInputSize.sm,
-                          ),
-                        ],
+                  ],
+                ),
+              ],
+              rightPanel: [
+                AppFormSection(
+                  title: 'Organisation',
+                  children: [
+                    AppSelect<String?>(
+                      key: ValueKey<String?>(
+                        'dept_${_deptId}_${depts.items.length}',
                       ),
-                      if (!widget.isEdit) ...[
-                        SizedBox(height: AppTokens.space3),
-                        AppFormFieldRow(
-                          children: [
-                            AppInput(
-                              label: 'Password',
-                              controller: _passwordCtrl,
-                              obscureText: true,
-                              required: true,
-                              errorText: _passwordError,
-                              size: AppInputSize.sm,
-                            ),
-                          ],
+                      label: 'Department',
+                      value: _deptId != null &&
+                              depts.items.any((d) => d.id == _deptId)
+                          ? _deptId
+                          : null,
+                      items: [
+                        const AppSelectItem<String?>(
+                          value: null,
+                          label: 'Select department',
+                        ),
+                        ...depts.items.map(
+                          (d) => AppSelectItem<String?>(
+                            value: d.id,
+                            label: d.name,
+                          ),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-                SizedBox(height: AppTokens.space3),
-                AppFormSection(
-                  title: 'Organization',
-                  child: AppFormFieldRow(
-                    children: [
-                      AppFormFieldSpan(
-                        child: AppSelect<String?>(
-                          key: ValueKey<String?>(
-                            'dept_${_deptId}_${depts.items.length}',
-                          ),
-                          label: 'Department',
-                          value: _deptId != null &&
-                                  depts.items.any((d) => d.id == _deptId)
-                              ? _deptId
-                              : null,
-                          items: [
-                            DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(
-                                'Select department',
-                                style: TextStyle(color: AppTokens.hintColor),
-                              ),
-                            ),
-                            ...depts.items.map(
-                              (d) => DropdownMenuItem<String?>(
-                                value: d.id,
-                                child: Text(
-                                  d.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ],
-                          onChanged: (v) => setState(() => _deptId = v),
-                          isRequired: true,
-                          errorText: _deptError,
-                        ),
+                      onChanged: (v) => setState(() => _deptId = v),
+                      isRequired: true,
+                      errorText: _deptError,
+                    ),
+                    AppSelect<String?>(
+                      key: ValueKey<String?>(
+                        'role_${_roleId}_${roles.items.length}',
                       ),
-                      AppFormFieldSpan(
-                        child: AppSelect<String?>(
-                          key: ValueKey<String?>(
-                            'role_${_roleId}_${roles.items.length}',
-                          ),
-                          label: 'Role',
-                          value: _roleId != null &&
-                                  roles.items.any((r) => r.id == _roleId)
-                              ? _roleId
-                              : null,
-                          items: [
-                            DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text(
-                                'Select role',
-                                style: TextStyle(color: AppTokens.hintColor),
-                              ),
-                            ),
-                            ...roles.items.map(
-                              (r) => DropdownMenuItem<String?>(
-                                value: r.id,
-                                child: Text(
-                                  r.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ],
-                          onChanged: (v) => setState(() => _roleId = v),
-                          isRequired: true,
-                          errorText: _roleError,
+                      label: 'Role',
+                      value: _roleId != null &&
+                              roles.items.any((r) => r.id == _roleId)
+                          ? _roleId
+                          : null,
+                      items: [
+                        const AppSelectItem<String?>(
+                          value: null,
+                          label: 'Select role',
                         ),
-                      ),
-                    ],
-                  ),
+                        ...roles.items.map(
+                          (r) => AppSelectItem<String?>(
+                            value: r.id,
+                            label: r.name,
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => setState(() => _roleId = v),
+                      isRequired: true,
+                      errorText: _roleError,
+                    ),
+                  ],
                 ),
-                SizedBox(height: AppTokens.space3),
                 AppFormSection(
                   title: 'Additional',
-                  child: AppFormFieldRow(
-                    children: [
-                      AppInput(
-                        label: 'Employee ID',
-                        controller: _employeeIdCtrl,
-                        size: AppInputSize.sm,
-                      ),
-                      AppFormFieldSpan(
-                        child: AppSelect<UserStatus>(
-                          key: ValueKey<UserStatus>(_status),
-                          label: 'Status',
-                          value: _status,
-                          items: UserStatus.values
-                              .map(
-                                (s) => DropdownMenuItem<UserStatus>(
-                                  value: s,
-                                  child: Text(s.name),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() => _status = v);
-                            }
-                          },
+                  children: [
+                    AppInput(
+                      label: 'Employee ID',
+                      controller: _employeeIdCtrl,
+                      size: AppInputSize.sm,
+                    ),
+                    AppFormFullWidth(
+                      child: AppSegmentedControl(
+                        label: 'Status',
+                        options: const [
+                          AppSegmentOption(
+                            value: 'active',
+                            label: 'Active',
+                            icon: LucideIcons.check,
+                          ),
+                          AppSegmentOption(
+                            value: 'inactive',
+                            label: 'Inactive',
+                            icon: LucideIcons.ban,
+                          ),
+                        ],
+                        value: _status.name,
+                        onChanged: (v) => setState(
+                          () => _status = UserStatus.values
+                              .firstWhere((s) => s.name == v),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),

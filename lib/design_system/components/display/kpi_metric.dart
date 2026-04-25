@@ -1,142 +1,159 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../tokens.dart';
 
-/// Optional KPI metric shown above the listing table or on dashboards.
+/// Data class for a single KPI metric card.
+/// Only [label] and [value] are required — icon props are optional.
 class KpiCard {
   const KpiCard({
     required this.label,
     required this.value,
     this.icon,
+    this.iconColor,
+    this.sublabel,
     this.trend,
     this.trendPositive = true,
   });
 
   final String label;
   final String value;
-  final Widget? icon;
+  final IconData? icon;
+  final Color? iconColor;
+  final String? sublabel;
   final String? trend;
   final bool trendPositive;
 }
 
-/// Single KPI surface (shared by listing strip and dashboard grid).
+/// Single KPI metric card tile.
 class KpiMetricTile extends StatelessWidget {
-  const KpiMetricTile({
-    super.key,
-    required this.card,
-    this.compact = false,
-  });
+  const KpiMetricTile({super.key, required this.card});
 
   final KpiCard card;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final trendColor = card.trend == null
-        ? null
-        : (card.trendPositive ? AppTokens.success500 : AppTokens.error500);
-
-    final padding = compact
-        ? EdgeInsets.all(AppTokens.space3)
-        : EdgeInsets.all(AppTokens.space4);
-
-    final surface = theme.brightness == Brightness.dark
-        ? theme.colorScheme.surface
-        : AppTokens.white;
-    final borderColor = theme.brightness == Brightness.dark
-        ? AppTokens.neutral700
-        : AppTokens.borderDefault;
+    final resolvedIconColor = card.iconColor ?? AppTokens.primary800;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(
-          color: borderColor,
-          width: AppTokens.borderWidthSm,
-        ),
+        color: AppTokens.cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+        border: Border.all(color: AppTokens.borderDefault, width: AppTokens.borderWidthSm),
+        boxShadow: AppTokens.shadowSm,
       ),
       child: Padding(
-        padding: padding,
-        child: Stack(
-          clipBehavior: Clip.none,
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                right: card.icon != null ? AppTokens.space10 : AppTokens.space0,
-              ),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     card.label.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily:
-                          theme.textTheme.labelSmall?.fontFamily ?? AppTokens.fontFamily,
-                      fontSize: AppTokens.textXs,
-                      fontWeight: AppTokens.weightMedium,
-                      letterSpacing: 0.5,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.captionSize,
+                      fontWeight: FontWeight.w500,
                       color: AppTokens.textSecondary,
+                      letterSpacing: 0.4,
                     ),
                   ),
-                  SizedBox(height: AppTokens.space1),
+                  const SizedBox(height: 4),
                   Text(
                     card.value,
-                    style: TextStyle(
-                      fontFamily:
-                          theme.textTheme.headlineSmall?.fontFamily ?? AppTokens.fontFamily,
-                      fontSize: AppTokens.text3xl,
-                      fontWeight: AppTokens.weightBold,
-                      color: theme.brightness == Brightness.dark
-                          ? theme.colorScheme.onSurface
-                          : AppTokens.textPrimary,
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.textPrimary,
                     ),
                   ),
+                  if (card.sublabel != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      card.sublabel!,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.captionSize,
+                        fontWeight: FontWeight.w400,
+                        color: AppTokens.textMuted,
+                      ),
+                    ),
+                  ],
                   if (card.trend != null) ...[
-                    SizedBox(height: AppTokens.space1),
+                    const SizedBox(height: 2),
                     Text(
                       card.trend!,
-                      style: TextStyle(
-                        fontFamily:
-                            theme.textTheme.bodySmall?.fontFamily ?? AppTokens.fontFamily,
-                        fontSize: AppTokens.textSm,
-                        fontWeight: AppTokens.bodyWeight,
-                        color: trendColor ?? AppTokens.textMuted,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.captionSize,
+                        fontWeight: FontWeight.w400,
+                        color: card.trendPositive ? AppTokens.success500 : AppTokens.error500,
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            if (card.icon != null)
-              Positioned(
-                top: AppTokens.space0,
-                right: AppTokens.space0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppTokens.primary800.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                  ),
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Center(
-                      child: IconTheme(
-                        data: IconThemeData(
-                          color: AppTokens.primary800,
-                          size: 20,
-                        ),
-                        child: card.icon!,
-                      ),
-                    ),
+            if (card.icon != null) ...[
+              const SizedBox(width: 8),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: resolvedIconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Center(
+                    child: Icon(card.icon, size: 16, color: resolvedIconColor),
                   ),
                 ),
               ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Lays out multiple [KpiCard]s in a responsive row.
+/// Desktop: equal-width columns in one row.
+/// Mobile (< 600px): 2-column wrap grid.
+class KpiRow extends StatelessWidget {
+  const KpiRow({super.key, required this.cards});
+
+  final List<KpiCard> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        if (isMobile) {
+          return Wrap(
+            spacing: AppTokens.space3,
+            runSpacing: AppTokens.space3,
+            children: cards.map((card) {
+              return SizedBox(
+                width: (constraints.maxWidth - AppTokens.space3) / 2,
+                child: KpiMetricTile(card: card),
+              );
+            }).toList(),
+          );
+        }
+
+        return Row(
+          children: [
+            for (int i = 0; i < cards.length; i++) ...[
+              if (i > 0) SizedBox(width: AppTokens.space3),
+              Expanded(child: KpiMetricTile(card: cards[i])),
+            ],
+          ],
+        );
+      },
     );
   }
 }

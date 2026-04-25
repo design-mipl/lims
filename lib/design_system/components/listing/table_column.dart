@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'filter_config.dart';
+
 /// Column definition for [AppListingScreen] data tables.
 class TableColumn<T> {
   const TableColumn({
@@ -10,6 +12,7 @@ class TableColumn<T> {
     this.sortable = true,
     this.visible = true,
     this.numeric = false,
+    this.filterConfig,
   });
 
   final String key;
@@ -24,4 +27,8 @@ class TableColumn<T> {
 
   /// When true, header label and cell content are right-aligned.
   final bool numeric;
+
+  /// Optional inline column filter. When non-null, a filter icon appears in
+  /// the column header and tapping it opens a filter popover.
+  final ColumnFilterConfig? filterConfig;
 }

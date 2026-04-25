@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../breakpoints.dart';
@@ -107,63 +108,72 @@ class AppFormDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final borderTop = theme.brightness == Brightness.dark
-        ? AppTokens.neutral700
-        : AppTokens.borderDefault;
+    final isDark = theme.brightness == Brightness.dark;
+    final borderColor = isDark ? AppTokens.neutral700 : AppTokens.borderDefault;
+    final surfaceColor = isDark ? theme.colorScheme.surface : AppTokens.cardBg;
+    final contentBg = isDark ? theme.scaffoldBackgroundColor : AppTokens.pageBg;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _DrawerHeader(
-          title: title,
-          subtitle: subtitle,
-          headerActions: headerActions,
-          onClose: () => Navigator.of(context).maybePop(),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: borderColor, width: AppTokens.borderWidthSm),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(AppTokens.space5),
-            child: body,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DrawerHeader(
+            title: title,
+            subtitle: subtitle,
+            headerActions: headerActions,
+            onClose: () => Navigator.of(context).maybePop(),
           ),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.brightness == Brightness.dark
-                ? theme.colorScheme.surface
-                : AppTokens.white,
-            border: Border(
-              top: BorderSide(
-                color: borderTop,
-                width: AppTokens.borderWidthSm,
+          Expanded(
+            child: ColoredBox(
+              color: contentBg,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(AppTokens.space5),
+                child: body,
               ),
             ),
           ),
-          child: Padding(
-            padding: EdgeInsets.all(AppTokens.space5),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                AppButton(
-                  label: cancelLabel,
-                  onPressed: isPrimaryLoading ? null : () => onCancel?.call(),
-                  variant: AppButtonVariant.tertiary,
-                  size: AppButtonSize.md,
-                ),
-                SizedBox(width: AppTokens.space3),
-                AppButton(
-                  label: primaryLabel,
-                  onPressed: primaryEnabled && !isPrimaryLoading
-                      ? () => onPrimary?.call()
-                      : null,
-                  variant: AppButtonVariant.primary,
-                  size: AppButtonSize.md,
-                  isLoading: isPrimaryLoading,
-                ),
-              ],
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: surfaceColor,
+              border: Border(
+                top: BorderSide(color: borderColor, width: AppTokens.borderWidthSm),
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppTokens.space5,
+                vertical: AppTokens.space3,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AppButton(
+                    label: cancelLabel,
+                    onPressed: isPrimaryLoading ? null : () => onCancel?.call(),
+                    variant: AppButtonVariant.tertiary,
+                    size: AppButtonSize.md,
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  AppButton(
+                    label: primaryLabel,
+                    onPressed: primaryEnabled && !isPrimaryLoading
+                        ? () => onPrimary?.call()
+                        : null,
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.md,
+                    isLoading: isPrimaryLoading,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -190,6 +200,9 @@ class _DrawerHeader extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
+        color: theme.brightness == Brightness.dark
+            ? theme.colorScheme.surface
+            : AppTokens.cardBg,
         border: Border(
           bottom: BorderSide(
             color: borderBottom,
@@ -214,10 +227,8 @@ class _DrawerHeader extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontFamily: theme.textTheme.titleLarge?.fontFamily ??
-                          AppTokens.fontFamily,
-                      fontSize: AppTokens.textLg,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.textMd,
                       fontWeight: AppTokens.weightSemibold,
                       color: theme.colorScheme.onSurface,
                     ),
@@ -226,7 +237,7 @@ class _DrawerHeader extends StatelessWidget {
                     SizedBox(height: AppTokens.space1),
                     Text(
                       subtitle!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      style: GoogleFonts.poppins(
                         fontSize: AppTokens.pageSubtitleSize,
                         fontWeight: AppTokens.pageSubtitleWeight,
                         color: theme.brightness == Brightness.dark

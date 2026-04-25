@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -157,8 +158,6 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AppFormDrawer(
       title: _isEdit ? 'Edit Role' : 'Add Role',
       body: Column(
@@ -193,11 +192,9 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
                         value: _level,
                         items: _levels
                             .map(
-                              (lv) => DropdownMenuItem<int>(
+                              (lv) => AppSelectItem<int>(
                                 value: lv,
-                                child: Text(
-                                  '${RoleModel.labelForLevel(lv)} ($lv)',
-                                ),
+                                label: '${RoleModel.labelForLevel(lv)} ($lv)',
                               ),
                             )
                             .toList(),
@@ -230,31 +227,21 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
                     children: [
                       Text(
                         'Type',
-                        style: TextStyle(
-                          fontFamily:
-                              theme.textTheme.labelMedium?.fontFamily ??
-                                  AppTokens.fontFamily,
+                        style: GoogleFonts.poppins(
                           fontSize: AppTokens.fieldLabelSize,
                           fontWeight: AppTokens.fieldLabelWeight,
                           color: AppTokens.labelColor,
                         ),
                       ),
                       SizedBox(height: AppTokens.space1),
-                      AppSegmentedControl<RoleType>(
-                        segments: const [
-                          AppSegment<RoleType>(
-                            value: RoleType.system,
-                            label: 'System',
-                            icon: LucideIcons.shield,
-                          ),
-                          AppSegment<RoleType>(
-                            value: RoleType.custom,
-                            label: 'Custom',
-                            icon: LucideIcons.userCog,
-                          ),
+                      AppSegmentedControl(
+                        options: const [
+                          AppSegmentOption(value: 'system', label: 'System', icon: LucideIcons.shield),
+                          AppSegmentOption(value: 'custom', label: 'Custom', icon: LucideIcons.userCog),
                         ],
-                        selected: _type,
-                        onChanged: (v) => setState(() => _type = v),
+                        value: _type.name,
+                        onChanged: (v) => setState(() =>
+                            _type = RoleType.values.firstWhere((t) => t.name == v)),
                       ),
                     ],
                   ),
@@ -265,31 +252,21 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
                     children: [
                       Text(
                         'Status',
-                        style: TextStyle(
-                          fontFamily:
-                              theme.textTheme.labelMedium?.fontFamily ??
-                                  AppTokens.fontFamily,
+                        style: GoogleFonts.poppins(
                           fontSize: AppTokens.fieldLabelSize,
                           fontWeight: AppTokens.fieldLabelWeight,
                           color: AppTokens.labelColor,
                         ),
                       ),
                       SizedBox(height: AppTokens.space1),
-                      AppSegmentedControl<RoleStatus>(
-                        segments: const [
-                          AppSegment<RoleStatus>(
-                            value: RoleStatus.active,
-                            label: 'Active',
-                            icon: LucideIcons.circleCheck,
-                          ),
-                          AppSegment<RoleStatus>(
-                            value: RoleStatus.inactive,
-                            label: 'Inactive',
-                            icon: LucideIcons.circleOff,
-                          ),
+                      AppSegmentedControl(
+                        options: const [
+                          AppSegmentOption(value: 'active', label: 'Active', icon: LucideIcons.circleCheck),
+                          AppSegmentOption(value: 'inactive', label: 'Inactive', icon: LucideIcons.circleOff),
                         ],
-                        selected: _status,
-                        onChanged: (v) => setState(() => _status = v),
+                        value: _status.name,
+                        onChanged: (v) => setState(() =>
+                            _status = RoleStatus.values.firstWhere((s) => s.name == v)),
                       ),
                     ],
                   ),
