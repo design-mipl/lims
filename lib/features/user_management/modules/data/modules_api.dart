@@ -1,183 +1,78 @@
 import 'module_model.dart';
 
+(DateTime createdAt, DateTime updatedAt) _auditPair(int index) {
+  final pairs = <(DateTime, DateTime)>[
+    (DateTime(2024, 1, 15), DateTime(2024, 3, 20)),
+    (DateTime(2024, 2, 10), DateTime(2024, 4, 5)),
+    (DateTime(2024, 3, 1), DateTime(2024, 4, 15)),
+    (DateTime(2024, 3, 18), DateTime(2024, 5, 2)),
+    (DateTime(2024, 4, 8), DateTime(2024, 5, 22)),
+    (DateTime(2024, 4, 25), DateTime(2024, 6, 8)),
+    (DateTime(2024, 5, 12), DateTime(2024, 6, 20)),
+    (DateTime(2024, 5, 28), DateTime(2024, 7, 5)),
+    (DateTime(2024, 6, 10), DateTime(2024, 7, 18)),
+    (DateTime(2024, 6, 22), DateTime(2024, 8, 1)),
+    (DateTime(2024, 7, 5), DateTime(2024, 8, 12)),
+    (DateTime(2024, 7, 14), DateTime(2024, 8, 25)),
+  ];
+  return pairs[index % pairs.length];
+}
+
 /// In-memory mock API for navigation modules (no backend).
 class ModulesApi {
   ModulesApi() {
-    final t = DateTime.utc(2024, 1, 1);
     _items = [
-      ModuleModel(
-        id: 'mod-dashboard',
-        name: 'Dashboard',
-        code: 'DASH',
-        parentId: null,
-        route: '/dashboard',
-        icon: 'layoutDashboard',
-        sortOrder: 10,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-transactions',
-        name: 'Transactions',
-        code: 'TXN',
-        parentId: null,
-        route: '/transactions',
-        icon: 'fileStack',
-        sortOrder: 20,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-sample-receipt',
-        name: 'Sample Receipt',
-        code: 'TXN_SR',
-        parentId: 'mod-transactions',
-        route: '/transactions/sample-receipt',
-        icon: 'clipboardList',
-        sortOrder: 10,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-lab-code',
-        name: 'Lab Code',
-        code: 'TXN_LC',
-        parentId: 'mod-transactions',
-        route: '/transactions/lab-code',
-        icon: 'flaskConical',
-        sortOrder: 20,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-masters',
-        name: 'Masters',
-        code: 'MST',
-        parentId: null,
-        route: '/masters',
-        icon: 'database',
-        sortOrder: 30,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-customer',
-        name: 'Customer',
-        code: 'MST_CUST',
-        parentId: 'mod-masters',
-        route: '/masters/customer',
-        icon: 'users',
-        sortOrder: 10,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-site',
-        name: 'Site',
-        code: 'MST_SITE',
-        parentId: 'mod-masters',
-        route: '/masters/site',
-        icon: 'mapPin',
-        sortOrder: 20,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-user-mgmt',
-        name: 'User Management',
-        code: 'UM',
-        parentId: null,
-        route: '/user-management',
-        icon: 'userCog',
-        sortOrder: 40,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-departments',
-        name: 'Departments',
-        code: 'UM_DEPT',
-        parentId: 'mod-user-mgmt',
-        route: '/user-management/departments',
-        icon: 'building2',
-        sortOrder: 10,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-users',
-        name: 'Users',
-        code: 'UM_USERS',
-        parentId: 'mod-user-mgmt',
-        route: '/user-management/users',
-        icon: 'users',
-        sortOrder: 20,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-roles',
-        name: 'Roles',
-        code: 'UM_ROLES',
-        parentId: 'mod-user-mgmt',
-        route: '/user-management/roles',
-        icon: 'shield',
-        sortOrder: 30,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
-      ModuleModel(
-        id: 'mod-modules',
-        name: 'Modules',
-        code: 'UM_MOD',
-        parentId: 'mod-user-mgmt',
-        route: '/user-management/modules',
-        icon: 'layers',
-        sortOrder: 40,
-        showInNavigation: true,
-        permissionEnabled: true,
-        status: ModuleStatus.active,
-        createdAt: t,
-        updatedAt: t,
-      ),
+      _row(0, 'mod-dashboard', 'Dashboard', null, ModuleStatus.active),
+      _row(1, 'mod-transactions', 'Transactions', null, ModuleStatus.active),
+      _row(2, 'mod-sample-receipt', 'Sample Receipt', 'mod-transactions',
+          ModuleStatus.active),
+      _row(3, 'mod-lab-code', 'Lab Code', 'mod-transactions',
+          ModuleStatus.active),
+      _row(4, 'mod-masters', 'Masters', null, ModuleStatus.active),
+      _row(5, 'mod-customer', 'Customer', 'mod-masters', ModuleStatus.active),
+      _row(6, 'mod-site', 'Site', 'mod-masters', ModuleStatus.active),
+      _row(7, 'mod-user-mgmt', 'User Management', null, ModuleStatus.active),
+      _row(8, 'mod-departments', 'Departments', 'mod-user-mgmt',
+          ModuleStatus.active),
+      _row(9, 'mod-users', 'Users', 'mod-user-mgmt', ModuleStatus.active),
+      _row(10, 'mod-roles', 'Roles', 'mod-user-mgmt', ModuleStatus.active),
+      _row(11, 'mod-modules', 'Modules', 'mod-user-mgmt', ModuleStatus.active),
     ];
+    _applyParentNames();
   }
 
-  late final List<ModuleModel> _items;
+  late List<ModuleModel> _items;
   int _idSeq = 0;
+
+  ModuleModel _row(
+    int auditIndex,
+    String id,
+    String name,
+    String? parentId,
+    ModuleStatus status,
+  ) {
+    final (ca, ua) = _auditPair(auditIndex);
+    return ModuleModel(
+      id: id,
+      name: name,
+      parentId: parentId,
+      parentName: null,
+      status: status,
+      createdBy: 'Admin User',
+      createdAt: ca,
+      updatedBy: 'Admin User',
+      updatedAt: ua,
+    );
+  }
+
+  void _applyParentNames() {
+    final byId = <String, String>{for (final m in _items) m.id: m.name};
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      final pn = m.parentId == null ? null : byId[m.parentId];
+      _items[i] = m.copyWith(parentName: pn);
+    }
+  }
 
   Future<List<ModuleModel>> fetchAll() async {
     return List<ModuleModel>.unmodifiable(_items);
@@ -185,45 +80,33 @@ class ModulesApi {
 
   Future<ModuleModel> create({
     required String name,
-    required String code,
     String? parentId,
-    required String route,
-    required String icon,
-    required int sortOrder,
-    required bool showInNavigation,
-    required bool permissionEnabled,
     required ModuleStatus status,
   }) async {
     final now = DateTime.now();
     _idSeq += 1;
+    final byId = <String, String>{for (final m in _items) m.id: m.name};
+    final parentName = parentId == null ? null : byId[parentId];
     final model = ModuleModel(
       id: 'mod-new-$_idSeq',
       name: name,
-      code: code,
       parentId: parentId,
-      route: route,
-      icon: icon,
-      sortOrder: sortOrder,
-      showInNavigation: showInNavigation,
-      permissionEnabled: permissionEnabled,
+      parentName: parentName,
       status: status,
+      createdBy: 'Admin User',
       createdAt: now,
+      updatedBy: 'Admin User',
       updatedAt: now,
     );
     _items.add(model);
+    _applyParentNames();
     return model;
   }
 
   Future<ModuleModel> update({
     required String id,
     required String name,
-    required String code,
     String? parentId,
-    required String route,
-    required String icon,
-    required int sortOrder,
-    required bool showInNavigation,
-    required bool permissionEnabled,
     required ModuleStatus status,
   }) async {
     final i = _items.indexWhere((e) => e.id == id);
@@ -238,22 +121,22 @@ class ModulesApi {
     }
     final prev = _items[i];
     final now = DateTime.now();
+    final byId = <String, String>{for (final m in _items) m.id: m.name};
+    final parentName = parentId == null ? null : byId[parentId];
     final next = ModuleModel(
       id: prev.id,
       name: name,
-      code: code,
       parentId: parentId,
-      route: route,
-      icon: icon,
-      sortOrder: sortOrder,
-      showInNavigation: showInNavigation,
-      permissionEnabled: permissionEnabled,
+      parentName: parentName,
       status: status,
+      createdBy: prev.createdBy,
       createdAt: prev.createdAt,
+      updatedBy: 'Admin User',
       updatedAt: now,
       usedInPermissions: prev.usedInPermissions,
     );
     _items[i] = next;
+    _applyParentNames();
     return next;
   }
 
@@ -292,12 +175,36 @@ class ModulesApi {
     final nextStatus = prev.status == ModuleStatus.active
         ? ModuleStatus.inactive
         : ModuleStatus.active;
+    final now = DateTime.now();
     final next = prev.copyWith(
       status: nextStatus,
-      updatedAt: DateTime.now(),
+      updatedBy: 'Admin User',
+      updatedAt: now,
     );
     _items[i] = next;
     return next;
+  }
+
+  Future<void> updateStatus(String id, String status) async {
+    final ModuleStatus nextStatus = switch (status) {
+      'active' => ModuleStatus.active,
+      'inactive' => ModuleStatus.inactive,
+      _ => throw ArgumentError('Invalid status: $status'),
+    };
+    final i = _items.indexWhere((e) => e.id == id);
+    if (i < 0) {
+      throw StateError('Module not found: $id');
+    }
+    final prev = _items[i];
+    if (prev.status == nextStatus) {
+      return;
+    }
+    final now = DateTime.now();
+    _items[i] = prev.copyWith(
+      status: nextStatus,
+      updatedBy: 'Admin User',
+      updatedAt: now,
+    );
   }
 
   Future<void> delete(String id) async {
@@ -313,5 +220,6 @@ class ModulesApi {
       throw StateError('Cannot delete a module linked to permissions.');
     }
     _items.removeAt(i);
+    _applyParentNames();
   }
 }

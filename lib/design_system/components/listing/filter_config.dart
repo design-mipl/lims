@@ -1,3 +1,5 @@
+import '../primitives/app_select.dart';
+
 /// Supported filter field types in [AppListingScreen] filter panels.
 enum FilterType {
   text,
@@ -7,6 +9,20 @@ enum FilterType {
 
 /// Filter type for inline column-header filter popovers.
 enum ColumnFilterType { text, select }
+
+/// Filter type for [TableColumn.filter] (new API parallel to [ColumnFilterConfig]).
+enum AppColumnFilterType { text, select }
+
+/// Per-column filter on [TableColumn.filter]. Prefer this or [ColumnFilterConfig];
+/// when both are set, [TableColumn.filter] takes precedence in [AppListingScreen].
+class AppColumnFilter {
+  const AppColumnFilter({required this.type, this.options});
+
+  final AppColumnFilterType type;
+
+  /// Option entries when [type] is [AppColumnFilterType.select].
+  final List<AppSelectItem<String>>? options;
+}
 
 /// Per-column filter configuration. Attach to [TableColumn.filterConfig] to
 /// enable the filter icon and popover on that column header.

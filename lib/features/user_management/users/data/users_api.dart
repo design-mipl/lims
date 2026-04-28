@@ -1,9 +1,18 @@
 import 'user_model.dart';
 
+(DateTime createdAt, DateTime updatedAt) _auditPair(int index) {
+  final pairs = <(DateTime, DateTime)>[
+    (DateTime(2024, 1, 15), DateTime(2024, 3, 20)),
+    (DateTime(2024, 2, 10), DateTime(2024, 4, 5)),
+    (DateTime(2024, 3, 1), DateTime(2024, 4, 15)),
+    (DateTime(2024, 3, 18), DateTime(2024, 5, 2)),
+  ];
+  return pairs[index % pairs.length];
+}
+
 /// In-memory mock API for users (no backend).
 class UsersApi {
   UsersApi() {
-    final t = DateTime.utc(2024, 1, 1);
     final recent = DateTime.utc(2024, 6, 15, 9, 30);
     _items = [
       UserModel(
@@ -19,8 +28,10 @@ class UsersApi {
         roleName: 'Admin',
         status: UserStatus.active,
         lastLogin: recent,
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(0).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(0).$2,
       ),
       UserModel(
         id: 'user-lab-exec',
@@ -35,8 +46,10 @@ class UsersApi {
         roleName: 'Power User',
         status: UserStatus.active,
         lastLogin: DateTime.utc(2024, 6, 14, 16, 45),
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(1).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(1).$2,
       ),
       UserModel(
         id: 'user-acc-mgr',
@@ -51,8 +64,10 @@ class UsersApi {
         roleName: 'Project User',
         status: UserStatus.active,
         lastLogin: DateTime.utc(2024, 6, 10, 11, 0),
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(2).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(2).$2,
       ),
       UserModel(
         id: 'user-sales-exec',
@@ -67,8 +82,10 @@ class UsersApi {
         roleName: 'Viewer',
         status: UserStatus.inactive,
         lastLogin: DateTime.utc(2024, 5, 1, 8, 15),
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(3).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(3).$2,
       ),
     ];
   }
@@ -116,7 +133,9 @@ class UsersApi {
       roleName: roleName,
       status: status,
       lastLogin: null,
+      createdBy: 'Admin User',
       createdAt: now,
+      updatedBy: 'Admin User',
       updatedAt: now,
     );
     _items.add(model);
@@ -153,6 +172,7 @@ class UsersApi {
       roleId: roleId,
       roleName: roleName,
       status: status,
+      updatedBy: 'Admin User',
       updatedAt: now,
     );
     _items[i] = next;
@@ -169,9 +189,35 @@ class UsersApi {
         ? UserStatus.inactive
         : UserStatus.active;
     final now = DateTime.now();
-    final next = prev.copyWith(status: nextStatus, updatedAt: now);
+    final next = prev.copyWith(
+      status: nextStatus,
+      updatedBy: 'Admin User',
+      updatedAt: now,
+    );
     _items[i] = next;
     return next;
+  }
+
+  Future<void> updateStatus(String id, String status) async {
+    final UserStatus nextStatus = switch (status) {
+      'active' => UserStatus.active,
+      'inactive' => UserStatus.inactive,
+      _ => throw ArgumentError('Invalid status: $status'),
+    };
+    final i = _items.indexWhere((e) => e.id == id);
+    if (i < 0) {
+      throw StateError('User not found: $id');
+    }
+    final prev = _items[i];
+    if (prev.status == nextStatus) {
+      return;
+    }
+    final now = DateTime.now();
+    _items[i] = prev.copyWith(
+      status: nextStatus,
+      updatedBy: 'Admin User',
+      updatedAt: now,
+    );
   }
 
   Future<void> delete(String id) async {

@@ -78,13 +78,9 @@ class ModulesProvider extends BaseProvider {
     }
     return list.where((e) {
       final name = e.name.toLowerCase();
-      final code = e.code.toLowerCase();
-      final route = e.route.toLowerCase();
-      final parent = (parentNameFor(e.parentId) ?? '').toLowerCase();
-      return name.contains(q) ||
-          code.contains(q) ||
-          route.contains(q) ||
-          parent.contains(q);
+      final parent = (e.parentName ?? '').toLowerCase();
+      final pid = (e.parentId ?? '').toLowerCase();
+      return name.contains(q) || parent.contains(q) || pid.contains(q);
     }).toList();
   }
 
@@ -153,25 +149,13 @@ class ModulesProvider extends BaseProvider {
 
   Future<void> createModule({
     required String name,
-    required String code,
     String? parentId,
-    required String route,
-    required String icon,
-    required int sortOrder,
-    required bool showInNavigation,
-    required bool permissionEnabled,
     required ModuleStatus status,
   }) async {
     await runAsync(() async {
       await _api.create(
         name: name,
-        code: code,
         parentId: parentId,
-        route: route,
-        icon: icon,
-        sortOrder: sortOrder,
-        showInNavigation: showInNavigation,
-        permissionEnabled: permissionEnabled,
         status: status,
       );
       _items = await _api.fetchAll();
@@ -182,26 +166,14 @@ class ModulesProvider extends BaseProvider {
   Future<void> updateModule({
     required String id,
     required String name,
-    required String code,
     String? parentId,
-    required String route,
-    required String icon,
-    required int sortOrder,
-    required bool showInNavigation,
-    required bool permissionEnabled,
     required ModuleStatus status,
   }) async {
     await runAsync(() async {
       await _api.update(
         id: id,
         name: name,
-        code: code,
         parentId: parentId,
-        route: route,
-        icon: icon,
-        sortOrder: sortOrder,
-        showInNavigation: showInNavigation,
-        permissionEnabled: permissionEnabled,
         status: status,
       );
       _items = await _api.fetchAll();
@@ -220,6 +192,36 @@ class ModulesProvider extends BaseProvider {
   Future<void> deleteModule(String id) async {
     await runAsync(() async {
       await _api.delete(id);
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
+
+  Future<void> bulkActivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.updateStatus(id, 'active');
+      }
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
+
+  Future<void> bulkDeactivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.updateStatus(id, 'inactive');
+      }
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
+
+  Future<void> bulkDelete(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.delete(id);
+      }
       _items = await _api.fetchAll();
       _clampCurrentPage();
     });

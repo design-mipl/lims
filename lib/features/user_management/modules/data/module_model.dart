@@ -1,3 +1,5 @@
+import '../../shared/audit_fields.dart';
+
 enum ModuleStatus {
   active,
   inactive,
@@ -7,30 +9,24 @@ class ModuleModel {
   const ModuleModel({
     required this.id,
     required this.name,
-    required this.code,
     this.parentId,
-    required this.route,
-    required this.icon,
-    required this.sortOrder,
-    required this.showInNavigation,
-    required this.permissionEnabled,
+    this.parentName,
     required this.status,
+    this.createdBy,
     required this.createdAt,
+    this.updatedBy,
     required this.updatedAt,
     this.usedInPermissions = false,
   });
 
   final String id;
   final String name;
-  final String code;
   final String? parentId;
-  final String route;
-  final String icon;
-  final int sortOrder;
-  final bool showInNavigation;
-  final bool permissionEnabled;
+  final String? parentName;
   final ModuleStatus status;
+  final String? createdBy;
   final DateTime createdAt;
+  final String? updatedBy;
   final DateTime updatedAt;
 
   /// Reserved for future permission-matrix linkage; when true, delete is blocked.
@@ -41,7 +37,6 @@ class ModuleModel {
   bool hasChildrenAmong(List<ModuleModel> all) =>
       all.any((m) => m.parentId == id);
 
-  /// True when this row is a parent of at least one other module in [all].
   bool isParentAmong(List<ModuleModel> all) => hasChildrenAmong(all);
 
   bool canDeleteAmong(List<ModuleModel> all) =>
@@ -49,35 +44,69 @@ class ModuleModel {
 
   static const Object _unset = Object();
 
+  factory ModuleModel.fromJson(Map<String, dynamic> json) {
+    final a = AuditFields.fromJson(json);
+    final statusStr = json['status'] as String? ?? 'active';
+    final status = ModuleStatus.values.firstWhere(
+      (s) => s.name == statusStr,
+      orElse: () => ModuleStatus.active,
+    );
+    return ModuleModel(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      parentId: json['parent_id'] as String?,
+      parentName: json['parent_name'] as String?,
+      status: status,
+      createdBy: a.createdBy,
+      createdAt: a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+      updatedBy: a.updatedBy,
+      updatedAt: a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+      usedInPermissions: json['used_in_permissions'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        if (parentId != null) 'parent_id': parentId,
+        if (parentName != null) 'parent_name': parentName,
+        'status': status.name,
+        'used_in_permissions': usedInPermissions,
+        if (createdBy != null) 'created_by': createdBy,
+        'created_at': createdAt.toIso8601String(),
+        if (updatedBy != null) 'updated_by': updatedBy,
+        'updated_at': updatedAt.toIso8601String(),
+      };
+
   ModuleModel copyWith({
     String? id,
     String? name,
-    String? code,
     Object? parentId = _unset,
-    String? route,
-    String? icon,
-    int? sortOrder,
-    bool? showInNavigation,
-    bool? permissionEnabled,
+    Object? parentName = _unset,
     ModuleStatus? status,
+    Object? createdBy = _unset,
     DateTime? createdAt,
+    Object? updatedBy = _unset,
     DateTime? updatedAt,
     bool? usedInPermissions,
   }) {
     return ModuleModel(
       id: id ?? this.id,
       name: name ?? this.name,
-      code: code ?? this.code,
       parentId: identical(parentId, _unset)
           ? this.parentId
           : parentId as String?,
-      route: route ?? this.route,
-      icon: icon ?? this.icon,
-      sortOrder: sortOrder ?? this.sortOrder,
-      showInNavigation: showInNavigation ?? this.showInNavigation,
-      permissionEnabled: permissionEnabled ?? this.permissionEnabled,
+      parentName: identical(parentName, _unset)
+          ? this.parentName
+          : parentName as String?,
       status: status ?? this.status,
+      createdBy: identical(createdBy, _unset)
+          ? this.createdBy
+          : createdBy as String?,
       createdAt: createdAt ?? this.createdAt,
+      updatedBy: identical(updatedBy, _unset)
+          ? this.updatedBy
+          : updatedBy as String?,
       updatedAt: updatedAt ?? this.updatedAt,
       usedInPermissions: usedInPermissions ?? this.usedInPermissions,
     );

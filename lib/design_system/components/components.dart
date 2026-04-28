@@ -4,6 +4,7 @@ export 'primitives/app_input.dart';
 export 'primitives/app_select.dart';
 export 'primitives/app_textarea.dart';
 export 'primitives/app_segmented_control.dart';
+export 'primitives/app_toggle_switch.dart';
 export 'display/app_badge.dart';
 export 'display/app_avatar.dart';
 export 'display/status_chip.dart';

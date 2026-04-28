@@ -1,9 +1,18 @@
 import 'role_model.dart';
 
+(DateTime createdAt, DateTime updatedAt) _auditPair(int index) {
+  final pairs = <(DateTime, DateTime)>[
+    (DateTime(2024, 1, 15), DateTime(2024, 3, 20)),
+    (DateTime(2024, 2, 10), DateTime(2024, 4, 5)),
+    (DateTime(2024, 3, 1), DateTime(2024, 4, 15)),
+    (DateTime(2024, 3, 18), DateTime(2024, 5, 2)),
+  ];
+  return pairs[index % pairs.length];
+}
+
 /// In-memory mock API for roles (no backend).
 class RolesApi {
   RolesApi() {
-    final t = DateTime.utc(2024, 1, 1);
     _items = [
       RoleModel(
         id: 'role-admin',
@@ -13,8 +22,10 @@ class RolesApi {
         type: RoleType.system,
         usersCount: 1,
         status: RoleStatus.active,
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(0).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(0).$2,
       ),
       RoleModel(
         id: 'role-power',
@@ -24,8 +35,10 @@ class RolesApi {
         type: RoleType.system,
         usersCount: 0,
         status: RoleStatus.active,
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(1).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(1).$2,
       ),
       RoleModel(
         id: 'role-project',
@@ -35,8 +48,10 @@ class RolesApi {
         type: RoleType.system,
         usersCount: 0,
         status: RoleStatus.active,
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(2).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(2).$2,
       ),
       RoleModel(
         id: 'role-viewer',
@@ -46,8 +61,10 @@ class RolesApi {
         type: RoleType.system,
         usersCount: 0,
         status: RoleStatus.active,
-        createdAt: t,
-        updatedAt: t,
+        createdBy: 'Admin User',
+        createdAt: _auditPair(3).$1,
+        updatedBy: 'Admin User',
+        updatedAt: _auditPair(3).$2,
       ),
     ];
   }
@@ -76,7 +93,9 @@ class RolesApi {
       type: type,
       usersCount: 0,
       status: status,
+      createdBy: 'Admin User',
       createdAt: now,
+      updatedBy: 'Admin User',
       updatedAt: now,
     );
     _items.add(model);
@@ -105,7 +124,9 @@ class RolesApi {
       type: type,
       usersCount: prev.usersCount,
       status: status,
+      createdBy: prev.createdBy,
       createdAt: prev.createdAt,
+      updatedBy: 'Admin User',
       updatedAt: now,
     );
     _items[i] = next;
@@ -121,12 +142,36 @@ class RolesApi {
     final nextStatus = prev.status == RoleStatus.active
         ? RoleStatus.inactive
         : RoleStatus.active;
+    final now = DateTime.now();
     final next = prev.copyWith(
       status: nextStatus,
-      updatedAt: DateTime.now(),
+      updatedBy: 'Admin User',
+      updatedAt: now,
     );
     _items[i] = next;
     return next;
+  }
+
+  Future<void> updateStatus(String id, String status) async {
+    final RoleStatus nextStatus = switch (status) {
+      'active' => RoleStatus.active,
+      'inactive' => RoleStatus.inactive,
+      _ => throw ArgumentError('Invalid status: $status'),
+    };
+    final i = _items.indexWhere((e) => e.id == id);
+    if (i < 0) {
+      throw StateError('Role not found: $id');
+    }
+    final prev = _items[i];
+    if (prev.status == nextStatus) {
+      return;
+    }
+    final now = DateTime.now();
+    _items[i] = prev.copyWith(
+      status: nextStatus,
+      updatedBy: 'Admin User',
+      updatedAt: now,
+    );
   }
 
   Future<void> delete(String id) async {

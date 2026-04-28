@@ -130,7 +130,14 @@ class KpiRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 600;
+        if (!constraints.hasBoundedWidth) {
+          return _kpiWrapFallback();
+        }
+        final maxW = constraints.maxWidth;
+        if (!maxW.isFinite) {
+          return _kpiWrapFallback();
+        }
+        final isMobile = maxW < 600;
 
         if (isMobile) {
           return Wrap(
@@ -138,7 +145,7 @@ class KpiRow extends StatelessWidget {
             runSpacing: AppTokens.space3,
             children: cards.map((card) {
               return SizedBox(
-                width: (constraints.maxWidth - AppTokens.space3) / 2,
+                width: (maxW - AppTokens.space3) / 2,
                 child: KpiMetricTile(card: card),
               );
             }).toList(),
@@ -154,6 +161,17 @@ class KpiRow extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  /// When constraints are unbounded, avoid Row+Expanded; show tiles in a [Wrap].
+  Widget _kpiWrapFallback() {
+    return Wrap(
+      spacing: AppTokens.space3,
+      runSpacing: AppTokens.space3,
+      children: [
+        for (final c in cards) KpiMetricTile(card: c),
+      ],
     );
   }
 }

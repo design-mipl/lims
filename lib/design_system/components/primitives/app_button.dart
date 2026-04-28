@@ -72,6 +72,15 @@ class _AppButtonState extends State<AppButton> {
         : style.fg;
     final radius = BorderRadius.circular(AppTokens.buttonRadius);
 
+    Widget inner = _buildContent(fg, iconSize, fontSize);
+    if (!widget.fullWidth) {
+      inner = FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: inner,
+      );
+    }
+
     Widget btn = AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       height: height,
@@ -85,7 +94,7 @@ class _AppButtonState extends State<AppButton> {
       padding: EdgeInsets.symmetric(horizontal: hPad),
       child: Center(
         widthFactor: widget.fullWidth ? null : 1.0,
-        child: _buildContent(fg, iconSize, fontSize),
+        child: inner,
       ),
     );
 

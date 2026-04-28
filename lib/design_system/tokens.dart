@@ -103,6 +103,36 @@ abstract final class AppTokens {
 
   static const Color tableRowDivider = Color(0xFFF1F5F9);
 
+  /// Bottom border for the bulk action bar when rows are selected (warm amber).
+  static const Color bulkBarActiveBottomBorder = Color(0xFFFDE68A);
+
+  // ---------------------------------------------------------------------------
+  // Listing screen chrome (AppListingScreen)
+  // ---------------------------------------------------------------------------
+
+  static const double listingTabBarHeight        = 38.0;
+  static const double listingToolbarHeight       = 44.0;
+  static const double listingBulkBarHeight       = 36.0;
+  static const double listingPaginationHeight    = 38.0;
+  static const double listingPaginationDropdownHeight = 24.0;
+  static const double listingToolbarSearchWidth  = 220.0;
+  static const double listingToolbarSearchHeight = 28.0;
+  static const double listingToolbarActionsGap   = 6.0;
+  static const double listingPaginationLabelGap  = 6.0;
+  static const double listingPaginationRangeGap  = 8.0;
+  static const double listingToolbarDotSize      = 7.0;
+  static const double bulkBarGreyedOpacity       = 0.35;
+  static const double bulkBarMiniCheckSize       = 14.0;
+  static const double bulkBarMiniCheckRadius     = 3.0;
+  static const double bulkActionButtonHeight     = 24.0;
+  static const double bulkActionButtonRadius     = 5.0;
+  static const double bulkActionIconSize         = 11.0;
+  static const double bulkActionFontSize         = 11.0;
+  static const double columnFilterPopoverWidth   = 200.0;
+  static const double columnPickerPopoverWidth    = 220.0;
+  static const double columnPickerPopoverMaxHeight = 320.0;
+  static const double columnFilterSelectRowHeight = 30.0;
+
   // ---------------------------------------------------------------------------
   // Sidebar
   // ---------------------------------------------------------------------------
@@ -139,6 +169,7 @@ abstract final class AppTokens {
   // ---------------------------------------------------------------------------
 
   static const double space0  = 0.0;
+  static const double spaceHalf = 2.0;
   static const double space1  = 4.0;
   static const double space2  = 8.0;
   static const double space3  = 12.0;
@@ -205,6 +236,18 @@ abstract final class AppTokens {
   static const double chipSize                 = 11.0;
   static const FontWeight chipWeight           = FontWeight.w500;
 
+  // --- User permissions matrix ---
+
+  static const double permissionMatrixColumnWidth = 60.0;
+  static const double permissionPageHeaderHeight = 56.0;
+  static const double permissionFooterHeight = 52.0;
+  static const double permissionMatrixHeaderFontSize = 10.0;
+  static const FontWeight permissionMatrixHeaderWeight = FontWeight.w600;
+  static const double permissionCheckboxSize = 18.0;
+  static const double permissionCheckboxRadius = 3.0;
+  static const double permissionEmptyStateIconSize = 32.0;
+  static const double permissionMatrixMinScrollWidth = 520.0;
+
   // ---------------------------------------------------------------------------
   // Sizing — compact enterprise chrome
   // ---------------------------------------------------------------------------
@@ -242,7 +285,7 @@ abstract final class AppTokens {
   // --- Table helpers ---
 
   static const double tableCheckboxColumnWidth        = 40.0;
-  static const double tableActionsColumnWidth         = 40.0;
+  static const double tableActionsColumnWidth         = 72.0;
   static const double tableStatusColumnPreferredWidth = 100.0;
   static const double tableToggleColumnWidth          = 52.0;
 

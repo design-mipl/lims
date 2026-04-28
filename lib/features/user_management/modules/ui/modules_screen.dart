@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/components/display/kpi_metric.dart';
 import '../../../../design_system/tokens.dart';
+import '../../shared/audit_cell.dart';
 import '../data/module_model.dart';
 import '../state/modules_provider.dart';
 import 'module_form_drawer.dart';
@@ -69,43 +71,35 @@ class _ModulesScreenState extends State<ModulesScreen> {
       );
       return;
     }
-    final theme = Theme.of(context);
-    final ok = await showDialog<bool>(
+    final confirmed = await AppConfirmDialog.show(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(
-            'Delete module?',
-            style: theme.textTheme.titleSmall,
-          ),
-          content: Text(
-            'This will permanently remove "${row.name}" (${row.code}). '
-            'This action cannot be undone.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          actions: [
-            AppButton(
-              label: 'Cancel',
-              onPressed: () => Navigator.of(ctx).pop(false),
-              variant: AppButtonVariant.tertiary,
-              size: AppButtonSize.md,
-            ),
-            AppButton(
-              label: 'Delete',
-              onPressed: () => Navigator.of(ctx).pop(true),
-              variant: AppButtonVariant.danger,
-              size: AppButtonSize.md,
-            ),
-          ],
-        );
-      },
+      title: 'Delete Module',
+      message: 'Delete "${row.name}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: AppConfirmDialogVariant.danger,
     );
-    if (ok == true && context.mounted) {
+    if (confirmed == true && context.mounted) {
       await context.read<ModulesProvider>().deleteModule(row.id);
     }
   }
 
-  String _yesNo(bool v) => v ? 'Yes' : 'No';
+  void _handleExport(BuildContext context, {List<ModuleModel>? rows}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          rows != null
+              ? 'Exporting ${rows.length} records...'
+              : 'Exporting all records...',
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.textBase,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,21 +111,37 @@ class _ModulesScreenState extends State<ModulesScreen> {
       subtitle: 'Define navigation entries and permission scope',
       primaryActionLabel: '+ Add Module',
       onPrimaryAction: () => ModuleFormDrawer.show(context),
-      showCheckboxes: false,
+      showCheckboxes: true,
+      bulkRowId: (r) => r.id,
+      onExport: () => _handleExport(context),
+      onBulkActivate: (ids) async => p.bulkActivate(ids.cast<String>()),
+      onBulkDeactivate: (ids) async => p.bulkDeactivate(ids.cast<String>()),
+      onBulkDelete: (ids) async => p.bulkDelete(ids.cast<String>()),
+      onBulkExport: (rows) async => _handleExport(
+            context,
+            rows: rows.cast<ModuleModel>().toList(),
+          ),
       kpiCards: [
         KpiCard(
           label: 'Total Modules',
-          value: '${p.totalCount}',
+          value: p.totalCount.toString(),
+          icon: LucideIcons.layoutGrid,
+          iconColor: AppTokens.kpiTeal,
         ),
         KpiCard(
           label: 'Active',
-          value: '${p.activeCount}',
+          value: p.activeCount.toString(),
+          icon: LucideIcons.checkCircle,
+          iconColor: AppTokens.kpiGreen,
         ),
         KpiCard(
           label: 'Inactive',
-          value: '${p.inactiveCount}',
+          value: p.inactiveCount.toString(),
+          icon: LucideIcons.xCircle,
+          iconColor: AppTokens.kpiOrange,
         ),
       ],
+      showKpis: false,
       tabs: [
         TabConfig(label: 'All', count: p.tabAllCount),
         TabConfig(label: 'Active', count: p.activeCount),
@@ -151,95 +161,129 @@ class _ModulesScreenState extends State<ModulesScreen> {
         TableColumn<ModuleModel>(
           key: 'name',
           label: 'Module Name',
-          cellBuilder: (r) => Text(
-            r.name,
-            overflow: TextOverflow.ellipsis,
+          width: 200,
+          sortable: false,
+          filter: const AppColumnFilter(type: AppColumnFilterType.text),
+          filterTextValue: (r) => r.name,
+          cellBuilder: (r) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                r.name,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.tableCellSize,
+                  fontWeight: FontWeight.w500,
+                  color: AppTokens.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (r.parentName != null)
+                Text(
+                  r.parentName!,
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTokens.captionSize,
+                    color: AppTokens.textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
           ),
         ),
         TableColumn<ModuleModel>(
           key: 'parent',
           label: 'Parent Module',
-          width: 160,
+          width: 140,
+          sortable: false,
+          filter: const AppColumnFilter(type: AppColumnFilterType.text),
+          filterTextValue: (r) => r.parentName ?? '',
           cellBuilder: (r) => Text(
-            p.parentNameFor(r.parentId) ?? '—',
+            r.parentName ?? '—',
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.tableCellSize,
+              color: AppTokens.textSecondary,
+            ),
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-        ),
-        TableColumn<ModuleModel>(
-          key: 'route',
-          label: 'Route',
-          cellBuilder: (r) => Text(
-            r.route,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        TableColumn<ModuleModel>(
-          key: 'nav',
-          label: 'Show in Navigation',
-          width: 150,
-          cellBuilder: (r) => Text(_yesNo(r.showInNavigation)),
-        ),
-        TableColumn<ModuleModel>(
-          key: 'perm',
-          label: 'Permission Enabled',
-          width: 150,
-          cellBuilder: (r) => Text(_yesNo(r.permissionEnabled)),
-        ),
-        TableColumn<ModuleModel>(
-          key: 'sort',
-          label: 'Sort Order',
-          numeric: true,
-          width: 100,
-          cellBuilder: (r) => Text('${r.sortOrder}'),
         ),
         TableColumn<ModuleModel>(
           key: 'status',
           label: 'Status',
-          width: 120,
+          width: 90,
           sortable: false,
-          cellBuilder: (r) => StatusChip(status: r.status.name),
+          filter: const AppColumnFilter(
+            type: AppColumnFilterType.select,
+            options: [
+              AppSelectItem<String>(value: 'active', label: 'Active'),
+              AppSelectItem<String>(value: 'inactive', label: 'Inactive'),
+            ],
+          ),
+          filterSelectValue: (r) => r.status.name,
+          cellBuilder: (r) => Center(
+            child: StatusChip(status: r.status.name),
+          ),
+        ),
+        TableColumn<ModuleModel>(
+          key: 'createdBy',
+          label: 'Created By',
+          width: 160,
+          sortable: true,
+          sortValue: (r) => r.createdAt.millisecondsSinceEpoch,
+          cellBuilder: (r) => AuditCell(
+            name: r.createdBy,
+            date: r.createdAt,
+          ),
+        ),
+        TableColumn<ModuleModel>(
+          key: 'updatedBy',
+          label: 'Updated By',
+          width: 160,
+          sortable: true,
+          sortValue: (r) => r.updatedAt.millisecondsSinceEpoch,
+          cellBuilder: (r) => AuditCell(
+            name: r.updatedBy,
+            date: r.updatedAt,
+          ),
         ),
       ],
       rows: p.pagedRows,
       mobileCardBuilder: (r) {
-        final theme = Theme.of(context);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               r.name,
-              style: theme.textTheme.titleSmall,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.tableCellSize,
+                fontWeight: FontWeight.w500,
+                color: AppTokens.textPrimary,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
-            SizedBox(height: AppTokens.space1),
-            Text(
-              p.parentNameFor(r.parentId) ?? 'Root',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.brightness == Brightness.dark
-                    ? AppTokens.neutral400
-                    : AppTokens.neutral600,
-              ),
-            ),
-            SizedBox(height: AppTokens.space2),
-            Row(
-              children: [
-                StatusChip(status: r.status.name),
-                SizedBox(width: AppTokens.space3),
-                Text(
-                  'Nav: ${_yesNo(r.showInNavigation)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppTokens.neutral500,
-                  ),
+            if (r.parentName != null) ...[
+              SizedBox(height: AppTokens.space1),
+              Text(
+                r.parentName!,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: FontWeight.w400,
+                  color: AppTokens.textMuted,
                 ),
-              ],
-            ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            SizedBox(height: AppTokens.space2),
+            StatusChip(status: r.status.name),
           ],
         );
       },
       isLoading: p.isLoading,
       emptyMessage: 'No modules match your filters',
       onSearch: p.setSearchQuery,
-      searchHint: 'Search by name, code, route, or parent…',
+      searchHint: 'Search by name or parent…',
       rowActions: [
         RowAction<ModuleModel>(
           key: 'edit',
@@ -249,8 +293,16 @@ class _ModulesScreenState extends State<ModulesScreen> {
         ),
         RowAction<ModuleModel>(
           key: 'toggle',
-          label: 'Activate / deactivate',
-          icon: const Icon(LucideIcons.refreshCw),
+          label: 'Activate',
+          icon: const Icon(LucideIcons.checkCircle),
+          labelBuilder: (row) => row.status == ModuleStatus.active
+              ? 'Deactivate'
+              : 'Activate',
+          iconBuilder: (row) => Icon(
+            row.status == ModuleStatus.active
+                ? LucideIcons.xCircle
+                : LucideIcons.checkCircle,
+          ),
           onTap: (row) async {
             await context.read<ModulesProvider>().toggleModuleStatus(row.id);
           },

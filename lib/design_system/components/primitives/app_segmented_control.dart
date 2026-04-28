@@ -47,9 +47,11 @@ class AppSegmentedControl extends StatelessWidget {
   final String? label;
   final bool isRequired;
 
+  static const Duration _segmentAnim = Duration(milliseconds: 150);
+
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppTokens.inputRadius);
+    final innerR = AppTokens.inputRadius - AppTokens.borderWidthSm;
 
     return Material(
       type: MaterialType.transparency,
@@ -81,40 +83,32 @@ class AppSegmentedControl extends StatelessWidget {
             ),
             SizedBox(height: AppTokens.space1),
           ],
-          ClipRRect(
-            borderRadius: radius,
-            child: DecoratedBox(
+          IntrinsicWidth(
+            child: Container(
+              height: _trackHeight,
               decoration: BoxDecoration(
-                color: AppTokens.surfaceSubtle,
                 border: Border.all(
                   color: AppTokens.borderDefault,
                   width: AppTokens.borderWidthSm,
                 ),
-                borderRadius: radius,
+                borderRadius: BorderRadius.circular(AppTokens.inputRadius),
+                color: AppTokens.surfaceSubtle,
               ),
-              child: SizedBox(
-                height: _trackHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < options.length; i++) ...[
-                      if (i > 0)
-                        ColoredBox(
-                          color: AppTokens.borderDefault,
-                          child: const SizedBox(width: 1),
-                        ),
-                      Expanded(
-                        child: _SegmentCell(
-                          option: options[i],
-                          isSelected: options[i].value == value,
-                          onTap: onChanged == null
-                              ? null
-                              : () => onChanged!(options[i].value),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < options.length; i++)
+                    _SegmentChip(
+                      option: options[i],
+                      isSelected: options[i].value == value,
+                      isFirst: i == 0,
+                      isLast: i == options.length - 1,
+                      innerRadius: innerR,
+                      onTap: onChanged == null
+                          ? null
+                          : () => onChanged!(options[i].value),
+                    ),
+                ],
               ),
             ),
           ),
@@ -124,58 +118,79 @@ class AppSegmentedControl extends StatelessWidget {
   }
 }
 
-class _SegmentCell extends StatelessWidget {
-  const _SegmentCell({
+class _SegmentChip extends StatelessWidget {
+  const _SegmentChip({
     required this.option,
     required this.isSelected,
+    required this.isFirst,
+    required this.isLast,
+    required this.innerRadius,
     required this.onTap,
   });
 
   final AppSegmentOption option;
   final bool isSelected;
+  final bool isFirst;
+  final bool isLast;
+  final double innerRadius;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final fg = isSelected ? AppTokens.white : AppTokens.textSecondary;
-    final weight = isSelected ? FontWeight.w500 : FontWeight.w400;
+    final fg =
+        isSelected ? AppTokens.white : AppTokens.textSecondary;
+    final weight =
+        isSelected ? FontWeight.w500 : FontWeight.w400;
 
-    return InkWell(
+    final chip = GestureDetector(
       onTap: onTap,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      mouseCursor: SystemMouseCursors.click,
-      child: Container(
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: AppSegmentedControl._segmentAnim,
         height: AppSegmentedControl._trackHeight,
-        width: double.infinity,
-        color: isSelected ? AppTokens.primary800 : Colors.transparent,
-        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: AppTokens.space3),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTokens.primary800
+              : AppTokens.white.withValues(alpha: 0),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(isFirst ? innerRadius : 0),
+            bottomLeft: Radius.circular(isFirst ? innerRadius : 0),
+            topRight: Radius.circular(isLast ? innerRadius : 0),
+            bottomRight: Radius.circular(isLast ? innerRadius : 0),
+          ),
+        ),
         child: Center(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (option.icon != null) ...[
                 Icon(option.icon, size: 11, color: fg),
                 SizedBox(width: AppTokens.space1),
               ],
-              Flexible(
-                child: Text(
-                  option.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: weight,
-                    color: fg,
-                  ),
+              Text(
+                option.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: weight,
+                  color: fg,
+                  height: 1.0,
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+
+    if (onTap == null) {
+      return chip;
+    }
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: chip,
     );
   }
 }

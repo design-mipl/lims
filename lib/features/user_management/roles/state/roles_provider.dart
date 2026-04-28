@@ -190,4 +190,34 @@ class RolesProvider extends BaseProvider {
       _clampCurrentPage();
     });
   }
+
+  Future<void> bulkActivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.updateStatus(id, 'active');
+      }
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
+
+  Future<void> bulkDeactivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.updateStatus(id, 'inactive');
+      }
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
+
+  Future<void> bulkDelete(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.delete(id);
+      }
+      _items = await _api.fetchAll();
+      _clampCurrentPage();
+    });
+  }
 }

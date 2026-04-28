@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -14,9 +13,6 @@ abstract final class ModuleFormDrawer {
     BuildContext context, {
     ModuleModel? existing,
   }) {
-    // `showGeneralDialog` builds a new route: not a descendant of the
-    // route-scoped [ChangeNotifierProvider<ModulesProvider>]. Bridge the
-    // same instance into the dialog subtree.
     final provider = context.read<ModulesProvider>();
     return showGeneralDialog<void>(
       context: context,
@@ -83,18 +79,10 @@ class _ModuleFormDrawerHost extends StatefulWidget {
 
 class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
   late final TextEditingController _nameCtrl;
-  late final TextEditingController _codeCtrl;
-  late final TextEditingController _routeCtrl;
-  late final TextEditingController _iconCtrl;
-  late final TextEditingController _sortCtrl;
-  String? _parentId;
-  late bool _showInNav;
-  late bool _permEnabled;
+  late String _parentId;
   late ModuleStatus _status;
 
   String? _nameError;
-  String? _codeError;
-  String? _sortError;
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -124,42 +112,21 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
     super.initState();
     final e = widget.existing;
     _nameCtrl = TextEditingController(text: e?.name ?? '');
-    _codeCtrl = TextEditingController(text: e?.code ?? '');
-    _routeCtrl = TextEditingController(text: e?.route ?? '');
-    _iconCtrl = TextEditingController(text: e?.icon ?? '');
-    _sortCtrl = TextEditingController(text: '${e?.sortOrder ?? 0}');
-    _parentId = e?.parentId;
-    _showInNav = e?.showInNavigation ?? true;
-    _permEnabled = e?.permissionEnabled ?? true;
+    _parentId = e?.parentId ?? '';
     _status = e?.status ?? ModuleStatus.active;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _codeCtrl.dispose();
-    _routeCtrl.dispose();
-    _iconCtrl.dispose();
-    _sortCtrl.dispose();
     super.dispose();
   }
 
   bool _validate() {
     var ok = true;
     _nameError = null;
-    _codeError = null;
-    _sortError = null;
     if (_nameCtrl.text.trim().isEmpty) {
       _nameError = 'Module name is required';
-      ok = false;
-    }
-    if (_codeCtrl.text.trim().isEmpty) {
-      _codeError = 'Module code is required';
-      ok = false;
-    }
-    final sortParsed = int.tryParse(_sortCtrl.text.trim());
-    if (sortParsed == null) {
-      _sortError = 'Enter a valid number';
       ok = false;
     }
     setState(() {});
@@ -173,34 +140,19 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
     setState(() => _saving = true);
     final provider = context.read<ModulesProvider>();
     final name = _nameCtrl.text.trim();
-    final code = _codeCtrl.text.trim();
-    final route = _routeCtrl.text.trim();
-    final icon = _iconCtrl.text.trim();
-    final sortOrder = int.parse(_sortCtrl.text.trim());
+    final parentId = _parentId.isEmpty ? null : _parentId;
 
     if (_isEdit) {
       await provider.updateModule(
         id: widget.existing!.id,
         name: name,
-        code: code,
-        parentId: _parentId,
-        route: route,
-        icon: icon,
-        sortOrder: sortOrder,
-        showInNavigation: _showInNav,
-        permissionEnabled: _permEnabled,
+        parentId: parentId,
         status: _status,
       );
     } else {
       await provider.createModule(
         name: name,
-        code: code,
-        parentId: _parentId,
-        route: route,
-        icon: icon,
-        sortOrder: sortOrder,
-        showInNavigation: _showInNav,
-        permissionEnabled: _permEnabled,
+        parentId: parentId,
         status: _status,
       );
     }
@@ -215,40 +167,8 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
     Navigator.of(context).pop();
   }
 
-  Widget _switchRow({
-    required String label,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-    required ThemeData theme,
-  }) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: AppTokens.space2),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: AppTokens.textSm,
-                ),
-              ),
-            ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final p = context.watch<ModulesProvider>();
     final parents = _parentOptions(p);
 
@@ -258,144 +178,65 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppFormSection(
-            title: 'Basic',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppFormFieldRow(
-                  children: [
-                    AppFormFieldSpan(
-                      child: AppInput(
-                        label: 'Module Name',
-                        hint: 'e.g. Sample Receipt',
-                        controller: _nameCtrl,
-                        required: true,
-                        size: AppInputSize.sm,
-                        errorText: _nameError,
-                        onChanged: (_) {
-                          if (_nameError != null) {
-                            setState(() => _nameError = null);
-                          }
-                        },
-                      ),
-                    ),
-                    AppFormFieldSpan(
-                      child: AppInput(
-                        label: 'Module Code',
-                        hint: 'e.g. TXN_SR',
-                        controller: _codeCtrl,
-                        required: true,
-                        size: AppInputSize.sm,
-                        errorText: _codeError,
-                        onChanged: (_) {
-                          if (_codeError != null) {
-                            setState(() => _codeError = null);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+            title: 'Module Details',
+            children: [
+              AppFormFullWidth(
+                child: AppInput(
+                  label: 'Module Name',
+                  hint: 'e.g. Sample Receipt',
+                  isRequired: true,
+                  controller: _nameCtrl,
+                  errorText: _nameError,
+                  onChanged: (_) {
+                    if (_nameError != null) {
+                      setState(() => _nameError = null);
+                    }
+                  },
                 ),
-                SizedBox(height: AppTokens.space4),
-                AppSelect<String?>(
-                  key: ValueKey<String?>(_parentId),
+              ),
+              AppFormFullWidth(
+                child: AppSelect<String>(
                   label: 'Parent Module',
                   hint: 'None (root)',
-                  value: _parentId,
+                  value: _parentId.isEmpty ? null : _parentId,
                   items: [
-                    const AppSelectItem<String?>(
-                      value: null,
+                    const AppSelectItem<String>(
+                      value: '',
                       label: 'None (root)',
                     ),
                     ...parents.map(
-                      (m) => AppSelectItem<String?>(
+                      (m) => AppSelectItem<String>(
                         value: m.id,
                         label: m.name,
                       ),
                     ),
                   ],
-                  onChanged: (v) => setState(() => _parentId = v),
+                  onChanged: (v) => setState(() => _parentId = v ?? ''),
                 ),
-              ],
-            ),
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppFormSection(
-            title: 'Configuration',
-            child: AppFormFieldRow(
-              children: [
-                AppFormFieldSpan(
-                  child: AppInput(
-                    label: 'Route',
-                    hint: 'e.g. /transactions/sample-receipt',
-                    controller: _routeCtrl,
-                    size: AppInputSize.sm,
-                  ),
-                ),
-                AppFormFieldSpan(
-                  child: AppInput(
-                    label: 'Icon',
-                    hint: 'Lucide icon key, e.g. clipboardList',
-                    controller: _iconCtrl,
-                    size: AppInputSize.sm,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Sort Order',
-            hint: '0',
-            controller: _sortCtrl,
-            keyboardType: TextInputType.number,
-            size: AppInputSize.sm,
-            errorText: _sortError,
-            onChanged: (_) {
-              if (_sortError != null) {
-                setState(() => _sortError = null);
-              }
-            },
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppFormSection(
-            title: 'Flags',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _switchRow(
-                  label: 'Show in Navigation',
-                  value: _showInNav,
-                  onChanged: (v) => setState(() => _showInNav = v),
-                  theme: theme,
-                ),
-                _switchRow(
-                  label: 'Permission Enabled',
-                  value: _permEnabled,
-                  onChanged: (v) => setState(() => _permEnabled = v),
-                  theme: theme,
-                ),
-                SizedBox(height: AppTokens.space4),
-                Text(
-                  'Status',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTokens.fieldLabelSize,
-                    fontWeight: AppTokens.fieldLabelWeight,
-                    color: AppTokens.labelColor,
-                  ),
-                ),
-                SizedBox(height: AppTokens.space1),
-                AppSegmentedControl(
-                  options: const [
-                    AppSegmentOption(value: 'active', label: 'Active', icon: LucideIcons.circleCheck),
-                    AppSegmentOption(value: 'inactive', label: 'Inactive', icon: LucideIcons.circleOff),
-                  ],
+              ),
+              AppFormFullWidth(
+                child: AppSegmentedControl(
+                  label: 'Status',
                   value: _status.name,
-                  onChanged: (v) => setState(() =>
-                      _status = ModuleStatus.values.firstWhere((s) => s.name == v)),
+                  options: const [
+                    AppSegmentOption(
+                      value: 'active',
+                      label: 'Active',
+                      icon: LucideIcons.check,
+                    ),
+                    AppSegmentOption(
+                      value: 'inactive',
+                      label: 'Inactive',
+                      icon: LucideIcons.ban,
+                    ),
+                  ],
+                  onChanged: (v) => setState(
+                    () => _status =
+                        ModuleStatus.values.firstWhere((s) => s.name == v),
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

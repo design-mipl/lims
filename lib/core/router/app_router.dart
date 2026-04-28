@@ -1,7 +1,22 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../di/service_locator.dart';
 import '../../features/coming_soon/coming_soon_screen.dart';
+import '../../features/masters/bank_master/state/bank_master_provider.dart';
+import '../../features/masters/bank_master/ui/bank_master_screen.dart';
+import '../../features/masters/ferrography_master/state/ferrography_master_provider.dart';
+import '../../features/masters/ferrography_master/ui/ferrography_master_screen.dart';
+import '../../features/masters/hsn_master/state/hsn_master_provider.dart';
+import '../../features/masters/hsn_master/ui/hsn_master_screen.dart';
+import '../../features/masters/item_master/state/item_master_provider.dart';
+import '../../features/masters/item_master/ui/item_master_screen.dart';
+import '../../features/masters/problem_master/state/problem_master_provider.dart';
+import '../../features/masters/problem_master/ui/problem_master_screen.dart';
+import '../../features/masters/sub_assembly_master/state/sub_assembly_master_provider.dart';
+import '../../features/masters/sub_assembly_master/ui/sub_assembly_master_screen.dart';
+import '../../features/masters/unit_master/state/unit_master_provider.dart';
+import '../../features/masters/unit_master/ui/unit_master_screen.dart';
 import '../../features/ui_kit/ui_kit_screen.dart';
 import '../../features/dev/form_template_preview_screen.dart';
 import '../../features/shell/shell_screen.dart';
@@ -11,9 +26,10 @@ import '../../features/user_management/modules/state/modules_provider.dart';
 import '../../features/user_management/modules/ui/modules_screen.dart';
 import '../../features/user_management/roles/state/roles_provider.dart';
 import '../../features/user_management/roles/ui/roles_screen.dart';
+import '../../features/user_management/users/state/user_permissions_provider.dart';
 import '../../features/user_management/users/state/users_provider.dart';
 import '../../features/user_management/users/ui/user_form_page.dart';
-import '../../features/user_management/users/ui/user_permissions_placeholder_screen.dart';
+import '../../features/user_management/users/ui/user_permissions_screen.dart';
 import '../../features/user_management/users/ui/user_view_page.dart';
 import '../../features/user_management/users/ui/users_screen.dart';
 
@@ -93,14 +109,16 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/bank',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Bank Master',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => BankMasterProvider()..fetchAll(),
+            child: const BankMasterScreen(),
           ),
         ),
         GoRoute(
           path: '/masters/item',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Item Master',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => ItemMasterProvider()..fetchAll(),
+            child: const ItemMasterScreen(),
           ),
         ),
         GoRoute(
@@ -159,8 +177,37 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/unit',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Unit Master',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => UnitMasterProvider()..fetchAll(),
+            child: const UnitMasterScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/masters/problem',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => ProblemMasterProvider()..fetchAll(),
+            child: const ProblemMasterScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/masters/sub-assembly',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => SubAssemblyMasterProvider()..fetchAll(),
+            child: const SubAssemblyMasterScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/masters/ferrography',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => FerrographyMasterProvider()..fetchAll(),
+            child: const FerrographyMasterScreen(),
+          ),
+        ),
+        GoRoute(
+          path: '/masters/hsn',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => HsnMasterProvider()..fetchAll(),
+            child: const HsnMasterScreen(),
           ),
         ),
         GoRoute(
@@ -246,9 +293,24 @@ final GoRouter appRouter = GoRouter(
               path: 'users/:id/permissions',
               builder: (context, state) {
                 final id = state.pathParameters['id']!;
+                final extra = state.extra as Map<String, dynamic>?;
+                final name = extra?['name'] as String? ?? '';
+                final role = extra?['role'] as String?;
+                final isAdmin = extra?['isAdmin'] as bool? ?? false;
                 return ChangeNotifierProvider(
-                  create: (_) => UsersProvider()..fetchAll(),
-                  child: UserPermissionsPlaceholderScreen(userId: id),
+                  create: (_) => sl<UserPermissionsProvider>()
+                    ..load(
+                      userId: id,
+                      userName: name,
+                      userRole: role,
+                      isAdmin: isAdmin,
+                    ),
+                  child: UserPermissionsScreen(
+                    userId: id,
+                    userName: name,
+                    userRole: role,
+                    isAdmin: isAdmin,
+                  ),
                 );
               },
             ),

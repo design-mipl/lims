@@ -46,6 +46,8 @@ class _UIKitScreenState extends State<UIKitScreen> {
                 ),
                 _SectionHeader(label: 'STATUS CHIPS'),
                 _StatusChipsSection(),
+                _SectionHeader(label: 'TOGGLE & SWITCH'),
+                _ToggleSwitchSection(),
                 _SectionHeader(label: 'KPI CARDS'),
                 _KpiCardsSection(),
                 _SectionHeader(label: 'FORM SECTION (live example)'),
@@ -485,6 +487,74 @@ class _StatusChipsSection extends StatelessWidget {
             StatusChip(status: 'Cancelled'),
             StatusChip(status: 'Draft'),
             StatusChip(status: 'InReview'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Section 5b — Toggle & Switch
+// ---------------------------------------------------------------------------
+
+class _ToggleSwitchSection extends StatelessWidget {
+  const _ToggleSwitchSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTokens.cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.borderDefault),
+        boxShadow: AppTokens.shadowSm,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSegmentedControl(
+              label: 'Status',
+              value: 'active',
+              options: const [
+                AppSegmentOption(
+                  value: 'active',
+                  label: 'Active',
+                  icon: LucideIcons.check,
+                ),
+                AppSegmentOption(
+                  value: 'inactive',
+                  label: 'Inactive',
+                  icon: LucideIcons.ban,
+                ),
+              ],
+              onChanged: (_) {},
+            ),
+            SizedBox(height: AppTokens.space3),
+            AppToggleSwitch(
+              label: 'Show in Navigation',
+              value: true,
+              activeLabel: 'Enabled',
+              inactiveLabel: 'Disabled',
+              onChanged: (_) {},
+            ),
+            SizedBox(height: AppTokens.space3),
+            AppToggleSwitch(
+              value: false,
+              activeLabel: 'Active',
+              inactiveLabel: 'Inactive',
+              onChanged: (_) {},
+            ),
+            SizedBox(height: AppTokens.space3),
+            AppToggleSwitch(
+              value: true,
+              activeLabel: 'Active',
+              inactiveLabel: 'Inactive',
+              enabled: false,
+              onChanged: null,
+            ),
           ],
         ),
       ),

@@ -69,9 +69,14 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
     setState(() => _isOpen = true);
   }
 
-  void _closeOverlay() {
+  /// Removes the overlay entry only. Safe from [dispose]; never calls [setState].
+  void _detachOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+  }
+
+  void _closeOverlay() {
+    _detachOverlay();
     if (mounted) setState(() => _isOpen = false);
   }
 
@@ -99,7 +104,8 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
 
   @override
   void dispose() {
-    _closeOverlay();
+    _detachOverlay();
+    _isOpen = false;
     super.dispose();
   }
 
@@ -118,87 +124,108 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
             : AppTokens.borderDefault;
     final borderWidth = _isOpen ? AppTokens.focusRingWidth : AppTokens.borderWidthSm;
 
+    final hasLabel = widget.label != null && widget.label!.isNotEmpty;
+    final compactField = !hasLabel && !hasError;
+
     return Material(
       type: MaterialType.transparency,
-      child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.label != null && widget.label!.isNotEmpty) ...[
-          Text.rich(
-            TextSpan(
-              style: GoogleFonts.poppins(
-                fontSize: AppTokens.fieldLabelSize,
-                fontWeight: AppTokens.fieldLabelWeight,
-                color: AppTokens.labelColor,
-              ),
-              children: [
-                TextSpan(text: widget.label),
-                if (widget.isRequired)
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxH = constraints.maxHeight;
+          final triggerHeight = compactField &&
+                  maxH.isFinite &&
+                  maxH > 0 &&
+                  maxH < _inputHeight
+              ? maxH
+              : _inputHeight;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasLabel) ...[
+                Text.rich(
                   TextSpan(
-                    text: ' *',
                     style: GoogleFonts.poppins(
-                      color: AppTokens.error500,
                       fontSize: AppTokens.fieldLabelSize,
                       fontWeight: AppTokens.fieldLabelWeight,
+                      color: AppTokens.labelColor,
                     ),
+                    children: [
+                      TextSpan(text: widget.label),
+                      if (widget.isRequired)
+                        TextSpan(
+                          text: ' *',
+                          style: GoogleFonts.poppins(
+                            color: AppTokens.error500,
+                            fontSize: AppTokens.fieldLabelSize,
+                            fontWeight: AppTokens.fieldLabelWeight,
+                          ),
+                        ),
+                    ],
                   ),
+                ),
+                const SizedBox(height: 4),
               ],
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
-        CompositedTransformTarget(
-          link: _layerLink,
-          child: GestureDetector(
-            onTap: _isOpen ? _closeOverlay : _openOverlay,
-            child: Container(
-              height: _inputHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: widget.enabled ? AppTokens.cardBg : AppTokens.surfaceSubtle,
-                borderRadius: BorderRadius.circular(AppTokens.inputRadius),
-                border: Border.all(color: borderColor, width: borderWidth),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      selectedItem?.label ?? widget.hint ?? '',
-                      style: GoogleFonts.poppins(
-                        fontSize: _fontSize,
-                        fontWeight: FontWeight.w400,
-                        color: selectedItem != null
-                            ? AppTokens.textPrimary
-                            : AppTokens.hintColor,
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: GestureDetector(
+                  onTap: _isOpen ? _closeOverlay : _openOverlay,
+                  child: Container(
+                    height: triggerHeight,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: widget.enabled
+                          ? AppTokens.cardBg
+                          : AppTokens.surfaceSubtle,
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.inputRadius),
+                      border: Border.all(
+                        color: borderColor,
+                        width: borderWidth,
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            selectedItem?.label ?? widget.hint ?? '',
+                            style: GoogleFonts.poppins(
+                              fontSize: _fontSize,
+                              fontWeight: FontWeight.w400,
+                              color: selectedItem != null
+                                  ? AppTokens.textPrimary
+                                  : AppTokens.hintColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          LucideIcons.chevronDown,
+                          size: 14,
+                          color: AppTokens.textMuted,
+                        ),
+                      ],
                     ),
                   ),
-                  Icon(
-                    LucideIcons.chevronDown,
-                    size: 14,
-                    color: AppTokens.textMuted,
+                ),
+              ),
+              if (hasError)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    widget.errorText!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.0,
+                      fontWeight: FontWeight.w400,
+                      color: AppTokens.error500,
+                    ),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (hasError)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              widget.errorText!,
-              style: GoogleFonts.poppins(
-                fontSize: 11.0,
-                fontWeight: FontWeight.w400,
-                color: AppTokens.error500,
-              ),
-            ),
-          ),
-      ],
-    ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

@@ -118,6 +118,26 @@ const List<NavItem> appNavItems = [
         icon: Icon(LucideIcons.ruler, size: 16),
       ),
       NavItem(
+        path: '/masters/problem',
+        label: 'Problem Master',
+        icon: Icon(LucideIcons.alertCircle, size: 16),
+      ),
+      NavItem(
+        path: '/masters/sub-assembly',
+        label: 'Sub Assembly Master',
+        icon: Icon(LucideIcons.layers, size: 16),
+      ),
+      NavItem(
+        path: '/masters/ferrography',
+        label: 'Ferrography Master',
+        icon: Icon(LucideIcons.microscope, size: 16),
+      ),
+      NavItem(
+        path: '/masters/hsn',
+        label: 'HSN Master',
+        icon: Icon(LucideIcons.hash, size: 16),
+      ),
+      NavItem(
         path: '/masters/storage',
         label: 'Storage Master',
         icon: Icon(LucideIcons.archive, size: 16),

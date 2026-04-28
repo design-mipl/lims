@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -75,6 +74,9 @@ class _RoleFormDrawerHost extends StatefulWidget {
 }
 
 class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
+  /// Below this width, Role Name and Level stack; drawer content is typically wider.
+  static const double _nameLevelSideBySideMinWidth = 480;
+
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
   late int _level;
@@ -85,8 +87,6 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
-
-  static const _levels = [0, 1, 2, 3];
 
   @override
   void initState() {
@@ -164,115 +164,123 @@ class _RoleFormDrawerHostState extends State<_RoleFormDrawerHost> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppFormSection(
-            title: 'Basic Details',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppFormFieldRow(
-                  children: [
-                    AppFormFieldSpan(
-                      child: AppInput(
-                        label: 'Role Name',
-                        hint: 'e.g. Lab Supervisor',
-                        controller: _nameCtrl,
-                        required: true,
-                        size: AppInputSize.sm,
-                        errorText: _nameError,
-                        onChanged: (_) {
-                          if (_nameError != null) {
-                            setState(() => _nameError = null);
-                          }
-                        },
-                      ),
-                    ),
-                    AppFormFieldSpan(
-                      child: AppSelect<int>(
-                        key: ValueKey<int>(_level),
-                        label: 'Level',
-                        value: _level,
-                        items: _levels
-                            .map(
-                              (lv) => AppSelectItem<int>(
-                                value: lv,
-                                label: '${RoleModel.labelForLevel(lv)} ($lv)',
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _level = v);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
+            title: 'Role Details',
+            children: [
+              AppFormFullWidth(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final sideBySide =
+                        constraints.maxWidth >= _nameLevelSideBySideMinWidth;
+                    final nameField = AppInput(
+                      label: 'Role Name',
+                      hint: 'e.g. Lab Supervisor',
+                      controller: _nameCtrl,
+                      isRequired: true,
+                      errorText: _nameError,
+                      onChanged: (_) {
+                        if (_nameError != null) {
+                          setState(() => _nameError = null);
+                        }
+                      },
+                    );
+                    final levelField = AppSelect<int>(
+                      label: 'Level',
+                      hint: 'Select level',
+                      isRequired: true,
+                      value: _level,
+                      items: const [
+                        AppSelectItem(value: 0, label: 'Admin'),
+                        AppSelectItem(value: 1, label: 'Power User'),
+                        AppSelectItem(value: 2, label: 'Project User'),
+                        AppSelectItem(value: 3, label: 'Viewer'),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setState(() => _level = v);
+                        }
+                      },
+                    );
+                    if (!sideBySide) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          nameField,
+                          SizedBox(height: AppTokens.space4),
+                          levelField,
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: nameField),
+                        SizedBox(width: AppTokens.space3),
+                        Expanded(child: levelField),
+                      ],
+                    );
+                  },
                 ),
-                SizedBox(height: AppTokens.space4),
-                AppTextarea(
+              ),
+              AppFormFullWidth(
+                child: AppTextarea(
                   label: 'Description',
-                  hint: 'Optional',
+                  hint: 'Optional description',
                   controller: _descCtrl,
+                  minLines: 2,
+                  maxLines: 4,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           AppFormSection(
             title: 'Type & Status',
-            child: AppFormFieldRow(
-              children: [
-                AppFormFieldSpan(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Type',
-                        style: GoogleFonts.poppins(
-                          fontSize: AppTokens.fieldLabelSize,
-                          fontWeight: AppTokens.fieldLabelWeight,
-                          color: AppTokens.labelColor,
-                        ),
-                      ),
-                      SizedBox(height: AppTokens.space1),
-                      AppSegmentedControl(
-                        options: const [
-                          AppSegmentOption(value: 'system', label: 'System', icon: LucideIcons.shield),
-                          AppSegmentOption(value: 'custom', label: 'Custom', icon: LucideIcons.userCog),
-                        ],
-                        value: _type.name,
-                        onChanged: (v) => setState(() =>
-                            _type = RoleType.values.firstWhere((t) => t.name == v)),
-                      ),
-                    ],
+            children: [
+              AppFormFullWidth(
+                child: AppSegmentedControl(
+                  label: 'Type',
+                  options: const [
+                    AppSegmentOption(
+                      value: 'system',
+                      label: 'System',
+                      icon: LucideIcons.lock,
+                    ),
+                    AppSegmentOption(
+                      value: 'custom',
+                      label: 'Custom',
+                      icon: LucideIcons.settings2,
+                    ),
+                  ],
+                  value: _type.name,
+                  onChanged: (v) => setState(
+                    () => _type =
+                        RoleType.values.firstWhere((t) => t.name == v),
                   ),
                 ),
-                AppFormFieldSpan(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Status',
-                        style: GoogleFonts.poppins(
-                          fontSize: AppTokens.fieldLabelSize,
-                          fontWeight: AppTokens.fieldLabelWeight,
-                          color: AppTokens.labelColor,
-                        ),
-                      ),
-                      SizedBox(height: AppTokens.space1),
-                      AppSegmentedControl(
-                        options: const [
-                          AppSegmentOption(value: 'active', label: 'Active', icon: LucideIcons.circleCheck),
-                          AppSegmentOption(value: 'inactive', label: 'Inactive', icon: LucideIcons.circleOff),
-                        ],
-                        value: _status.name,
-                        onChanged: (v) => setState(() =>
-                            _status = RoleStatus.values.firstWhere((s) => s.name == v)),
-                      ),
-                    ],
+              ),
+              AppFormFullWidth(
+                child: AppSegmentedControl(
+                  label: 'Status',
+                  options: const [
+                    AppSegmentOption(
+                      value: 'active',
+                      label: 'Active',
+                      icon: LucideIcons.check,
+                    ),
+                    AppSegmentOption(
+                      value: 'inactive',
+                      label: 'Inactive',
+                      icon: LucideIcons.ban,
+                    ),
+                  ],
+                  value: _status.name,
+                  onChanged: (v) => setState(
+                    () => _status =
+                        RoleStatus.values.firstWhere((s) => s.name == v),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

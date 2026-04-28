@@ -161,7 +161,15 @@ class _UserFormPageState extends State<UserFormPage> {
             SnackBar(content: Text(users.error ?? 'Save failed')),
           );
         } else {
-          context.go('/user-management/users/${widget.userId}/permissions');
+          final roleLabel = roleName;
+          context.push(
+            '/user-management/users/${widget.userId}/permissions',
+            extra: <String, dynamic>{
+              'name': _nameCtrl.text.trim(),
+              'role': roleLabel,
+              'isAdmin': roleLabel == 'Admin',
+            },
+          );
         }
       }
     } else {
@@ -183,7 +191,15 @@ class _UserFormPageState extends State<UserFormPage> {
             SnackBar(content: Text(users.error ?? 'Save failed')),
           );
         } else if (id != null) {
-          context.go('/user-management/users/$id/permissions');
+          final roleLabel = roleName;
+          context.push(
+            '/user-management/users/$id/permissions',
+            extra: <String, dynamic>{
+              'name': _nameCtrl.text.trim(),
+              'role': roleLabel,
+              'isAdmin': roleLabel == 'Admin',
+            },
+          );
         }
       }
     }
@@ -250,44 +266,65 @@ class _UserFormPageState extends State<UserFormPage> {
                   title: 'Basic Details',
                   children: [
                     AppInput(
-                      label: 'Name',
+                      label: 'Full Name',
+                      hint: 'Enter full name',
                       controller: _nameCtrl,
-                      required: true,
+                      isRequired: true,
                       errorText: _nameError,
-                      size: AppInputSize.sm,
+                      onChanged: (_) {
+                        if (_nameError != null) {
+                          setState(() => _nameError = null);
+                        }
+                      },
                     ),
                     AppInput(
                       label: 'Email',
+                      hint: 'Enter email address',
                       controller: _emailCtrl,
+                      prefixIcon: Icon(LucideIcons.mail),
                       keyboardType: TextInputType.emailAddress,
-                      required: true,
+                      isRequired: true,
                       errorText: _emailError,
-                      size: AppInputSize.sm,
+                      onChanged: (_) {
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
+                      },
                     ),
                     AppInput(
                       label: 'Phone',
+                      hint: 'Enter phone number',
                       controller: _phoneCtrl,
+                      prefixIcon: Icon(LucideIcons.phone),
                       keyboardType: TextInputType.phone,
-                      size: AppInputSize.sm,
                     ),
                     AppInput(
                       label: 'Username',
+                      hint: 'Enter username',
                       controller: _usernameCtrl,
-                      required: true,
+                      isRequired: true,
                       errorText: _usernameError,
-                      size: AppInputSize.sm,
+                      onChanged: (_) {
+                        if (_usernameError != null) {
+                          setState(() => _usernameError = null);
+                        }
+                      },
                     ),
-                    if (!widget.isEdit)
-                      AppFormFullWidth(
-                        child: AppInput(
-                          label: 'Password',
-                          controller: _passwordCtrl,
-                          obscureText: true,
-                          required: true,
-                          errorText: _passwordError,
-                          size: AppInputSize.sm,
-                        ),
+                    AppFormFullWidth(
+                      child: AppInput(
+                        label: 'Password',
+                        hint: 'Enter password',
+                        obscureText: true,
+                        controller: _passwordCtrl,
+                        isRequired: !widget.isEdit,
+                        errorText: _passwordError,
+                        onChanged: (_) {
+                          if (_passwordError != null) {
+                            setState(() => _passwordError = null);
+                          }
+                        },
                       ),
+                    ),
                   ],
                 ),
               ],
@@ -300,6 +337,7 @@ class _UserFormPageState extends State<UserFormPage> {
                         'dept_${_deptId}_${depts.items.length}',
                       ),
                       label: 'Department',
+                      hint: 'Select department',
                       value: _deptId != null &&
                               depts.items.any((d) => d.id == _deptId)
                           ? _deptId
@@ -325,6 +363,7 @@ class _UserFormPageState extends State<UserFormPage> {
                         'role_${_roleId}_${roles.items.length}',
                       ),
                       label: 'Role',
+                      hint: 'Select role',
                       value: _roleId != null &&
                               roles.items.any((r) => r.id == _roleId)
                           ? _roleId
@@ -352,8 +391,8 @@ class _UserFormPageState extends State<UserFormPage> {
                   children: [
                     AppInput(
                       label: 'Employee ID',
+                      hint: 'Enter employee ID',
                       controller: _employeeIdCtrl,
-                      size: AppInputSize.sm,
                     ),
                     AppFormFullWidth(
                       child: AppSegmentedControl(

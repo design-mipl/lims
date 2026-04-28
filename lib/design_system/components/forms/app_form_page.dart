@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
-import '../../breakpoints.dart';
 import '../../tokens.dart';
 import '../primitives/app_button.dart';
 
@@ -202,13 +201,16 @@ class AppFormPage extends StatelessWidget {
 }
 
 /// Two-panel side-by-side layout for full-page forms.
-/// Stacks vertically on tablet/mobile (< 1024px).
+/// Stacks below [kTwoPanelBreakpointWidth] (single column on narrow viewports).
 class AppFormPageLayout extends StatelessWidget {
   const AppFormPageLayout({
     super.key,
     required this.leftPanel,
     required this.rightPanel,
   });
+
+  /// Minimum width (px) to show left/right panels side by side.
+  static const double kTwoPanelBreakpointWidth = 800;
 
   final List<Widget> leftPanel;
   final List<Widget> rightPanel;
@@ -217,8 +219,14 @@ class AppFormPageLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isDesktop = AppBreakpoints.isDesktopWidth(constraints.maxWidth);
-        if (isDesktop) {
+        if (!constraints.hasBoundedWidth) {
+          return _stackPanels();
+        }
+        final w = constraints.maxWidth;
+        if (!w.isFinite) {
+          return _stackPanels();
+        }
+        if (w >= kTwoPanelBreakpointWidth) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -234,15 +242,20 @@ class AppFormPageLayout extends StatelessWidget {
             ],
           );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _panel(leftPanel),
-            SizedBox(height: AppTokens.space3),
-            _panel(rightPanel),
-          ],
-        );
+        return _stackPanels();
       },
+    );
+  }
+
+  /// Single column when width is unbounded or below the two-panel breakpoint.
+  Widget _stackPanels() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _panel(leftPanel),
+        SizedBox(height: AppTokens.space3),
+        _panel(rightPanel),
+      ],
     );
   }
 

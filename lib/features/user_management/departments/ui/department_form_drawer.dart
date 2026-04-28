@@ -168,8 +168,7 @@ class _DepartmentFormDrawerHostState extends State<_DepartmentFormDrawerHost> {
             label: 'Department Name',
             hint: 'e.g. Laboratory',
             controller: _nameCtrl,
-            required: true,
-            size: AppInputSize.sm,
+            isRequired: true,
             errorText: _nameError,
             onChanged: (_) {
               if (_nameError != null) {
@@ -181,8 +180,7 @@ class _DepartmentFormDrawerHostState extends State<_DepartmentFormDrawerHost> {
             label: 'Department Code',
             hint: 'e.g. LAB',
             controller: _codeCtrl,
-            required: true,
-            size: AppInputSize.sm,
+            isRequired: true,
             errorText: _codeError,
             onChanged: (_) {
               if (_codeError != null) {
@@ -193,7 +191,7 @@ class _DepartmentFormDrawerHostState extends State<_DepartmentFormDrawerHost> {
           AppFormFullWidth(
             child: AppTextarea(
               label: 'Description',
-              hint: 'Optional',
+              hint: 'Optional description',
               controller: _descCtrl,
               minLines: 2,
               maxLines: 4,
