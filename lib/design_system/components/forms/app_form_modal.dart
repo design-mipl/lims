@@ -56,7 +56,7 @@ class AppFormModal extends StatelessWidget {
             vertical: AppTokens.space6,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTokens.radiusXl),
+            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
           ),
           clipBehavior: Clip.antiAlias,
           elevation: 16,
@@ -67,7 +67,7 @@ class AppFormModal extends StatelessWidget {
             body: body,
             cancelLabel: cancelLabel,
             primaryLabel: primaryLabel,
-            onCancel: onCancel ?? () => Navigator.of(ctx).maybePop(),
+            onCancel: onCancel,
             onPrimary: onPrimary,
             isPrimaryLoading: isPrimaryLoading,
             primaryEnabled: primaryEnabled,
@@ -85,17 +85,18 @@ class AppFormModal extends StatelessWidget {
         ? AppTokens.neutral700
         : AppTokens.border;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: 480,
-        maxHeight: maxH,
-      ),
-      child: Material(
-        color: theme.colorScheme.surface,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return SizedBox(
+      width: AppTokens.formModalMaxWidth,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: maxH,
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
             _FormHeader(
               title: title,
               subtitle: subtitle,
@@ -133,8 +134,12 @@ class AppFormModal extends StatelessWidget {
                   children: [
                     AppButton(
                       label: cancelLabel,
-                      onPressed:
-                          isPrimaryLoading ? null : () => onCancel?.call(),
+                      onPressed: isPrimaryLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).maybePop();
+                              onCancel?.call();
+                            },
                       variant: AppButtonVariant.tertiary,
                       size: AppButtonSize.md,
                     ),
@@ -153,6 +158,7 @@ class AppFormModal extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

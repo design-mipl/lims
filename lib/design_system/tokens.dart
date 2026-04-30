@@ -266,7 +266,7 @@ abstract final class AppTokens {
   static const double buttonHeightLg = 36.0;
   static const double buttonRadius   = 6.0;
 
-  static const double tableRowHeight    = 38.0;
+  static const double tableRowHeight    = 56.0;
   static const double tableHeaderHeight = 34.0;
 
   static const double cardRadius       = 8.0;

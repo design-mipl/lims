@@ -1,0 +1,48 @@
+import '../../design_system/components/components.dart';
+
+abstract final class IndianStates {
+  static const List<AppSelectItem<String>> list = [
+    AppSelectItem(value: 'Andhra Pradesh', label: 'Andhra Pradesh'),
+    AppSelectItem(value: 'Arunachal Pradesh', label: 'Arunachal Pradesh'),
+    AppSelectItem(value: 'Assam', label: 'Assam'),
+    AppSelectItem(value: 'Bihar', label: 'Bihar'),
+    AppSelectItem(value: 'Chhattisgarh', label: 'Chhattisgarh'),
+    AppSelectItem(value: 'Goa', label: 'Goa'),
+    AppSelectItem(value: 'Gujarat', label: 'Gujarat'),
+    AppSelectItem(value: 'Haryana', label: 'Haryana'),
+    AppSelectItem(value: 'Himachal Pradesh', label: 'Himachal Pradesh'),
+    AppSelectItem(value: 'Jharkhand', label: 'Jharkhand'),
+    AppSelectItem(value: 'Karnataka', label: 'Karnataka'),
+    AppSelectItem(value: 'Kerala', label: 'Kerala'),
+    AppSelectItem(value: 'Madhya Pradesh', label: 'Madhya Pradesh'),
+    AppSelectItem(value: 'Maharashtra', label: 'Maharashtra'),
+    AppSelectItem(value: 'Manipur', label: 'Manipur'),
+    AppSelectItem(value: 'Meghalaya', label: 'Meghalaya'),
+    AppSelectItem(value: 'Mizoram', label: 'Mizoram'),
+    AppSelectItem(value: 'Nagaland', label: 'Nagaland'),
+    AppSelectItem(value: 'Odisha', label: 'Odisha'),
+    AppSelectItem(value: 'Punjab', label: 'Punjab'),
+    AppSelectItem(value: 'Rajasthan', label: 'Rajasthan'),
+    AppSelectItem(value: 'Sikkim', label: 'Sikkim'),
+    AppSelectItem(value: 'Tamil Nadu', label: 'Tamil Nadu'),
+    AppSelectItem(value: 'Telangana', label: 'Telangana'),
+    AppSelectItem(value: 'Tripura', label: 'Tripura'),
+    AppSelectItem(value: 'Uttar Pradesh', label: 'Uttar Pradesh'),
+    AppSelectItem(value: 'Uttarakhand', label: 'Uttarakhand'),
+    AppSelectItem(value: 'West Bengal', label: 'West Bengal'),
+    AppSelectItem(
+      value: 'Andaman and Nicobar Islands',
+      label: 'Andaman and Nicobar Islands',
+    ),
+    AppSelectItem(value: 'Chandigarh', label: 'Chandigarh'),
+    AppSelectItem(
+      value: 'Dadra and Nagar Haveli and Daman and Diu',
+      label: 'Dadra and Nagar Haveli and Daman and Diu',
+    ),
+    AppSelectItem(value: 'Delhi', label: 'Delhi'),
+    AppSelectItem(value: 'Jammu and Kashmir', label: 'Jammu and Kashmir'),
+    AppSelectItem(value: 'Ladakh', label: 'Ladakh'),
+    AppSelectItem(value: 'Lakshadweep', label: 'Lakshadweep'),
+    AppSelectItem(value: 'Puducherry', label: 'Puducherry'),
+  ];
+}

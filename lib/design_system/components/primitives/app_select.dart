@@ -1,19 +1,26 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../tokens.dart';
-import 'app_input.dart' show AppInputSize;
+import 'app_button.dart';
+import 'app_input.dart';
 
 class AppSelectItem<T> {
   const AppSelectItem({
     required this.value,
     required this.label,
+    this.code,
     this.icon,
   });
 
   final T value;
   final String label;
+
+  /// When non-null/non-empty, overlay uses CODE | NAME columns and header row.
+  final String? code;
   final IconData? icon;
 }
 
@@ -29,6 +36,8 @@ class AppSelect<T> extends StatefulWidget {
     this.errorText,
     this.enabled = true,
     this.size = AppInputSize.md,
+    this.isSearchable = true,
+    this.countLabel,
   });
 
   final String? label;
@@ -41,6 +50,12 @@ class AppSelect<T> extends StatefulWidget {
   final bool enabled;
   final AppInputSize size;
 
+  /// When true, overlay includes search (default true).
+  final bool isSearchable;
+
+  /// Noun after count, e.g. `'tests'` → `"5 tests"`. Defaults to `'items'`.
+  final String? countLabel;
+
   @override
   State<AppSelect<T>> createState() => _AppSelectState<T>();
 }
@@ -48,10 +63,11 @@ class AppSelect<T> extends StatefulWidget {
 class _AppSelectState<T> extends State<AppSelect<T>> {
   OverlayEntry? _overlayEntry;
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey _fieldKey = GlobalKey();
   bool _isOpen = false;
 
   double get _inputHeight => switch (widget.size) {
-        AppInputSize.sm => 30.0,
+        AppInputSize.sm => AppTokens.buttonHeightMd,
         AppInputSize.md => AppTokens.inputHeight,
         AppInputSize.lg => 38.0,
       };
@@ -69,7 +85,6 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
     setState(() => _isOpen = true);
   }
 
-  /// Removes the overlay entry only. Safe from [dispose]; never calls [setState].
   void _detachOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -86,18 +101,23 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
   }
 
   OverlayEntry _buildOverlay() {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
+    final fieldRo =
+        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+    final fallbackRo = context.findRenderObject() as RenderBox;
+    final triggerW = fieldRo?.size.width ?? fallbackRo.size.width;
+    final triggerH = fieldRo?.size.height ?? _inputHeight;
 
     return OverlayEntry(
       builder: (context) => _SelectOverlay<T>(
         layerLink: _layerLink,
-        triggerWidth: size.width,
+        triggerWidth: triggerW,
+        triggerHeight: triggerH,
         items: widget.items,
         selectedValue: widget.value,
         onSelect: _selectItem,
         onDismiss: _closeOverlay,
-        fontSize: _fontSize,
+        showSearch: widget.isSearchable,
+        countLabel: widget.countLabel ?? 'items',
       ),
     );
   }
@@ -122,7 +142,8 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
         : _isOpen
             ? AppTokens.borderFocus
             : AppTokens.borderDefault;
-    final borderWidth = _isOpen ? AppTokens.focusRingWidth : AppTokens.borderWidthSm;
+    final borderWidth =
+        _isOpen ? AppTokens.focusRingWidth : AppTokens.borderWidthSm;
 
     final hasLabel = widget.label != null && widget.label!.isNotEmpty;
     final compactField = !hasLabel && !hasError;
@@ -172,6 +193,7 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
                 child: GestureDetector(
                   onTap: _isOpen ? _closeOverlay : _openOverlay,
                   child: Container(
+                    key: _fieldKey,
                     height: triggerHeight,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
@@ -230,24 +252,32 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
   }
 }
 
+const double _kCodeColumnWidth = 80;
+const double _kOverlayMaxHeight = 320;
+const double _kOverlayMinWidth = 320;
+
 class _SelectOverlay<T> extends StatefulWidget {
   const _SelectOverlay({
     required this.layerLink,
     required this.triggerWidth,
+    required this.triggerHeight,
     required this.items,
     required this.selectedValue,
     required this.onSelect,
     required this.onDismiss,
-    required this.fontSize,
+    required this.showSearch,
+    required this.countLabel,
   });
 
   final LayerLink layerLink;
   final double triggerWidth;
+  final double triggerHeight;
   final List<AppSelectItem<T>> items;
   final T? selectedValue;
   final ValueChanged<T> onSelect;
   final VoidCallback onDismiss;
-  final double fontSize;
+  final bool showSearch;
+  final String countLabel;
 
   @override
   State<_SelectOverlay<T>> createState() => _SelectOverlayState<T>();
@@ -256,31 +286,47 @@ class _SelectOverlay<T> extends StatefulWidget {
 class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   String _searchQuery = '';
   late final TextEditingController _searchController;
+  late final FocusNode _searchFocusNode;
+
+  bool get _hasCode => widget.items.any(
+        (e) => e.code != null && e.code!.trim().isNotEmpty,
+      );
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _searchFocusNode = FocusNode();
+    if (widget.showSearch) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   List<AppSelectItem<T>> get _filteredItems {
     if (_searchQuery.isEmpty) return widget.items;
-    final q = _searchQuery.toLowerCase();
-    return widget.items
-        .where((item) => item.label.toLowerCase().contains(q))
-        .toList();
+    final q = _searchQuery.toLowerCase().trim();
+    return widget.items.where((item) {
+      final labelHit = item.label.toLowerCase().contains(q);
+      final code = item.code?.toLowerCase() ?? '';
+      final codeHit = code.isNotEmpty && code.contains(q);
+      return labelHit || codeHit;
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final showSearch = widget.items.length > 5;
     final filtered = _filteredItems;
+    final overlayWidth =
+        math.max(widget.triggerWidth, _kOverlayMinWidth);
 
     return Stack(
       children: [
@@ -292,86 +338,122 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
         CompositedTransformFollower(
           link: widget.layerLink,
           showWhenUnlinked: false,
-          offset: const Offset(0, 2),
+          offset: Offset(0, widget.triggerHeight + 2),
           child: Align(
             alignment: Alignment.topLeft,
             child: Material(
               type: MaterialType.transparency,
-              color: AppTokens.cardBg,
-              borderRadius: BorderRadius.circular(AppTokens.cardRadius),
               child: Container(
-                width: widget.triggerWidth,
-                constraints: const BoxConstraints(maxHeight: 240),
+                width: overlayWidth,
+                height: _kOverlayMaxHeight,
                 decoration: BoxDecoration(
-                  color: AppTokens.cardBg,
-                  borderRadius: BorderRadius.circular(AppTokens.cardRadius),
-                  border: Border.all(color: AppTokens.borderDefault),
+                  color: AppTokens.white,
+                  borderRadius:
+                      BorderRadius.circular(AppTokens.radiusMd),
+                  border: Border.all(color: AppTokens.border),
                   boxShadow: AppTokens.shadowMd,
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (showSearch)
+                    if (widget.showSearch)
                       Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: SizedBox(
-                          height: 30,
-                          child: TextField(
-                            controller: _searchController,
-                            autofocus: true,
-                            onChanged: (v) => setState(() => _searchQuery = v),
-                            style: GoogleFonts.poppins(
-                              fontSize: widget.fontSize,
-                              fontWeight: FontWeight.w400,
-                              color: AppTokens.textPrimary,
-                            ),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              filled: true,
-                              fillColor: AppTokens.surfaceSubtle,
-                              hintText: 'Search...',
-                              hintStyle: GoogleFonts.poppins(
-                                fontSize: widget.fontSize,
-                                color: AppTokens.hintColor,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 0,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                                borderSide: BorderSide(color: AppTokens.borderDefault),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                                borderSide: BorderSide(color: AppTokens.borderDefault),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                                borderSide: BorderSide(
-                                  color: AppTokens.borderFocus,
-                                  width: AppTokens.focusRingWidth,
+                        padding: EdgeInsets.all(AppTokens.space2),
+                        child: AppInput(
+                          hint: 'Search by code or name...',
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          size: AppInputSize.sm,
+                          prefixIcon: Icon(
+                            LucideIcons.search,
+                            size: AppTokens.iconSizeMd,
+                            color: AppTokens.textMuted,
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v),
+                        ),
+                      ),
+                    if (_hasCode)
+                      Container(
+                        color: AppTokens.primary800,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppTokens.space3,
+                          vertical: AppTokens.space2,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: _kCodeColumnWidth,
+                              child: Text(
+                                'CODE',
+                                style: GoogleFonts.poppins(
+                                  color: AppTokens.white,
+                                  fontSize: AppTokens.textXs,
+                                  fontWeight: AppTokens.weightSemibold,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             ),
-                          ),
+                            Expanded(
+                              child: Text(
+                                'NAME',
+                                style: GoogleFonts.poppins(
+                                  color: AppTokens.white,
+                                  fontSize: AppTokens.textXs,
+                                  fontWeight: AppTokens.weightSemibold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    Flexible(
+                    Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
                           final item = filtered[index];
-                          final isSelected = item.value == widget.selectedValue;
-                          return _SelectMenuItem<T>(
+                          final isSelected =
+                              item.value == widget.selectedValue;
+                          return _SelectOverlayRow<T>(
                             item: item,
+                            hasCode: _hasCode,
                             isSelected: isSelected,
                             onTap: () => widget.onSelect(item.value),
-                            fontSize: widget.fontSize,
                           );
                         },
+                      ),
+                    ),
+                    Divider(
+                      height: AppTokens.borderWidthSm,
+                      thickness: AppTokens.borderWidthSm,
+                      color: AppTokens.border,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppTokens.space3,
+                        vertical: AppTokens.space2,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            '${filtered.length} ${widget.countLabel}',
+                            style: GoogleFonts.poppins(
+                              fontSize: AppTokens.textXs,
+                              color: AppTokens.textMuted,
+                              fontWeight: AppTokens.weightRegular,
+                            ),
+                          ),
+                          const Spacer(),
+                          AppButton(
+                            label: 'Close',
+                            variant: AppButtonVariant.tertiary,
+                            size: AppButtonSize.sm,
+                            onPressed: widget.onDismiss,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -385,68 +467,112 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   }
 }
 
-class _SelectMenuItem<T> extends StatefulWidget {
-  const _SelectMenuItem({
+class _SelectOverlayRow<T> extends StatefulWidget {
+  const _SelectOverlayRow({
     required this.item,
+    required this.hasCode,
     required this.isSelected,
     required this.onTap,
-    required this.fontSize,
   });
 
   final AppSelectItem<T> item;
+  final bool hasCode;
   final bool isSelected;
   final VoidCallback onTap;
-  final double fontSize;
 
   @override
-  State<_SelectMenuItem<T>> createState() => _SelectMenuItemState<T>();
+  State<_SelectOverlayRow<T>> createState() => _SelectOverlayRowState<T>();
 }
 
-class _SelectMenuItemState<T> extends State<_SelectMenuItem<T>> {
+class _SelectOverlayRowState<T> extends State<_SelectOverlayRow<T>> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    Color bgColor = Colors.transparent;
-    if (widget.isSelected) bgColor = AppTokens.primary50;
-    if (_hovered && !widget.isSelected) bgColor = AppTokens.surfaceSubtle;
+    final item = widget.item;
+    final showCodeCol = widget.hasCode;
+    final code = item.code?.trim();
+
+    Color background;
+    if (widget.isSelected) {
+      background = AppTokens.primary50;
+    } else if (_hovered) {
+      background = AppTokens.pageBg;
+    } else {
+      background = Colors.transparent;
+    }
+
+    final nameColor = widget.isSelected
+        ? AppTokens.accent500
+        : AppTokens.textPrimary;
+
+    final codeColor = AppTokens.primary800;
+
+    Widget nameCell = Row(
+      children: [
+        if (item.icon != null) ...[
+          Icon(
+            item.icon,
+            size: AppTokens.iconSizeMd,
+            color:
+                widget.isSelected ? AppTokens.accent500 : AppTokens.textMuted,
+          ),
+          SizedBox(width: AppTokens.space1),
+        ],
+        Expanded(
+          child: Text(
+            item.label,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.textSm,
+              fontWeight: FontWeight.w400,
+              color: nameColor,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+      ],
+    );
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          height: 32,
-          color: bgColor,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              if (widget.item.icon != null) ...[
-                Icon(
-                  widget.item.icon,
-                  size: 14,
-                  color: widget.isSelected
-                      ? AppTokens.primary800
-                      : AppTokens.textMuted,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Expanded(
-                child: Text(
-                  widget.item.label,
-                  style: GoogleFonts.poppins(
-                    fontSize: widget.fontSize,
-                    fontWeight:
-                        widget.isSelected ? FontWeight.w500 : FontWeight.w400,
-                    color: widget.isSelected
-                        ? AppTokens.primary800
-                        : AppTokens.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+      child: Material(
+        color: background,
+        child: InkWell(
+          onTap: widget.onTap,
+          hoverColor: widget.isSelected
+              ? Colors.transparent
+              : AppTokens.pageBg,
+          child: SizedBox(
+            height: AppTokens.tableRowHeight,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppTokens.space3,
               ),
-            ],
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (showCodeCol) ...[
+                    SizedBox(
+                      width: _kCodeColumnWidth,
+                      child: Text(
+                        code ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppTokens.textSm,
+                          fontWeight: FontWeight.w500,
+                          color: codeColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    Expanded(child: nameCell),
+                  ] else
+                    Expanded(child: nameCell),
+                ],
+              ),
+            ),
           ),
         ),
       ),

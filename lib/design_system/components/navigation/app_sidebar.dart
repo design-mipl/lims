@@ -45,6 +45,14 @@ class _AppSidebarState extends State<AppSidebar> {
   static const double _logoBoxSize =
       AppTokens.tableRowHeight - AppTokens.space3;
 
+  /// True when [currentPath] is exactly [path] or a nested path under it.
+  static bool _pathMatchesRoute(String path, String currentPath) {
+    if (path.isEmpty) return false;
+    if (currentPath == path) return true;
+    final prefix = path.endsWith('/') ? path : '$path/';
+    return currentPath.startsWith(prefix);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,7 +63,9 @@ class _AppSidebarState extends State<AppSidebar> {
     String? found;
     for (final item in widget.navItems) {
       if (item.isExpandable &&
-          item.children!.any((c) => c.path == widget.currentPath)) {
+          item.children!.any(
+            (c) => _pathMatchesRoute(c.path, widget.currentPath),
+          )) {
         found = item.path;
         break;
       }
@@ -561,10 +571,18 @@ class _ParentTileState extends State<_ParentTile> {
     final item = widget.item;
     final isExpandable = item.isExpandable;
     final hasChildActive = item.children
-            ?.any((c) => c.path == widget.currentPath) ==
+            ?.any(
+              (c) => _AppSidebarState._pathMatchesRoute(
+                c.path,
+                widget.currentPath,
+              ),
+            ) ==
         true;
 
-    final selfMatch = widget.currentPath == item.path;
+    final selfMatch = _AppSidebarState._pathMatchesRoute(
+      item.path,
+      widget.currentPath,
+    );
     final isActiveParent = selfMatch || hasChildActive;
 
     final Color bg;
@@ -698,7 +716,10 @@ class _ChildTileState extends State<_ChildTile> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final isActiveChild = widget.currentPath == item.path;
+    final isActiveChild = _AppSidebarState._pathMatchesRoute(
+      item.path,
+      widget.currentPath,
+    );
     return InkWell(
       onTap: () => widget.onPathSelected(item.path),
       hoverColor: Colors.transparent,

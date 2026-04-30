@@ -261,7 +261,7 @@ class _UserFormPageState extends State<UserFormPage> {
               ),
             )
           : AppFormPageLayout(
-              leftPanel: [
+              left: AppFormPageLayout.sectionsColumn([
                 AppFormSection(
                   title: 'Basic Details',
                   children: [
@@ -327,8 +327,8 @@ class _UserFormPageState extends State<UserFormPage> {
                     ),
                   ],
                 ),
-              ],
-              rightPanel: [
+              ]),
+              right: AppFormPageLayout.sectionsColumn([
                 AppFormSection(
                   title: 'Organisation',
                   children: [
@@ -418,7 +418,7 @@ class _UserFormPageState extends State<UserFormPage> {
                     ),
                   ],
                 ),
-              ],
+              ]),
             ),
     );
   }

@@ -5,6 +5,10 @@ import '../di/service_locator.dart';
 import '../../features/coming_soon/coming_soon_screen.dart';
 import '../../features/masters/bank_master/state/bank_master_provider.dart';
 import '../../features/masters/bank_master/ui/bank_master_screen.dart';
+import '../../features/masters/customer_master/state/customer_provider.dart';
+import '../../features/masters/customer_master/ui/customer_detail_screen.dart';
+import '../../features/masters/customer_master/ui/customer_form_page.dart';
+import '../../features/masters/customer_master/ui/customer_screen.dart';
 import '../../features/masters/ferrography_master/state/ferrography_master_provider.dart';
 import '../../features/masters/ferrography_master/ui/ferrography_master_screen.dart';
 import '../../features/masters/hsn_master/state/hsn_master_provider.dart';
@@ -36,16 +40,10 @@ import '../../features/user_management/users/ui/users_screen.dart';
 final GoRouter appRouter = GoRouter(
   initialLocation: '/dashboard',
   routes: [
-    GoRoute(
-      path: '/',
-      redirect: (context, state) => '/dashboard',
-    ),
+    GoRoute(path: '/', redirect: (context, state) => '/dashboard'),
     ShellRoute(
       builder: (context, state, child) {
-        return ShellScreen(
-          state: state,
-          child: child,
-        );
+        return ShellScreen(state: state, child: child);
       },
       routes: [
         GoRoute(
@@ -61,51 +59,71 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/transactions',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Transactions',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Transactions'),
         ),
         GoRoute(
           path: '/transactions/sample-receipt',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Sample Receipt',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Sample Receipt'),
         ),
         GoRoute(
           path: '/transactions/lab-code',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Lab Code',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Lab Code'),
         ),
         GoRoute(
           path: '/masters',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Masters',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Masters'),
         ),
         GoRoute(
           path: '/masters/customer',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Customer Master',
+          redirect: (context, state) => '/customers',
+        ),
+        GoRoute(
+          path: '/customers',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => CustomerProvider()..fetchAll(),
+            child: const CustomerScreen(),
           ),
+        ),
+        GoRoute(
+          path: '/customers/create',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => CustomerProvider()..fetchAll(),
+            child: const CustomerFormPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/customers/:id',
+          builder: (context, state) {
+            final extra = state.extra as Map?;
+            return ChangeNotifierProvider(
+              create: (_) => CustomerProvider()..fetchAll(),
+              child: CustomerDetailScreen(
+                customerId: state.pathParameters['id']!,
+                initialTab:
+                    extra?['tab']?.toString() ?? 'overview',
+                startInlineEdit: extra?['edit'] == true,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: '/masters/site',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Site Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Site Master'),
         ),
         GoRoute(
           path: '/masters/courier',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Courier Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Courier Master'),
         ),
         GoRoute(
           path: '/masters/plant',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Plant Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Plant Master'),
         ),
         GoRoute(
           path: '/masters/bank',
@@ -123,57 +141,48 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/equipment',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Equipment Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Equipment Master'),
         ),
         GoRoute(
           path: '/masters/sample-type',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Type of Sample Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Type of Sample Master'),
         ),
         GoRoute(
           path: '/masters/grade',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Grade Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Grade Master'),
         ),
         GoRoute(
           path: '/masters/department',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Department Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Department Master'),
         ),
         GoRoute(
           path: '/masters/designation',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Designation Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Designation Master'),
         ),
         GoRoute(
           path: '/masters/test',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Test Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Test Master'),
         ),
         GoRoute(
           path: '/masters/method',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Method Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Method Master'),
         ),
         GoRoute(
           path: '/masters/instrument',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Instrument Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Instrument Master'),
         ),
         GoRoute(
           path: '/masters/parameter',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Parameter Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Parameter Master'),
         ),
         GoRoute(
           path: '/masters/unit',
@@ -212,26 +221,20 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/storage',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Storage Master',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Storage Master'),
         ),
         GoRoute(
           path: '/housekeeping',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Housekeeping',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Housekeeping'),
         ),
         GoRoute(
           path: '/reports',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Reports',
-          ),
+          builder: (context, _) =>
+              const ComingSoonScreen(moduleName: 'Reports'),
         ),
-        GoRoute(
-          path: '/ui-kit',
-          builder: (context, _) => const UIKitScreen(),
-        ),
+        GoRoute(path: '/ui-kit', builder: (context, _) => const UIKitScreen()),
         GoRoute(
           path: '/users',
           redirect: (context, state) => '/user-management/departments',

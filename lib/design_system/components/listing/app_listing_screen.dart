@@ -62,6 +62,7 @@ const double _kListingTabBarHeight = 36.0;
 const double _kListingTabBadgeHeight = 16.0;
 
 const double _kListingTabBadgeFontSize = 10.0;
+const double _kListingBodyMinRows = 2.0;
 
 EdgeInsets _listingTableCellPadding({required bool isHeader}) =>
     EdgeInsets.symmetric(horizontal: 12, vertical: isHeader ? 0 : 0);
@@ -995,6 +996,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 
     final cardColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (widget.tabs != null && widget.tabs!.isNotEmpty)
           _TabStrip(
@@ -1045,7 +1047,10 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
             },
             onClearAll: () => widget.onFiltersChanged?.call([]),
           ),
-        Expanded(
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: AppTokens.tableRowHeight * _kListingBodyMinRows,
+          ),
           child: AppBreakpoints.isMobileWidth(width)
               ? _buildMobileBody()
               : _buildDesktopTableBody(),
@@ -1082,7 +1087,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         AppTokens.space4,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: listingCard),
           if (isDesktopFilters)
@@ -1127,14 +1132,14 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 
     return ColoredBox(
       color: AppTokens.pageBg,
-      child: Column(
-        // stretch: children (e.g. [KpiRow] with Row+Expanded) need a bounded max width;
-        // crossAxisAlignment.start can pass unbounded width and trigger flex/overflow errors.
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          headerColumn,
-          Expanded(child: expandedBody),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            headerColumn,
+            expandedBody,
+          ],
+        ),
       ),
     );
   }
@@ -1159,6 +1164,8 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                   }
                   return ListView.separated(
                     padding: EdgeInsets.all(AppTokens.space4),
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: filtered.length,
                     separatorBuilder: (context, index) => SizedBox(
                       key: ValueKey<int>(index),
@@ -1213,6 +1220,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         final dataMaxW = (innerW - fixedNonScroll).clamp(0.0, double.infinity);
         final scrollWidths = _computeDataColumnWidths(dataMaxW);
         return Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _ListingTableHeader<T>(
@@ -1260,42 +1268,42 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
               },
               getColFilterLink: _colFilterLink,
             ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filtered.length,
-                itemBuilder: (context, listIndex) {
-                  final origIndex = filtered[listIndex].$1;
-                  final row = filtered[listIndex].$2;
-                  final selected = _selectedRows.contains(origIndex);
-                  final isLast = listIndex == filtered.length - 1;
-                  return _ListingDataRow<T>(
-                    key: ValueKey<int>(origIndex),
-                    scrollWidths: scrollWidths,
-                    columns: _visibleColumnDefs,
-                    horizontalScrollGroup: _tableHScrollGroup,
-                    row: row,
-                    index: origIndex,
-                    isLast: isLast,
-                    selected: selected,
-                    showCheckboxes: widget.showCheckboxes,
-                    showToggle: widget.showToggle,
-                    hasRowActions: widget.rowActions != null &&
-                        widget.rowActions!.isNotEmpty,
-                    rowActions: widget.rowActions,
-                    onToggleChanged: widget.onToggleChanged,
-                    onRowTap: widget.onRowTap,
-                    onSelectRow: (v) {
-                      setState(() {
-                        if (v) {
-                          _selectedRows.add(origIndex);
-                        } else {
-                          _selectedRows.remove(origIndex);
-                        }
-                      });
-                    },
-                  );
-                },
-              ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filtered.length,
+              itemBuilder: (context, listIndex) {
+                final origIndex = filtered[listIndex].$1;
+                final row = filtered[listIndex].$2;
+                final selected = _selectedRows.contains(origIndex);
+                final isLast = listIndex == filtered.length - 1;
+                return _ListingDataRow<T>(
+                  key: ValueKey<int>(origIndex),
+                  scrollWidths: scrollWidths,
+                  columns: _visibleColumnDefs,
+                  horizontalScrollGroup: _tableHScrollGroup,
+                  row: row,
+                  index: origIndex,
+                  isLast: isLast,
+                  selected: selected,
+                  showCheckboxes: widget.showCheckboxes,
+                  showToggle: widget.showToggle,
+                  hasRowActions:
+                      widget.rowActions != null && widget.rowActions!.isNotEmpty,
+                  rowActions: widget.rowActions,
+                  onToggleChanged: widget.onToggleChanged,
+                  onRowTap: widget.onRowTap,
+                  onSelectRow: (v) {
+                    setState(() {
+                      if (v) {
+                        _selectedRows.add(origIndex);
+                      } else {
+                        _selectedRows.remove(origIndex);
+                      }
+                    });
+                  },
+                );
+              },
             ),
           ],
         );
@@ -2692,6 +2700,8 @@ class _SkeletonTable extends StatelessWidget {
         )!;
         return ListView.builder(
           padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: 8,
           itemBuilder: (context, index) {
             return Container(

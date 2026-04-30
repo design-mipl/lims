@@ -38,7 +38,7 @@ const List<NavItem> appNavItems = [
     sectionLabel: 'MASTERS',
     children: [
       NavItem(
-        path: '/masters/customer',
+        path: '/customers',
         label: 'Customer Master',
         icon: Icon(LucideIcons.users, size: 16),
       ),
@@ -193,11 +193,7 @@ const List<NavItem> appNavItems = [
 
 /// Mounts [AppShell] with real navigation for all authenticated routes.
 class ShellScreen extends StatefulWidget {
-  const ShellScreen({
-    super.key,
-    required this.child,
-    required this.state,
-  });
+  const ShellScreen({super.key, required this.child, required this.state});
 
   final Widget child;
   final GoRouterState state;

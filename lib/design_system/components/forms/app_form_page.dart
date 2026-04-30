@@ -201,65 +201,21 @@ class AppFormPage extends StatelessWidget {
 }
 
 /// Two-panel side-by-side layout for full-page forms.
-/// Stacks below [kTwoPanelBreakpointWidth] (single column on narrow viewports).
+///
+/// True 50/50 split: [Row] + [Expanded(flex: 1)] + [Expanded(flex: 1)] only.
+/// Use [sectionsColumn] to stack multiple [AppFormSection]s inside [left]/[right].
 class AppFormPageLayout extends StatelessWidget {
   const AppFormPageLayout({
     super.key,
-    required this.leftPanel,
-    required this.rightPanel,
+    required this.left,
+    required this.right,
   });
 
-  /// Minimum width (px) to show left/right panels side by side.
-  static const double kTwoPanelBreakpointWidth = 800;
+  final Widget left;
+  final Widget right;
 
-  final List<Widget> leftPanel;
-  final List<Widget> rightPanel;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (!constraints.hasBoundedWidth) {
-          return _stackPanels();
-        }
-        final w = constraints.maxWidth;
-        if (!w.isFinite) {
-          return _stackPanels();
-        }
-        if (w >= kTwoPanelBreakpointWidth) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 55,
-                child: _panel(leftPanel),
-              ),
-              SizedBox(width: AppTokens.space4),
-              Expanded(
-                flex: 45,
-                child: _panel(rightPanel),
-              ),
-            ],
-          );
-        }
-        return _stackPanels();
-      },
-    );
-  }
-
-  /// Single column when width is unbounded or below the two-panel breakpoint.
-  Widget _stackPanels() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _panel(leftPanel),
-        SizedBox(height: AppTokens.space3),
-        _panel(rightPanel),
-      ],
-    );
-  }
-
-  Widget _panel(List<Widget> sections) {
+  /// Vertical stack of sections with standard spacing between them.
+  static Widget sectionsColumn(List<Widget> sections) {
     if (sections.isEmpty) return const SizedBox.shrink();
     final children = <Widget>[sections.first];
     for (var i = 1; i < sections.length; i++) {
@@ -270,6 +226,24 @@ class AppFormPageLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: children,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 1,
+          child: left,
+        ),
+        SizedBox(width: AppTokens.space4),
+        Expanded(
+          flex: 1,
+          child: right,
+        ),
+      ],
     );
   }
 }

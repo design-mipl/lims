@@ -86,7 +86,7 @@ class AppConfirmDialog extends StatelessWidget {
 
     return Dialog(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusXl),
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
       elevation: 16,
       clipBehavior: Clip.antiAlias,
@@ -111,13 +111,17 @@ class AppConfirmDialog extends StatelessWidget {
                 child: Column(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: AppTokens.space10,
+                      height: AppTokens.space10,
                       decoration: BoxDecoration(
                         color: iconBg,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppTokens.space5),
                       ),
-                      child: Icon(resolvedIcon, size: 20, color: iconColor),
+                      child: Icon(
+                        resolvedIcon,
+                        size: AppTokens.space5,
+                        color: iconColor,
+                      ),
                     ),
                     SizedBox(height: AppTokens.space2),
                     Text(

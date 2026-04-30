@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/client.dart';
 import '../../design_system/app_theme.dart';
 import '../../features/masters/bank_master/data/bank_master_api.dart';
+import '../../features/masters/customer_master/data/customer_api.dart';
+import '../../features/masters/customer_master/state/customer_provider.dart';
 import '../../features/masters/ferrography_master/data/ferrography_master_api.dart';
 import '../../features/masters/hsn_master/data/hsn_master_api.dart';
 import '../../features/masters/item_master/data/item_master_api.dart';
@@ -32,6 +34,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<ApiClient>(() => ApiClient());
 
   sl.registerLazySingleton<BankMasterApi>(() => BankMasterApi());
+  sl.registerLazySingleton<CustomerApi>(() => CustomerApi());
   sl.registerLazySingleton<ItemMasterApi>(() => ItemMasterApi());
   sl.registerLazySingleton<UnitMasterApi>(() => UnitMasterApi());
   sl.registerLazySingleton<ProblemMasterApi>(() => ProblemMasterApi());
@@ -45,4 +48,5 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<UsersApi>(() => UsersApi());
   sl.registerLazySingleton<UserPermissionsApi>(() => UserPermissionsApi());
   sl.registerFactory<UserPermissionsProvider>(() => UserPermissionsProvider());
+  sl.registerFactory<CustomerProvider>(() => CustomerProvider());
 }

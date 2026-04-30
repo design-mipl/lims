@@ -149,7 +149,7 @@ buttonHeightMd   = 30px
 buttonHeightLg   = 36px
 buttonRadius     = 6px
 
-tableRowHeight         = 38px
+tableRowHeight         = 56px
 tableHeaderHeight      = 34px
 tableActionsColumnWidth = 72px
 
@@ -376,7 +376,7 @@ AppFormDrawer — right side drawer
   Animation: 250ms slide from right
 
 AppFormModal — centered modal
-  Width: 480px, radius 12px, shadowLg
+  Width: AppTokens.formModalMaxWidth (600px), radius 12px, shadowLg
   Single column layout (≤6 fields)
   Scrollable content
   Footer: Cancel + Save right aligned
@@ -389,13 +389,12 @@ AppFormPage — full screen form
   Uses AppFormPageLayout for 2-panel
 
 AppFormPageLayout — 2-panel layout
-  Breakpoint: 800px
-  Desktop ≥800px: Row with Flexible(55) +
-                  Flexible(45)
-  Mobile <800px: Column stacked
-  leftPanel: List<Widget> of AppFormSection
-  rightPanel: List<Widget> of AppFormSection
-  Panel gap: space4
+  Row + Expanded(flex: 1) + SizedBox(space4) +
+  Expanded(flex: 1) — true 50/50 at all widths
+  [left] and [right]: Widget (typically
+  AppFormPageLayout.sectionsColumn of
+  AppFormSection lists)
+  No breakpoint stacking — no fixed widths
 
 AppConfirmDialog — confirm/alert dialog
   Width: 400px, radius 12px
@@ -450,6 +449,22 @@ Screens inside ShellRoute:
   ✅ Return content widget directly
   ✅ Wrap with Material(type: transparency)
 
+### 6.4 Detail screens (DETAIL SCREEN RULE)
+
+DETAIL SCREEN RULE:
+✅ All master-detail screens must use
+   DetailTemplate from the design system
+❌ Never build breadcrumbs, back button,
+   or two-container tab layout manually
+✅ DetailTemplate provides:
+   - Breadcrumb row with back arrow
+   - Top container (header card)
+   - Bottom container (tabs + content)
+✅ Caller provides: parentLabel,
+   parentRoute, currentLabel,
+   headerCard widget, tabLabels list,
+   tabViews list, initialTabIndex
+
 ---
 
 ## 7. LISTING SCREENS
@@ -472,6 +487,13 @@ Column
   ├── Page header (title + subtitle + button)
   ├── KpiRow (if showKpis: true)
   └── Container (everything above)
+
+Table body sizing rule:
+  ❌ NEVER use Expanded on the
+     AppListingScreen table body container
+  ✅ Table container must shrink to fit
+     its rows — page scrolling handles
+     overflow
 
 ### 7.2 Toolbar Rules
 Height: 44px, cardBg, bottom border
@@ -526,14 +548,15 @@ Header cell:
                ONLY shown when column.filter set
 
 Data row:
-  height: tableRowHeight (38px)
+  height: tableRowHeight (56px)
   bg: cardBg
   selected bg: Color(0xFFFFFBEB)
   hover bg: surfaceSubtle
   bottom border: 1px Color(0xFFF1F5F9)
 
 Data cell:
-  padding: horizontal 12px, vertical 0
+  padding: vertical space2, horizontal space2
+    (see TABLE CELL RULE in §11.0)
   font: tableCellSize (12px) w400 textPrimary
   maxLines: 1, overflow: ellipsis
 
@@ -963,7 +986,8 @@ Drawer (7–15 fields):
 Full Page (15+ fields / complex):
   lib/features/{module}/ui/{name}_form_page.dart
   - AppFormPage wrapper
-  - AppFormPageLayout (leftPanel + rightPanel)
+  - AppFormPageLayout (left + right via
+    sectionsColumn)
   - AppFormSection in each panel
   - Action buttons top-right in header
 
@@ -980,6 +1004,185 @@ In shell_screen.dart:
 ---
 
 ## 11. FORM IMPLEMENTATION PATTERNS
+
+### 11.0 Component Rules
+
+MODAL / DIALOG RULES:
+❌ NEVER use square corners on modals
+   or dialogs
+✅ Always apply AppTokens.radiusLg to
+   AppFormModal and AppConfirmDialog
+   surfaces
+
+FORM LAYOUT RULES:
+❌ NEVER stack fields single-column
+   inside AppFormModal or AppFormDrawer
+✅ Always wrap fields in AppFormSection
+   which provides the 2-col grid
+✅ Use AppFormFullWidth only for fields
+   that explicitly need full width
+   (textarea, address, etc.)
+✅ AppFormPageLayout uses Row +
+   Expanded(flex: 1) + Expanded(flex: 1)
+   for true 50/50 — gap between panels is
+   SizedBox(width: AppTokens.space4)
+✅ Use AppFormPageLayout.sectionsColumn([...])
+   for each [left] and [right] widget when
+   stacking multiple AppFormSection widgets
+❌ Never use fixed panel widths,
+   FractionallySizedBox, or flex ratios
+   other than 1:1 for AppFormPageLayout
+
+APPFORMSECTION _GRIDBODY RULE:
+✅ _GridBody uses Row + Expanded
+   for 2-col — never Wrap + SizedBox
+✅ Works in any parent including
+   SingleChildScrollView
+✅ Mobile uses Column stack
+❌ Never use Wrap + SizedBox for
+   2-col form grids in Flutter
+
+DROPDOWN RULES:
+❌ NEVER use showDialog or a separate
+   modal/popup for field selection
+❌ NEVER use showGeneralDialog for
+   dropdown fields
+✅ Always use AppSelect for all
+   dropdown/select fields - it renders
+   an anchored overlay below the field
+✅ showGeneralDialog is ONLY for opening
+   AppFormDrawer over a listing screen
+
+APPSELECT DROPDOWN RULE:
+✅ AppSelect overlay always includes:
+   search bar at top (when isSearchable,
+   default true);
+   CODE | NAME header row (AppTokens.primary800,
+   white uppercase text) only when any
+   [AppSelectItem.code] is non-empty;
+   scrollable results list with footer:
+   count + tertiary Close button
+✅ Use [countLabel] for the noun after the
+   number (e.g. countLabel: 'tests' → "5 tests");
+   defaults to "items"
+✅ Selected row: AppTokens.primary50 background +
+   accent500 for name text; code column stays
+   primary800 w500
+✅ Code column fixed width 80px; hover row:
+   AppTokens.pageBg when not selected
+❌ Never use a plain ListView-only dropdown
+   without this header/footer chrome when
+   using AppSelect
+
+APPSELECT OFFSET RULE:
+✅ CompositedTransformFollower offset must
+   place the panel below the field:
+   Offset(0, triggerHeight + 2) where
+   triggerHeight is the anchored field row
+   height (same as the select trigger), not
+   the whole widget including label
+❌ Never use Offset(0, 2) alone — it opens
+   the overlay overlapping the field
+
+OVERVIEW TAB RULE:
+✅ Overview tab always uses
+   AppFormPageLayout (50/50) +
+   AppFormSection for 2-col grid
+✅ Read-only fields use _ReadOnlyField
+   pattern: label (textXs, textMuted via
+   GoogleFonts.poppins) + value container
+   (pageBg, border, radiusMd)
+❌ Never build read-only field layout
+   manually outside AppFormSection
+✅ Boolean fields display 'Yes' / 'No'
+✅ Null/empty fields display '—'
+
+INLINE EDIT RULE:
+✅ Detail screen edit is always inline on
+   the Overview tab — toggle mode
+❌ Never create a separate edit route for
+   master detail screens (`/customers/:id/edit`
+   is forbidden)
+✅ _isEditing state lives in the detail
+   screen (or coordinated there), passed to
+   header and Overview tab
+✅ Header shows Edit Customer button in read
+   mode, Cancel + Save in edit mode; Save uses
+   provider saving / isLoading feedback
+
+STATUSCHIP RULE:
+❌ Never allow StatusChip to expand full width
+✅ Always wrap in Row or Align to constrain
+   to content width (e.g. Align(alignment:
+   Alignment.centerLeft, child: StatusChip(...)))
+
+APPFORMMODAL RULE:
+✅ Minimum width 600px always (uses
+   AppTokens.formModalMaxWidth)
+❌ Never set modal width below 600px — this
+   ensures AppFormSection 2-col Wrap renders
+   correctly on web
+
+MODAL CANCEL RULE:
+✅ Footer Cancel always calls
+   Navigator.of(context).maybePop() first,
+   then onCancel?.call() — modal always
+   closes even if onCancel is null or omits
+   pop
+❌ Never rely on onCancel alone to close
+   the dialog; X in header already uses
+   maybePop — keep footer Cancel aligned
+
+LISTING CONTAINER RULE:
+✅ cardColumn in AppListingScreen must
+   always use mainAxisSize: MainAxisSize.min
+❌ Never remove mainAxisSize.min from
+   cardColumn — it causes the listing
+   card to stretch to full remaining
+   height instead of hugging its content
+
+LISTING HEIGHT RULE:
+✅ AppListingScreen root uses
+   SingleChildScrollView wrapping the
+   main Column (header + body row) —
+   not Expanded(fill: remaining height)
+   for the listing body
+✅ expandedBody Row uses
+   crossAxisAlignment: CrossAxisAlignment.start
+   so the listing card does not stretch
+   vertically with the filter panel
+❌ Never wrap expandedBody in
+   Expanded inside the root Column —
+   it forces the listing card container
+   to fill viewport height
+
+SIDEBAR ACTIVE STATE RULE:
+✅ Use startsWith matching for active state —
+   child routes must activate parent nav item
+   (e.g. /customers/123 → Customers active)
+❌ Never use exact match only for nav
+   active state
+
+TAB EDIT LOCK RULE:
+✅ When detail screen is in edit mode, disable
+   all tabs except Overview (lockNonOverviewTabs)
+✅ Visually grey out disabled tabs with
+   AppTokens.textDisabled
+✅ Snap back to Overview if user attempts to
+   switch tabs while editing
+
+TABLE CELL RULE:
+✅ All table cells must have
+   EdgeInsets.symmetric(
+   vertical: space2,
+   horizontal: space2) padding
+✅ Edit mode fields use AppInputSize.sm for
+   consistent 30px height (matches buttonHeightMd)
+✅ AppInput sm = AppSelect sm = buttonHeightMd (30px)
+❌ Never place fields directly in cells without
+   padding
+❌ Do not mix input sizes within the same
+   inline-edit table row
 
 ### 11.1 Standard Drawer Form Pattern
 class _NameFormDrawerState extends State<NameFormDrawer> {
@@ -1249,6 +1452,29 @@ all violations. Fix them."
 "Stop. Read FLUTTER_CLAUDE.md again.
 You broke rule [N]: [what was wrong].
 Rewrite following FLUTTER_CLAUDE.md exactly."
+
+### Form layout rule:
+All `AppFormPage` screens must use
+`AppFormPageLayout` for the 50/50 left/right
+panel split. Sections pair side by side.
+`AppFormSection` 2-col grid sits inside
+each panel. This is the standard for
+all full-page forms going forward.
+
+### Detail screen rule:
+Master-detail screens use:
+- Header widget (colored bg, key fields)
+- TabBar below header
+- TabBarView with Expanded
+- No Scaffold / No AppBar (ShellRoute rule)
+
+### Row inline editing rule:
+For inline-editable tables, track
+`_editingRowId` in widget state.
+On row tap: save previous row silently
+via provider, set new `_editingRowId`.
+On tap outside: save and clear.
+Never use `setState` for server data.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 END OF FLUTTER_CLAUDE.md

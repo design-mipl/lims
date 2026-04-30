@@ -64,7 +64,7 @@ class AppInput extends StatelessWidget {
 
   /// Fixed outer height for single-line fields (sm/md/lg).
   double _singleLineFieldHeight() => switch (size) {
-        AppInputSize.sm => 30.0,
+        AppInputSize.sm => AppTokens.buttonHeightMd,
         AppInputSize.md => AppTokens.inputHeight,
         AppInputSize.lg => 38.0,
       };

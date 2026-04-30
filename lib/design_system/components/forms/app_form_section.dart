@@ -7,8 +7,8 @@ import 'app_form_field_row.dart';
 
 /// Card-style section for medium/large forms.
 ///
-/// Provide either [children] (preferred — renders a responsive 2-column Wrap
-/// grid) or the legacy [child] (renders as-is).
+/// Provide either [children] (preferred — responsive 2-column Row/Column grid)
+/// or the legacy [child] (renders as-is).
 class AppFormSection extends StatelessWidget {
   const AppFormSection({
     super.key,
@@ -117,33 +117,86 @@ class _GridBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isMobile =
-            AppBreakpoints.isMobileWidth(constraints.maxWidth);
-        final colWidth = isMobile
-            ? constraints.maxWidth
-            : (constraints.maxWidth - AppTokens.space3) / 2;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isMobile = AppBreakpoints.isMobileWidth(screenWidth);
 
-        final wrappedChildren = children.map((child) {
-          if (child is AppFormFullWidth) {
-            return SizedBox(
-              width: constraints.maxWidth,
-              child: child.child,
-            );
-          }
-          return SizedBox(
-            width: isMobile ? constraints.maxWidth : colWidth,
-            child: child,
-          );
-        }).toList();
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: _buildMobileChildren(),
+      );
+    }
 
-        return Wrap(
-          spacing: AppTokens.space3,
-          runSpacing: AppTokens.space4,
-          children: wrappedChildren,
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: _buildDesktopRows(),
     );
+  }
+
+  List<Widget> _buildMobileChildren() {
+    final result = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        result.add(SizedBox(height: AppTokens.space3));
+      }
+      final child = children[i];
+      if (child is AppFormFullWidth) {
+        result.add(child.child);
+      } else {
+        result.add(child);
+      }
+    }
+    return result;
+  }
+
+  List<Widget> _buildDesktopRows() {
+    final result = <Widget>[];
+    var i = 0;
+
+    while (i < children.length) {
+      if (result.isNotEmpty) {
+        result.add(SizedBox(height: AppTokens.space3));
+      }
+
+      final current = children[i];
+
+      if (current is AppFormFullWidth) {
+        result.add(current.child);
+        i++;
+        continue;
+      }
+
+      final hasNext = i + 1 < children.length;
+      final next = hasNext ? children[i + 1] : null;
+      final nextIsFullWidth = next is AppFormFullWidth;
+
+      if (hasNext && !nextIsFullWidth) {
+        result.add(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: current),
+              SizedBox(width: AppTokens.space3),
+              Expanded(child: next!),
+            ],
+          ),
+        );
+        i += 2;
+      } else {
+        result.add(
+          Row(
+            children: [
+              Expanded(child: current),
+              SizedBox(width: AppTokens.space3),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        );
+        i++;
+      }
+    }
+    return result;
   }
 }

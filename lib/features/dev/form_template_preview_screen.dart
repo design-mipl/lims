@@ -62,49 +62,35 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
       context: context,
       title: 'Quick add',
       subtitle: 'Compact modal layout',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: AppFormSection(
+        title: 'Basic Details',
         children: [
-          AppFormFieldRow(
-            children: [
-              AppInput(
-                label: 'Name',
-                hint: 'Full name',
-                controller: _modalName,
-                required: true,
-                size: AppInputSize.sm,
-              ),
-            ],
+          AppInput(
+            label: 'Name',
+            hint: 'Full name',
+            controller: _modalName,
+            required: true,
+            size: AppInputSize.sm,
           ),
-          SizedBox(height: AppTokens.space3),
-          AppFormFieldRow(
-            children: [
-              AppInput(
-                label: 'Email',
-                hint: 'name@company.com',
-                controller: _modalEmail,
-                keyboardType: TextInputType.emailAddress,
-                size: AppInputSize.sm,
-              ),
-              AppInput(
-                label: 'Phone',
-                hint: '+91 …',
-                controller: _modalPhone,
-                keyboardType: TextInputType.phone,
-                size: AppInputSize.sm,
-              ),
-            ],
+          AppInput(
+            label: 'Email',
+            hint: 'name@company.com',
+            controller: _modalEmail,
+            keyboardType: TextInputType.emailAddress,
+            size: AppInputSize.sm,
           ),
-          SizedBox(height: AppTokens.space3),
-          AppFormFieldRow(
-            children: [
-              AppInput(
-                label: 'Role',
-                hint: 'e.g. Analyst',
-                controller: _modalRole,
-                size: AppInputSize.sm,
-              ),
-            ],
+          AppInput(
+            label: 'Phone',
+            hint: '+91 ...',
+            controller: _modalPhone,
+            keyboardType: TextInputType.phone,
+            size: AppInputSize.sm,
+          ),
+          AppInput(
+            label: 'Role',
+            hint: 'e.g. Analyst',
+            controller: _modalRole,
+            size: AppInputSize.sm,
           ),
         ],
       ),
@@ -122,22 +108,20 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
         children: [
           AppFormSection(
             title: 'Basic Details',
-            child: AppFormFieldRow(
-              children: [
-                AppInput(
-                  label: 'Name',
-                  controller: _drawerName,
-                  required: true,
-                  size: AppInputSize.sm,
-                ),
-                AppInput(
-                  label: 'Phone',
-                  controller: _drawerPhone,
-                  keyboardType: TextInputType.phone,
-                  size: AppInputSize.sm,
-                ),
-              ],
-            ),
+            children: [
+              AppInput(
+                label: 'Name',
+                controller: _drawerName,
+                required: true,
+                size: AppInputSize.sm,
+              ),
+              AppInput(
+                label: 'Phone',
+                controller: _drawerPhone,
+                keyboardType: TextInputType.phone,
+                size: AppInputSize.sm,
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           AppFormSection(
@@ -149,32 +133,26 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
               variant: AppButtonVariant.tertiary,
               size: AppButtonSize.sm,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppFormFieldRow(
-                  children: [
-                    AppInput(
-                      label: 'GSTIN',
-                      controller: _drawerGstin,
-                      size: AppInputSize.sm,
-                    ),
-                    AppInput(
-                      label: 'Company Name',
-                      controller: _drawerCompany,
-                      size: AppInputSize.sm,
-                    ),
-                  ],
-                ),
-                SizedBox(height: AppTokens.space3),
-                AppInput(
+            children: [
+              AppInput(
+                label: 'GSTIN',
+                controller: _drawerGstin,
+                size: AppInputSize.sm,
+              ),
+              AppInput(
+                label: 'Company Name',
+                controller: _drawerCompany,
+                size: AppInputSize.sm,
+              ),
+              AppFormFullWidth(
+                child: AppInput(
                   label: 'Email',
                   controller: _drawerEmail,
                   keyboardType: TextInputType.emailAddress,
                   size: AppInputSize.sm,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           AppFormSection(
@@ -185,51 +163,46 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
               variant: AppButtonVariant.tertiary,
               size: AppButtonSize.sm,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppTextarea(
+            children: [
+              AppFormFullWidth(
+                child: AppTextarea(
                   label: 'Billing Address',
                   controller: _drawerBill,
                 ),
-                SizedBox(height: AppTokens.space3),
-                AppTextarea(
+              ),
+              AppFormFullWidth(
+                child: AppTextarea(
                   label: 'Shipping Address',
                   controller: _drawerShip,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           AppFormSection(
             title: 'Optional Details',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                AppInput(
-                  label: 'Opening Balance',
-                  controller: _drawerOpening,
-                  keyboardType: TextInputType.number,
-                  size: AppInputSize.sm,
-                ),
-                SizedBox(height: AppTokens.space3),
-                AppInput(
-                  label: 'TDS',
-                  hint: 'Toggle placeholder',
-                  readOnly: true,
-                  onTap: () {},
-                  size: AppInputSize.sm,
-                ),
-                SizedBox(height: AppTokens.space3),
-                AppInput(
-                  label: 'TCS',
-                  hint: 'Toggle placeholder',
-                  readOnly: true,
-                  onTap: () {},
-                  size: AppInputSize.sm,
-                ),
-              ],
-            ),
+            children: [
+              AppInput(
+                label: 'Opening Balance',
+                controller: _drawerOpening,
+                keyboardType: TextInputType.number,
+                size: AppInputSize.sm,
+              ),
+              AppInput(
+                label: 'TDS',
+                hint: 'Toggle placeholder',
+                readOnly: true,
+                onTap: () {},
+                size: AppInputSize.sm,
+              ),
+              AppInput(
+                label: 'TCS',
+                hint: 'Toggle placeholder',
+                readOnly: true,
+                onTap: () {},
+                size: AppInputSize.sm,
+              ),
+            ],
           ),
         ],
       ),
