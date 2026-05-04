@@ -16,18 +16,38 @@ const List<NavItem> appNavItems = [
   NavItem(
     path: '/transactions',
     label: 'Transactions',
-    icon: Icon(LucideIcons.arrowLeftRight, size: 16),
+    icon: Icon(LucideIcons.arrowLeftRight, size: AppTokens.iconButtonIconMd),
     sectionLabel: 'TRANSACTIONS',
     children: [
       NavItem(
-        path: '/transactions/sample-receipt',
-        label: 'Sample Receipt',
-        icon: Icon(LucideIcons.fileText, size: 16),
+        path: '/transactions/sample-intake',
+        label: 'Sample Intake & Data Entry',
+        icon: Icon(LucideIcons.clipboardList, size: AppTokens.iconButtonIconMd),
       ),
       NavItem(
         path: '/transactions/lab-code',
         label: 'Lab Code',
-        icon: Icon(LucideIcons.flaskConical, size: 16),
+        icon: Icon(LucideIcons.hash, size: AppTokens.iconButtonIconMd),
+      ),
+      NavItem(
+        path: '/transactions/lab-assignment',
+        label: 'Lab Manager Assignment',
+        icon: Icon(LucideIcons.users, size: AppTokens.iconButtonIconMd),
+      ),
+      NavItem(
+        path: '/transactions/verification',
+        label: 'Verification',
+        icon: Icon(LucideIcons.checkCircle, size: AppTokens.iconButtonIconMd),
+      ),
+      NavItem(
+        path: '/transactions/report-review',
+        label: 'Report Review & Authorization',
+        icon: Icon(LucideIcons.fileCheck, size: AppTokens.iconButtonIconMd),
+      ),
+      NavItem(
+        path: '/transactions/action-taken',
+        label: 'Action Taken',
+        icon: Icon(LucideIcons.activity, size: AppTokens.iconButtonIconMd),
       ),
     ],
   ),
@@ -43,17 +63,17 @@ const List<NavItem> appNavItems = [
         icon: Icon(LucideIcons.users, size: 16),
       ),
       NavItem(
-        path: '/masters/site',
+        path: '/sites',
         label: 'Site Master',
         icon: Icon(LucideIcons.mapPin, size: 16),
       ),
       NavItem(
-        path: '/masters/courier',
+        path: '/couriers',
         label: 'Courier Master',
         icon: Icon(LucideIcons.truck, size: 16),
       ),
       NavItem(
-        path: '/masters/plant',
+        path: '/plants',
         label: 'Plant Master',
         icon: Icon(LucideIcons.factory, size: 16),
       ),

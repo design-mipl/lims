@@ -49,9 +49,20 @@ class StatusChip extends StatelessWidget {
           foreground: AppTokens.primary800,
         );
       case 'inreview':
+      case 'inprogress':
         return const _StatusColors(
           background: AppTokens.info100,
           foreground: AppTokens.info500,
+        );
+      case 'dataentrypending':
+        return const _StatusColors(
+          background: AppTokens.warning100,
+          foreground: AppTokens.warning500,
+        );
+      case 'forwardedtolab':
+        return const _StatusColors(
+          background: AppTokens.primary50,
+          foreground: AppTokens.primary700,
         );
       default:
         return null;
@@ -78,6 +89,12 @@ class StatusChip extends StatelessWidget {
         return 'Draft';
       case 'error':
         return 'Error';
+      case 'dataentrypending':
+        return 'Data entry pending';
+      case 'inprogress':
+        return 'In progress';
+      case 'forwardedtolab':
+        return 'Forwarded to lab';
       default:
         return original;
     }
@@ -104,7 +121,7 @@ class StatusChip extends StatelessWidget {
       child: SizedBox(
         height: AppTokens.chipHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
           child: Center(
             child: Text(
               label,

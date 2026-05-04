@@ -16,6 +16,8 @@ class AppFormPage extends StatelessWidget {
     this.subtitle,
     this.onBack,
     this.actions,
+    this.scrollBody = true,
+    this.fullWidthBody = false,
     required this.body,
     this.cancelLabel,
     this.onCancel,
@@ -31,6 +33,12 @@ class AppFormPage extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onBack;
   final List<Widget>? actions;
+  /// When false, [body] is placed in an [Expanded] without a vertical scroll view
+  /// so it can use [Expanded]/[Flexible] internally (e.g. large data grids).
+  final bool scrollBody;
+  /// When true and [scrollBody] is false, skips max-width centering so [body] can
+  /// use full horizontal space.
+  final bool fullWidthBody;
   final Widget body;
   final String? cancelLabel;
   final VoidCallback? onCancel;
@@ -130,18 +138,33 @@ class AppFormPage extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(AppTokens.space5),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: AppTokens.formPageContentMaxWidth,
+            child: scrollBody
+                ? SingleChildScrollView(
+                    padding: EdgeInsets.all(AppTokens.space5),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppTokens.formPageContentMaxWidth,
+                        ),
+                        child: body,
+                      ),
+                    ),
+                  )
+                : Padding(
+                    padding: EdgeInsets.all(AppTokens.space5),
+                    child: fullWidthBody
+                        ? body
+                        : Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: AppTokens.formPageContentMaxWidth,
+                              ),
+                              child: body,
+                            ),
+                          ),
                   ),
-                  child: body,
-                ),
-              ),
-            ),
           ),
           if (showFooter)
             DecoratedBox(

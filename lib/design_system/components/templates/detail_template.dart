@@ -6,6 +6,10 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../tokens.dart';
 
 /// Full-page layout for master-detail screens (breadcrumb, header card, tabs).
+///
+/// When [tabLabels] has a single entry, the tab strip is omitted and [tabViews.first]
+/// fills the lower panel — no [tabController] is needed (pass `null`).
+/// When there are multiple tabs, [tabController] must be non-null.
 class DetailTemplate extends StatelessWidget {
   const DetailTemplate({
     super.key,
@@ -15,14 +19,24 @@ class DetailTemplate extends StatelessWidget {
     required this.headerCard,
     required this.tabLabels,
     required this.tabViews,
-    required this.tabController,
+    this.tabController,
     this.lockNonOverviewTabs = false,
     this.overviewTabIndex = 0,
   }) : assert(
-          tabLabels.length == tabViews.length,
-          'tabLabels and tabViews must have the same length',
-        ),
-       assert(overviewTabIndex >= 0, 'overviewTabIndex must be non-negative');
+         tabLabels.length == tabViews.length,
+         'tabLabels and tabViews must have the same length',
+       ),
+       assert(overviewTabIndex >= 0, 'overviewTabIndex must be non-negative'),
+       assert(
+         tabLabels.length == 1 ||
+             (tabLabels.length > 1 && tabController != null),
+         'DetailTemplate: use tabController when tabLabels.length > 1; '
+         'omit tabController when tabLabels.length == 1',
+       ),
+       assert(
+         tabLabels.length > 1 || tabViews.length == 1,
+         'DetailTemplate: single-tab mode expects exactly one tab view',
+       );
 
   final String parentLabel;
   final String parentRoute;
@@ -30,7 +44,7 @@ class DetailTemplate extends StatelessWidget {
   final Widget headerCard;
   final List<String> tabLabels;
   final List<Widget> tabViews;
-  final TabController tabController;
+  final TabController? tabController;
 
   /// When true, non-overview tabs show disabled styling and forbidden cursor.
   final bool lockNonOverviewTabs;
@@ -40,6 +54,9 @@ class DetailTemplate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final multiTab = tabLabels.length > 1;
+    final controller = tabController;
+
     return Padding(
       padding: EdgeInsets.all(AppTokens.space4),
       child: Column(
@@ -73,55 +90,59 @@ class DetailTemplate extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TabBar(
-                    controller: tabController,
-                    tabAlignment: TabAlignment.start,
-                    isScrollable: true,
-                    tabs: List.generate(tabLabels.length, (i) {
-                      final label = tabLabels[i];
-                      final locked =
-                          lockNonOverviewTabs && i != overviewTabIndex;
-                      if (!locked) {
-                        return Tab(text: label);
-                      }
-                      return Tab(
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.forbidden,
-                          child: Text(
-                            label,
-                            style: GoogleFonts.poppins(
-                              fontSize: AppTokens.textBase,
-                              fontWeight: AppTokens.weightRegular,
-                              color: AppTokens.textDisabled,
+                  if (multiTab) ...[
+                    TabBar(
+                      controller: controller!,
+                      tabAlignment: TabAlignment.start,
+                      isScrollable: true,
+                      tabs: List.generate(tabLabels.length, (i) {
+                        final label = tabLabels[i];
+                        final locked =
+                            lockNonOverviewTabs && i != overviewTabIndex;
+                        if (!locked) {
+                          return Tab(text: label);
+                        }
+                        return Tab(
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.forbidden,
+                            child: Text(
+                              label,
+                              style: GoogleFonts.poppins(
+                                fontSize: AppTokens.textBase,
+                                fontWeight: AppTokens.weightRegular,
+                                color: AppTokens.textDisabled,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                    indicatorColor: AppTokens.accent500,
-                    labelColor: AppTokens.accent500,
-                    unselectedLabelColor: AppTokens.textMuted,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelStyle: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightMedium,
+                        );
+                      }),
+                      indicatorColor: AppTokens.accent500,
+                      labelColor: AppTokens.accent500,
+                      unselectedLabelColor: AppTokens.textMuted,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      dividerColor: Colors.transparent,
+                      labelStyle: GoogleFonts.poppins(
+                        fontSize: AppTokens.textBase,
+                        fontWeight: AppTokens.weightMedium,
+                      ),
+                      unselectedLabelStyle: GoogleFonts.poppins(
+                        fontSize: AppTokens.textBase,
+                        fontWeight: AppTokens.weightRegular,
+                      ),
                     ),
-                    unselectedLabelStyle: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightRegular,
+                    Divider(
+                      height: AppTokens.borderWidthSm,
+                      thickness: AppTokens.borderWidthSm,
+                      color: AppTokens.border,
                     ),
-                  ),
-                  Divider(
-                    height: AppTokens.borderWidthSm,
-                    thickness: AppTokens.borderWidthSm,
-                    color: AppTokens.border,
-                  ),
+                  ],
                   Expanded(
-                    child: TabBarView(
-                      controller: tabController,
-                      children: tabViews,
-                    ),
+                    child: multiTab
+                        ? TabBarView(
+                            controller: controller!,
+                            children: tabViews,
+                          )
+                        : tabViews.first,
                   ),
                 ],
               ),

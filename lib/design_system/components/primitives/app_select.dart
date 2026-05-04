@@ -66,12 +66,6 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
   final GlobalKey _fieldKey = GlobalKey();
   bool _isOpen = false;
 
-  double get _inputHeight => switch (widget.size) {
-        AppInputSize.sm => AppTokens.buttonHeightMd,
-        AppInputSize.md => AppTokens.inputHeight,
-        AppInputSize.lg => 38.0,
-      };
-
   double get _fontSize => switch (widget.size) {
         AppInputSize.sm => 11.0,
         AppInputSize.md => 12.0,
@@ -105,7 +99,7 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
         _fieldKey.currentContext?.findRenderObject() as RenderBox?;
     final fallbackRo = context.findRenderObject() as RenderBox;
     final triggerW = fieldRo?.size.width ?? fallbackRo.size.width;
-    final triggerH = fieldRo?.size.height ?? _inputHeight;
+    final triggerH = fieldRo?.size.height ?? AppTokens.inputHeight;
 
     return OverlayEntry(
       builder: (context) => _SelectOverlay<T>(
@@ -137,116 +131,90 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
           orElse: () => null,
         );
 
-    final borderColor = hasError
-        ? AppTokens.error500
-        : _isOpen
-            ? AppTokens.borderFocus
-            : AppTokens.borderDefault;
-    final borderWidth =
-        _isOpen ? AppTokens.focusRingWidth : AppTokens.borderWidthSm;
-
     final hasLabel = widget.label != null && widget.label!.isNotEmpty;
-    final compactField = !hasLabel && !hasError;
 
     return Material(
       type: MaterialType.transparency,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxH = constraints.maxHeight;
-          final triggerHeight = compactField &&
-                  maxH.isFinite &&
-                  maxH > 0 &&
-                  maxH < _inputHeight
-              ? maxH
-              : _inputHeight;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (hasLabel) ...[
-                Text.rich(
-                  TextSpan(
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.fieldLabelSize,
-                      fontWeight: AppTokens.fieldLabelWeight,
-                      color: AppTokens.labelColor,
-                    ),
-                    children: [
-                      TextSpan(text: widget.label),
-                      if (widget.isRequired)
-                        TextSpan(
-                          text: ' *',
-                          style: GoogleFonts.poppins(
-                            color: AppTokens.error500,
-                            fontSize: AppTokens.fieldLabelSize,
-                            fontWeight: AppTokens.fieldLabelWeight,
-                          ),
-                        ),
-                    ],
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasLabel) ...[
+            Text.rich(
+              TextSpan(
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.fieldLabelSize,
+                  fontWeight: AppTokens.fieldLabelWeight,
+                  color: AppTokens.labelColor,
                 ),
-                const SizedBox(height: 4),
-              ],
-              CompositedTransformTarget(
-                link: _layerLink,
-                child: GestureDetector(
-                  onTap: _isOpen ? _closeOverlay : _openOverlay,
-                  child: Container(
-                    key: _fieldKey,
-                    height: triggerHeight,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: widget.enabled
-                          ? AppTokens.cardBg
-                          : AppTokens.surfaceSubtle,
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.inputRadius),
-                      border: Border.all(
-                        color: borderColor,
-                        width: borderWidth,
+                children: [
+                  TextSpan(text: widget.label),
+                  if (widget.isRequired)
+                    TextSpan(
+                      text: ' *',
+                      style: GoogleFonts.poppins(
+                        color: AppTokens.error500,
+                        fontSize: AppTokens.fieldLabelSize,
+                        fontWeight: AppTokens.fieldLabelWeight,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            selectedItem?.label ?? widget.hint ?? '',
-                            style: GoogleFonts.poppins(
-                              fontSize: _fontSize,
-                              fontWeight: FontWeight.w400,
-                              color: selectedItem != null
-                                  ? AppTokens.textPrimary
-                                  : AppTokens.hintColor,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Icon(
-                          LucideIcons.chevronDown,
-                          size: 14,
-                          color: AppTokens.textMuted,
-                        ),
-                      ],
+                ],
+              ),
+            ),
+            SizedBox(height: AppTokens.space1),
+          ],
+          CompositedTransformTarget(
+            link: _layerLink,
+            child: GestureDetector(
+              // Same fixed height and InputDecoration as [AppInput] so selects
+              // never drift taller from suffix/chevron slots.
+              onTap: widget.enabled
+                  ? (_isOpen ? _closeOverlay : _openOverlay)
+                  : null,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                key: _fieldKey,
+                height: AppTokens.inputHeight,
+                child: InputDecorator(
+                  isFocused: widget.enabled && _isOpen,
+                  decoration: buildAppFormFieldDecoration(
+                    enabled: widget.enabled,
+                    hasError: hasError,
+                    suffixIcon: Icon(
+                      LucideIcons.chevronDown,
+                      size: AppTokens.iconButtonIconSm,
+                      color: AppTokens.textMuted,
                     ),
+                  ),
+                  child: Text(
+                    selectedItem?.label ?? widget.hint ?? '',
+                    style: GoogleFonts.poppins(
+                      fontSize: _fontSize,
+                      fontWeight: FontWeight.w400,
+                      color: selectedItem != null
+                          ? AppTokens.textPrimary
+                          : AppTokens.hintColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
-              if (hasError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    widget.errorText!,
-                    style: GoogleFonts.poppins(
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.w400,
-                      color: AppTokens.error500,
-                    ),
-                  ),
+            ),
+          ),
+          if (hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: AppTokens.space1),
+              child: Text(
+                widget.errorText!,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: AppTokens.captionWeight,
+                  color: AppTokens.error500,
                 ),
-            ],
-          );
-        },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -289,8 +257,8 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   late final FocusNode _searchFocusNode;
 
   bool get _hasCode => widget.items.any(
-        (e) => e.code != null && e.code!.trim().isNotEmpty,
-      );
+      (e) => e.code != null && e.code!.trim().isNotEmpty,
+    );
 
   @override
   void initState() {
@@ -499,7 +467,7 @@ class _SelectOverlayRowState<T> extends State<_SelectOverlayRow<T>> {
     } else if (_hovered) {
       background = AppTokens.pageBg;
     } else {
-      background = Colors.transparent;
+      background = AppTokens.transparent;
     }
 
     final nameColor = widget.isSelected
@@ -542,7 +510,7 @@ class _SelectOverlayRowState<T> extends State<_SelectOverlayRow<T>> {
         child: InkWell(
           onTap: widget.onTap,
           hoverColor: widget.isSelected
-              ? Colors.transparent
+              ? AppTokens.transparent
               : AppTokens.pageBg,
           child: SizedBox(
             height: AppTokens.tableRowHeight,

@@ -69,6 +69,8 @@ abstract final class AppTokens {
   // ---------------------------------------------------------------------------
 
   static const Color white         = Color(0xFFFFFFFF);
+  /// Fully transparent (InkWell hover/selected no-op backgrounds).
+  static const Color transparent  = Color(0x00000000);
   static const Color surfaceCard   = Color(0xFFFFFFFF);
   static const Color cardBg        = Color(0xFFFFFFFF);
   static const Color pageBg        = Color(0xFFF0F2F5);
@@ -257,7 +259,15 @@ abstract final class AppTokens {
   static const double sidebarCollapsed = 56.0;
   static const double navItemHeight   = 34.0;
 
-  static const double inputHeight   = 34.0;
+  /// Canonical outer height for single-line [AppInput], [AppSelect] triggers, and
+  /// the prefix/suffix icon slot in shared [InputDecoration] constraints
+  /// ([inputFieldIconSlot]) so icon rows never force Material's default 48px slots.
+  static const double inputHeight = 34.0;
+
+  /// Same as [inputHeight]; use for [InputDecoration.prefixIconConstraints] /
+  /// [InputDecoration.suffixIconConstraints] width and height.
+  static const double inputFieldIconSlot = inputHeight;
+
   static const double inputHeightLg = 44.0;
   static const double inputRadius   = 6.0;
 
@@ -302,6 +312,9 @@ abstract final class AppTokens {
   static const double formDrawerWidthDesktop  = 560.0;
   static const double formModalMaxWidth       = 600.0;
   static const double formPageContentMaxWidth = 960.0;
+
+  /// Below this width, multi-column summaries stack vertically (mobile / narrow).
+  static const double layoutBreakpointCompact = 600.0;
 
   // --- Borders ---
 

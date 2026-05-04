@@ -4,12 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/client.dart';
 import '../../design_system/app_theme.dart';
 import '../../features/masters/bank_master/data/bank_master_api.dart';
+import '../../features/masters/courier_master/data/courier_api.dart';
+import '../../features/masters/courier_master/state/courier_provider.dart';
 import '../../features/masters/customer_master/data/customer_api.dart';
 import '../../features/masters/customer_master/state/customer_provider.dart';
 import '../../features/masters/ferrography_master/data/ferrography_master_api.dart';
 import '../../features/masters/hsn_master/data/hsn_master_api.dart';
 import '../../features/masters/item_master/data/item_master_api.dart';
+import '../../features/masters/plant_master/data/plant_api.dart';
+import '../../features/masters/plant_master/state/plant_provider.dart';
 import '../../features/masters/problem_master/data/problem_master_api.dart';
+import '../../features/masters/site_master/data/site_api.dart';
+import '../../features/masters/site_master/state/site_provider.dart';
 import '../../features/masters/sub_assembly_master/data/sub_assembly_master_api.dart';
 import '../../features/masters/unit_master/data/unit_master_api.dart';
 import '../../features/user_management/departments/data/departments_api.dart';
@@ -18,6 +24,8 @@ import '../../features/user_management/roles/data/roles_api.dart';
 import '../../features/user_management/users/data/user_permissions_api.dart';
 import '../../features/user_management/users/data/users_api.dart';
 import '../../features/user_management/users/state/user_permissions_provider.dart';
+import '../../features/transactions/sample_intake/data/sample_intake_api.dart';
+import '../../features/transactions/sample_intake/state/sample_intake_provider.dart';
 
 final GetIt sl = GetIt.instance;
 
@@ -41,6 +49,10 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<SubAssemblyMasterApi>(() => SubAssemblyMasterApi());
   sl.registerLazySingleton<FerrographyMasterApi>(() => FerrographyMasterApi());
   sl.registerLazySingleton<HsnMasterApi>(() => HsnMasterApi());
+  sl.registerLazySingleton<PlantApi>(() => PlantApi());
+  sl.registerLazySingleton<CourierApi>(() => CourierApi());
+  sl.registerLazySingleton<SiteApi>(() => SiteApi());
+  sl.registerLazySingleton<SampleIntakeApi>(() => SampleIntakeApi());
 
   sl.registerLazySingleton<DepartmentsApi>(() => DepartmentsApi());
   sl.registerLazySingleton<RolesApi>(() => RolesApi());
@@ -49,4 +61,8 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<UserPermissionsApi>(() => UserPermissionsApi());
   sl.registerFactory<UserPermissionsProvider>(() => UserPermissionsProvider());
   sl.registerFactory<CustomerProvider>(() => CustomerProvider());
+  sl.registerFactory<PlantProvider>(() => PlantProvider());
+  sl.registerFactory<CourierProvider>(() => CourierProvider());
+  sl.registerFactory<SiteProvider>(() => SiteProvider());
+  sl.registerFactory<SampleIntakeProvider>(() => SampleIntakeProvider());
 }

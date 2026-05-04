@@ -1,0 +1,182 @@
+import '../../../../core/di/service_locator.dart';
+import '../../../../core/providers/base_provider.dart';
+import '../data/site_api.dart';
+import '../data/site_model.dart';
+
+class SiteProvider extends BaseProvider {
+  SiteProvider({SiteApi? api}) : _api = api ?? sl<SiteApi>();
+
+  final SiteApi _api;
+
+  List<SiteModel> sites = <SiteModel>[];
+  SiteModel? selected;
+  bool saving = false;
+
+  String _searchQuery = '';
+  String _statusFilter = 'all';
+  int _currentPage = 1;
+  int _pageSize = 10;
+
+  int get currentPage => _currentPage;
+  int get pageSize => _pageSize;
+
+  List<SiteModel> get filteredItems {
+    Iterable<SiteModel> items = sites;
+    if (_statusFilter == 'active') {
+      items = items.where((e) => e.status == 'active');
+    } else if (_statusFilter == 'inactive') {
+      items = items.where((e) => e.status == 'inactive');
+    }
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      items = items.where((e) {
+        return e.code.toLowerCase().contains(q) ||
+            (e.displayName ?? '').toLowerCase().contains(q);
+      });
+    }
+    return items.toList();
+  }
+
+  int get activeCount => sites.where((e) => e.status == 'active').length;
+  int get inactiveCount => sites.where((e) => e.status == 'inactive').length;
+  int get statusTabIndex =>
+      _statusFilter == 'all' ? 0 : (_statusFilter == 'active' ? 1 : 2);
+
+  int get effectiveCurrentPage {
+    final total = filteredItems.length;
+    if (total == 0) return 1;
+    final last = ((total - 1) ~/ _pageSize) + 1;
+    return _currentPage.clamp(1, last);
+  }
+
+  List<SiteModel> get pagedRows {
+    final all = filteredItems;
+    if (all.isEmpty) return const [];
+    final page = effectiveCurrentPage;
+    final start = (page - 1) * _pageSize;
+    final end = (start + _pageSize).clamp(0, all.length);
+    return all.sublist(start, end);
+  }
+
+  void setSearchQuery(String value) {
+    _searchQuery = value;
+    _currentPage = 1;
+    notifyListeners();
+  }
+
+  void setStatusFilterByTab(int index) {
+    if (index == 1) {
+      _statusFilter = 'active';
+    } else if (index == 2) {
+      _statusFilter = 'inactive';
+    } else {
+      _statusFilter = 'all';
+    }
+    _currentPage = 1;
+    notifyListeners();
+  }
+
+  void setPage(int page) {
+    _currentPage = page;
+    notifyListeners();
+  }
+
+  void setPageSize(int size) {
+    _pageSize = size;
+    _currentPage = 1;
+    notifyListeners();
+  }
+
+  Future<void> fetchAll() async {
+    await runAsync(() async {
+      sites = await _api.fetchAll();
+    });
+  }
+
+  Future<void> fetchById(String id) async {
+    await runAsync(() async {
+      selected = await _api.fetchById(id);
+    });
+  }
+
+  Future<SiteModel?> create(Map<String, dynamic> data) async {
+    SiteModel? created;
+    await runAsync(() async {
+      saving = true;
+      notifyListeners();
+      created = await _api.create(data);
+      sites = await _api.fetchAll();
+      selected = created;
+      saving = false;
+      notifyListeners();
+    });
+    return created;
+  }
+
+  Future<void> update(String id, Map<String, dynamic> data) async {
+    await runAsync(() async {
+      saving = true;
+      notifyListeners();
+      await _api.update(id, data);
+      sites = await _api.fetchAll();
+      if (selected?.id == id) {
+        selected = await _api.fetchById(id);
+      }
+      saving = false;
+      notifyListeners();
+    });
+  }
+
+  Future<void> delete(String id) async {
+    await runAsync(() async {
+      await _api.delete(id);
+      sites = await _api.fetchAll();
+      if (selected?.id == id) {
+        selected = null;
+      }
+    });
+  }
+
+  Future<void> toggleStatus(String id) async {
+    await runAsync(() async {
+      await _api.toggleStatus(id);
+      sites = await _api.fetchAll();
+      if (selected?.id == id) {
+        selected = await _api.fetchById(id);
+      }
+    });
+  }
+
+  Future<void> bulkActivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        final item = await _api.fetchById(id);
+        if (item.status != 'active') {
+          await _api.toggleStatus(id);
+        }
+      }
+      sites = await _api.fetchAll();
+    });
+  }
+
+  Future<void> bulkDeactivate(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        final item = await _api.fetchById(id);
+        if (item.status != 'inactive') {
+          await _api.toggleStatus(id);
+        }
+      }
+      sites = await _api.fetchAll();
+    });
+  }
+
+  Future<void> bulkDelete(List<String> ids) async {
+    await runAsync(() async {
+      for (final id in ids) {
+        await _api.delete(id);
+      }
+      sites = await _api.fetchAll();
+    });
+  }
+}

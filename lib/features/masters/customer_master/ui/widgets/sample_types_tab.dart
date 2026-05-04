@@ -103,7 +103,8 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
     final q = _searchCtrl.text.trim().toLowerCase();
     return source.where((e) {
       if (q.isNotEmpty) {
-        final hitsGlobal = e.sampleTypeName.toLowerCase().contains(q) ||
+        final hitsGlobal =
+            e.sampleTypeName.toLowerCase().contains(q) ||
             e.testName.toLowerCase().contains(q) ||
             (e.modelName ?? '').toLowerCase().contains(q) ||
             (e.brandName ?? '').toLowerCase().contains(q) ||
@@ -185,8 +186,9 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
 
   void _openColumnFilter(String columnKey, LayerLink link) {
     _removeColumnFilterOverlay();
-    _columnFilterEditController =
-        TextEditingController(text: _columnFilters[columnKey] ?? '');
+    _columnFilterEditController = TextEditingController(
+      text: _columnFilters[columnKey] ?? '',
+    );
     final controller = _columnFilterEditController!;
 
     _columnFilterOverlay = OverlayEntry(
@@ -612,13 +614,11 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final sourceRows =
-        context.select<CustomerProvider, List<SampleTypeRowModel>>(
-      (p) {
-        if (p.selected?.id != widget.customerId) return const [];
-        return p.selected!.sampleTypes;
-      },
-    );
+    final sourceRows = context
+        .select<CustomerProvider, List<SampleTypeRowModel>>((p) {
+          if (p.selected?.id != widget.customerId) return const [];
+          return p.selected!.sampleTypes;
+        });
     final filtered = _filteredFrom(sourceRows);
     final display = _sortedFrom(filtered);
     final rows = _pagedSlice(display);
@@ -702,11 +702,11 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
                                   ),
                                 ),
                               ),
-                              height: AppTokens.tableRowHeight,
-                              alignment: Alignment.center,
+                              constraints: BoxConstraints(
+                                minHeight: AppTokens.tableRowHeight,
+                              ),
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   _cell(
                                     '${((_currentPage - 1) * _pageSize) + idx + 1}',
@@ -899,7 +899,8 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
             width: w,
             filterKey: filterKey,
             sortKey: sortKey,
-            filterActive: filterKey != null &&
+            filterActive:
+                filterKey != null &&
                 (_columnFilters[filterKey]?.trim().isNotEmpty ?? false),
             sortColumn: _sortColumn,
             sortAsc: _sortAsc,
@@ -1164,11 +1165,7 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
     if (!editing) {
       final v = value.trim();
       final showDash = v.isEmpty;
-      return _cell(
-        showDash ? '—' : v,
-        width: width,
-        isPlaceholder: showDash,
-      );
+      return _cell(showDash ? '—' : v, width: width, isPlaceholder: showDash);
     }
     final key = '${row.id}:$field';
     return SizedBox(
@@ -1301,12 +1298,13 @@ class _SortableFilterColumnHeaderState
                   child: Icon(
                     sortActive
                         ? (widget.sortAsc
-                            ? LucideIcons.chevronUp
-                            : LucideIcons.chevronDown)
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.chevronDown)
                         : LucideIcons.chevronsUpDown,
                     size: AppTokens.textSm,
-                    color:
-                        sortActive ? AppTokens.accent500 : AppTokens.textMuted,
+                    color: sortActive
+                        ? AppTokens.accent500
+                        : AppTokens.textMuted,
                   ),
                 ),
               ),
