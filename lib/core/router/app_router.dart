@@ -32,6 +32,10 @@ import '../../features/masters/unit_master/ui/unit_master_screen.dart';
 import '../../features/ui_kit/ui_kit_screen.dart';
 import '../../features/dev/form_template_preview_screen.dart';
 import '../../features/shell/shell_screen.dart';
+import '../../features/transactions/lab_code/state/lab_code_provider.dart';
+import '../../features/transactions/lab_code/ui/lab_code_screen.dart';
+import '../../features/transactions/lab_manager_assignment/state/lab_manager_assignment_provider.dart';
+import '../../features/transactions/lab_manager_assignment/ui/lab_manager_assignment_screen.dart';
 import '../../features/transactions/sample_intake/state/sample_intake_provider.dart';
 import '../../features/transactions/sample_intake/ui/create_sample_receipt_page.dart';
 import '../../features/transactions/sample_intake/ui/sample_intake_detail_page.dart';
@@ -124,30 +128,43 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/transactions/lab-code',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Lab Code',
-            subtitle: 'Lab ID generation and tracking.',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => sl<LabCodeProvider>(),
+            child: const LabCodeScreen(),
           ),
         ),
         GoRoute(
           path: '/transactions/lab-assignment',
-          builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Lab Manager Assignment',
-            subtitle: 'Assign tests and samples to lab users.',
+          builder: (context, _) => ChangeNotifierProvider(
+            create: (_) => sl<LabManagerAssignmentProvider>(),
+            child: const LabManagerAssignmentScreen(),
           ),
         ),
         GoRoute(
           path: '/transactions/verification',
           builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Verification',
-            subtitle:
-                'Lab manager verification and lab chemist verification.',
+            moduleName: 'Lab Manager Verification',
+            subtitle: 'Lab manager verification workflow.',
+          ),
+        ),
+        GoRoute(
+          path: '/transactions/lab-verification-chemist',
+          builder: (context, _) => const ComingSoonScreen(
+            moduleName: 'Lab Verification Chemist',
+            subtitle: 'Lab chemist verification workflow.',
+          ),
+        ),
+        GoRoute(
+          path: '/transactions/lab-manager-certification',
+          builder: (context, _) => const ComingSoonScreen(
+            moduleName: 'Lab Manager Certification',
+            subtitle: 'Lab manager certification workflow.',
           ),
         ),
         GoRoute(
           path: '/transactions/report-review',
           builder: (context, _) => const ComingSoonScreen(
-            moduleName: 'Report Review & Authorization',
+            moduleName: 'Supervisor Review & NABL',
             subtitle:
                 'Supervisor comments, severity, NABL, and final authorization.',
           ),
@@ -157,6 +174,20 @@ final GoRouter appRouter = GoRouter(
           builder: (context, _) => const ComingSoonScreen(
             moduleName: 'Action Taken',
             subtitle: 'Post-report actions and customer follow-ups.',
+          ),
+        ),
+        GoRoute(
+          path: '/transactions/customer-invoice',
+          builder: (context, _) => const ComingSoonScreen(
+            moduleName: 'Customer Invoice',
+            subtitle: 'Customer invoicing and billing.',
+          ),
+        ),
+        GoRoute(
+          path: '/transactions/credit-note',
+          builder: (context, _) => const ComingSoonScreen(
+            moduleName: 'Credit Note',
+            subtitle: 'Credit notes and adjustments.',
           ),
         ),
         GoRoute(

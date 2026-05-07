@@ -68,6 +68,34 @@ class _CustomerFormPageState extends State<CustomerFormPage> {
     return _companyError == null && _gstError == null;
   }
 
+  /// Label + switch on one line (matches grid row height; no stacked label above switch).
+  Widget _gstInlineToggleRow({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.fieldLabelSize,
+              fontWeight: AppTokens.fieldLabelWeight,
+              color: AppTokens.labelColor,
+            ),
+          ),
+        ),
+        SizedBox(width: AppTokens.space2),
+        AppToggleSwitch(
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
   Future<void> _onSave() async {
     if (!_validate()) return;
     final p = context.read<CustomerProvider>();
@@ -193,58 +221,76 @@ class _CustomerFormPageState extends State<CustomerFormPage> {
                 right: AppFormPageLayout.sectionsColumn([
                   AppFormSection(
                     title: 'GST & Billing',
-                    children: [
-                      AppFormFullWidth(
-                        child: AppToggleSwitch(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _gstInlineToggleRow(
                           label: 'GST Registered',
                           value: _gstRegistered,
-                          onChanged: (v) => setState(() => _gstRegistered = v),
+                          onChanged: (v) => setState(() {
+                            _gstRegistered = v;
+                            if (!_gstRegistered) _gstError = null;
+                          }),
                         ),
-                      ),
-                      AppInput(
-                        label: 'GST No.',
-                        hint: 'Enter GST number',
-                        controller: _gstNoCtrl,
-                        enabled: _gstRegistered,
-                        errorText: _gstError,
-                      ),
-                      AppFormFullWidth(
-                        child: AppToggleSwitch(
+                        SizedBox(height: AppTokens.space3),
+                        AppInput(
+                          label: 'GST No.',
+                          hint: 'Enter GST number',
+                          controller: _gstNoCtrl,
+                          enabled: _gstRegistered,
+                          errorText: _gstError,
+                        ),
+                        SizedBox(height: AppTokens.space3),
+                        _gstInlineToggleRow(
                           label: 'Composite Dealer',
                           value: _compositDealer,
-                          onChanged: (v) => setState(() => _compositDealer = v),
+                          onChanged: (v) =>
+                              setState(() => _compositDealer = v),
                         ),
-                      ),
-                      AppSelect<String>(
-                        label: 'Billing Cycle',
-                        hint: 'Select billing cycle',
-                        value: _billingCycle,
-                        items: const [
-                          AppSelectItem<String>(
-                            value: 'monthly',
-                            label: 'Monthly',
-                          ),
-                          AppSelectItem<String>(
-                            value: 'weekly',
-                            label: 'Weekly',
-                          ),
-                          AppSelectItem<String>(
-                            value: 'fortnight',
-                            label: 'Fortnight',
-                          ),
-                          AppSelectItem<String>(
-                            value: 'immediately',
-                            label: 'Immediately',
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _billingCycle = v),
-                      ),
-                      AppInput(
-                        label: 'Payment Terms',
-                        hint: 'e.g. Net 30',
-                        controller: _paymentTermsCtrl,
-                      ),
-                    ],
+                        SizedBox(height: AppTokens.space3),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: AppSelect<String>(
+                                label: 'Billing Cycle',
+                                hint: 'Select billing cycle',
+                                value: _billingCycle,
+                                items: const [
+                                  AppSelectItem<String>(
+                                    value: 'monthly',
+                                    label: 'Monthly',
+                                  ),
+                                  AppSelectItem<String>(
+                                    value: 'weekly',
+                                    label: 'Weekly',
+                                  ),
+                                  AppSelectItem<String>(
+                                    value: 'fortnight',
+                                    label: 'Fortnight',
+                                  ),
+                                  AppSelectItem<String>(
+                                    value: 'immediately',
+                                    label: 'Immediately',
+                                  ),
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => _billingCycle = v),
+                              ),
+                            ),
+                            SizedBox(width: AppTokens.space3),
+                            Expanded(
+                              child: AppInput(
+                                label: 'Payment Terms',
+                                hint: 'e.g. Net 30',
+                                controller: _paymentTermsCtrl,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   AppFormSection(
                     title: 'Sales Info',

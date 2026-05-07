@@ -213,24 +213,7 @@ class _SampleIntakeDetailPageState extends State<SampleIntakeDetailPage> {
                     final customerCompany = '${r.customerName}'
                         '${r.customerCompany.isEmpty ? '' : ' · ${r.customerCompany}'}';
 
-                    final statusRow = Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Status',
-                          style: GoogleFonts.poppins(
-                            fontSize: AppTokens.tableHeaderSize,
-                            fontWeight: AppTokens.weightSemibold,
-                            color: AppTokens.textMuted,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        SizedBox(width: AppTokens.space3),
-                        StatusChip(status: r.status),
-                      ],
-                    );
-
-                    final cellWidgets = [
+                    final cellWidgets = <Widget>[
                       block(
                         'Lot',
                         Text(
@@ -260,14 +243,19 @@ class _SampleIntakeDetailPageState extends State<SampleIntakeDetailPage> {
                         'Data entry progress',
                         Text('$completed / ${r.noOfSamples} completed'),
                       ),
+                      block(
+                        'Status',
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: StatusChip(status: r.status),
+                        ),
+                      ),
                     ];
 
                     if (compact) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          statusRow,
-                          SizedBox(height: AppTokens.space2),
                           for (var i = 0; i < cellWidgets.length; i++) ...[
                             if (i > 0) SizedBox(height: AppTokens.space3),
                             cellWidgets[i],
@@ -276,21 +264,17 @@ class _SampleIntakeDetailPageState extends State<SampleIntakeDetailPage> {
                       );
                     }
 
+                    const desktopFlex = <int>[1, 1, 2, 1, 1, 1];
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          flex: 3,
-                          child: Wrap(
-                            spacing: AppTokens.space6,
-                            runSpacing: AppTokens.space4,
-                            children: cellWidgets,
+                        for (var i = 0; i < cellWidgets.length; i++) ...[
+                          if (i > 0) SizedBox(width: AppTokens.space4),
+                          Expanded(
+                            flex: desktopFlex[i],
+                            child: cellWidgets[i],
                           ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: statusRow,
-                        ),
+                        ],
                       ],
                     );
                   },
@@ -299,7 +283,7 @@ class _SampleIntakeDetailPageState extends State<SampleIntakeDetailPage> {
             ),
           ),
           SizedBox(height: AppTokens.space4),
-          const SampleDataEntryTable(),
+          const Expanded(child: SampleDataEntryTable()),
         ],
       ),
     );

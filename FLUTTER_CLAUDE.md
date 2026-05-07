@@ -96,7 +96,9 @@ accent600  = #CC2B2B  ← danger hover
 accent100  = #F5C4B3
 
 ### 3.2 Surface Colors
-pageBg        = #F0F2F5  ← page background
+(Must match lib/design_system/tokens.dart — do not assume an older grey page.)
+pageBg        = #FFFFFF  ← main page background ([AppTokens.pageBg] / [white])
+background    = #EEF1F8  ← app-wide alternate surface ([primary50], [AppTokens.background])
 cardBg        = #FFFFFF  ← card/container background
 surfaceSubtle = #F8FAFC  ← table header, bulk bar empty
 
@@ -243,32 +245,33 @@ AppInput — single line text input
             isRequired, errorText, enabled,
             obscureText, prefixIcon, suffixIcon,
             maxLines, keyboardType, size
-  Implementation: SizedBox(height) +
-    isCollapsed:true + Positioned icon overlay
-  NEVER use: expands, isDense, prefixIcon
-    inside InputDecoration for icons
-  Icon rendering: Stack + Positioned(left:10)
-    for prefix, Positioned(right:10) for suffix
-  All sizes use same pattern — obscureText
-    fields get same height as normal fields
+  Single-line: [AppTokens.inputHeight] +
+    [buildAppFormFieldDecoration] +
+    [TextFormField] with [textAlignVertical.center]
+  Value/hint typography: [appFormFieldValueTextStyle]
+    (same as [AppSelect] trigger text)
+  Prefix/suffix: [InputDecoration] icon slots only;
+    constraints [AppTokens.inputFieldIconSlot] (not 48px)
 
 AppTextarea — multiline text input
-  Same label/border style as AppInput
-  NO fixed height — auto expands
-  minLines: 3 default, maxLines: 6 default
-  contentPadding: horizontal 10, vertical 8
+  Same label spacing, borders, fill, and
+  [contentPadding] as [AppInput] via
+  [buildAppFormFieldDecoration]
+  NO fixed outer height — grows with [minLines]/[maxLines]
+  Body text: [appFormFieldValueTextStyle] at 12px (md)
 
 AppSelect<T> — anchored overlay dropdown
   NEVER use DropdownButtonFormField
   NEVER use showDialog or showModalBottomSheet
   Opens as OverlayEntry anchored BELOW field
-  Trigger: GestureDetector + Container
-    visually identical to AppInput
+  Trigger: [SizedBox(height: AppTokens.inputHeight)] +
+    [InputDecorator] + [buildAppFormFieldDecoration]
+    (chevron as [suffixIcon]); trigger label uses
+    [appFormFieldValueTextStyle] for selected/hint
   Dropdown: white bg, border, 8px radius,
-    shadowMd, max 240px, scrollable
-  Search: shown when items.length > 5
-  Items: 32px height, 10px padding
-  Selected: primary50 bg, primary800 text
+    shadowMd, scrollable list
+  Search: when [isSearchable] (default true)
+  Selected row: primary50 bg, primary800 text
 
 ### 5.2 Button Components
 
@@ -1084,6 +1087,91 @@ APPSELECT OFFSET RULE:
 ❌ Never use Offset(0, 2) alone — it opens
    the overlay overlapping the field
 
+DATE FILTER / CALENDAR POPOVER RULE:
+✅ Date filter fields must use the same
+   visual style as AppInput:
+   height AppTokens.inputHeight,
+   border AppTokens.borderDefault,
+   radius AppTokens.inputRadius,
+   font GoogleFonts.poppins;
+   calendar icon aligned inside the right
+   side of the field;
+   placeholder examples: From Date, To Date
+✅ Date filters used in listing screens must
+   sit in the toolbar row beside the search
+   field only when that module requires date
+   filtering
+❌ Do not add date filters globally to every
+   tab — add them only to the required
+   tab/screen (example: Lab Code → Lab Id
+   tab only)
+✅ Calendar must open as an anchored popover
+   below the clicked date input
+❌ Never open a full modal, dialog, bottom
+   sheet, or new page for date selection
+✅ Calendar popover must be compact:
+   smaller width and height than a large
+   modal calendar; reduced internal padding;
+   reduced day cell size; reduced row
+   spacing; must not cover the full listing
+   table; must remain readable
+✅ Calendar header layout:
+   [ Left Arrow ] [ Month Year ▼ ] [ Right Arrow ]
+   Rules: left arrow aligned to the left;
+   Month Year label exactly centered; right
+   arrow aligned to the right;
+   do not group both arrows on the right;
+   do not show separate top Month dropdown
+   and Year dropdown above the header
+✅ Month/year behavior: left arrow → previous
+   month; right arrow → next month; clicking
+   Month Year label may open month/year
+   selection if needed; display format supports
+   DD-MMM-YYYY (example: 05-May-2026)
+✅ Calendar footer: include Cancel or Back;
+   Cancel/Back closes the popover without
+   changing the selected date; previous
+   selected date stays unless the user picks
+   a new date
+✅ Date selection: picking a date updates the
+   field and closes the popover; From Date +
+   To Date filter records between selected
+   dates; date filter state lives in the
+   Provider (not setState for server data)
+✅ Calendar implementation: use OverlayEntry /
+   anchored overlay pattern similar to
+   AppSelect; position below the input with
+   CompositedTransformTarget / Follower; keep
+   overlay inside the visible viewport when
+   possible; dismiss on outside tap; use
+   AppTokens for colors, spacing, radius,
+   typography; GoogleFonts.poppins for all
+   text; no raw Color, EdgeInsets, fontSize,
+   or TextStyle literals
+✅ Listing integration: date filters must not
+   break AppListingScreen toolbar layout;
+   Search + From Date + To Date stay aligned
+   in one row; Columns control stays on the
+   right; pagination and bulk action bar stay
+   unchanged
+
+SAMPLE DATA ENTRY SHEET RULE (transactions):
+✅ Per-sample grids on receipt detail use the
+   same listing tokens as AppListingScreen:
+   surfaceSubtle header, tableHeaderHeight,
+   tableRowDivider, tableRowHeight, cardBg rows,
+   linked horizontal scroll + sticky ACTIONS
+   (tableActionsColumnWidth, PopupMenuButton /
+   moreHorizontal). Never use IntrinsicHeight
+   around Row + Expanded + horizontal
+   SingleChildScrollView — it collapses row
+   height to zero.
+✅ For horizontal scroll + minWidth viewport:
+   put LayoutBuilder OUTSIDE
+   SingleChildScrollView (parent of scroll
+   view), never inside its child — infinite
+   width breaks layout and can hide the table.
+
 OVERVIEW TAB RULE:
 ✅ Overview tab always uses
    AppFormPageLayout (50/50) +
@@ -1177,8 +1265,10 @@ TABLE CELL RULE:
    vertical: space2,
    horizontal: space2) padding
 ✅ Edit mode fields use AppInputSize.sm for
-   consistent 30px height (matches buttonHeightMd)
-✅ AppInput sm = AppSelect sm = buttonHeightMd (30px)
+   typography; single-line [AppInput] and
+   [AppSelect] triggers share [AppTokens.inputHeight]
+   and [buildAppFormFieldDecoration] so heights match
+   in grids
 ❌ Never place fields directly in cells without
    padding
 ❌ Do not mix input sizes within the same
@@ -1367,6 +1457,15 @@ LISTING SCREENS:
   ☐ Name column is 2-line (name + sub)?
   ☐ Filterable columns have filter: set?
   ☐ Provider has bulkActivate/Deactivate/Delete?
+
+DATE FILTER / CALENDAR:
+  ☐ Calendar opens as anchored popover, not modal/dialog?
+  ☐ Calendar is compact and does not cover the listing table?
+  ☐ Header uses left arrow, centered Month Year, right arrow?
+  ☐ No separate top Month/Year dropdown row?
+  ☐ Cancel/Back closes without changing selected date?
+  ☐ Date filter added only to required tabs/screens?
+  ☐ All styling uses AppTokens + GoogleFonts.poppins?
 
 MASTERS SCREENS CHECKLIST:
   ☐ showKpis: true (when KPIs decided)

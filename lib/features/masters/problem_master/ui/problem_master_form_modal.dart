@@ -18,7 +18,7 @@ class ProblemMasterFormModal {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) => ChangeNotifierProvider<ProblemMasterProvider>.value(
         value: p,
         child: _ProblemMasterFormDialog(existing: existing),

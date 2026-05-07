@@ -6,6 +6,21 @@ import '../../tokens.dart';
 
 enum AppInputSize { sm, md, lg }
 
+/// Value/hint text style for single-line [AppInput], [AppSelect] trigger, and
+/// matching controls — shared metrics so text baselines align in grids.
+TextStyle appFormFieldValueTextStyle({
+  required double fontSize,
+  required Color color,
+  FontWeight fontWeight = FontWeight.w400,
+}) {
+  return GoogleFonts.poppins(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    height: 1.2,
+    color: color,
+  );
+}
+
 /// Shared [InputDecoration] for [AppInput], [AppSelect] triggers, and any
 /// future input-like control. All must use the same vertical metrics and
 /// [prefixIconConstraints] / [suffixIconConstraints] ([AppTokens.inputFieldIconSlot])
@@ -158,19 +173,15 @@ class AppInput extends StatelessWidget {
     final hasError = errorText != null && errorText!.isNotEmpty;
     final fontSize = _fontSize;
 
-    final fieldStyle = GoogleFonts.poppins(
+    final fieldStyle = appFormFieldValueTextStyle(
       fontSize: fontSize,
-      fontWeight: FontWeight.w400,
       color: enabled ? AppTokens.textPrimary : AppTokens.textMuted,
-      letterSpacing: obscureText ? 2.0 : 0,
-    );
+    ).copyWith(letterSpacing: obscureText ? 2.0 : 0);
 
-    final hintStyle = GoogleFonts.poppins(
+    final hintStyle = appFormFieldValueTextStyle(
       fontSize: fontSize,
-      fontWeight: FontWeight.w400,
       color: AppTokens.hintColor,
-      letterSpacing: obscureText ? 2.0 : 0,
-    );
+    ).copyWith(letterSpacing: obscureText ? 2.0 : 0);
 
     late final Widget textField;
 
@@ -179,7 +190,10 @@ class AppInput extends StatelessWidget {
         enabled: enabled,
         hasError: hasError,
         hintText: hint,
-        hintStyle: hintStyle,
+        hintStyle: appFormFieldValueTextStyle(
+          fontSize: fontSize,
+          color: AppTokens.hintColor,
+        ),
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
       );
@@ -235,6 +249,7 @@ class AppInput extends StatelessWidget {
           validator: validator,
           expands: false,
           maxLines: 1,
+          textAlignVertical: TextAlignVertical.center,
           maxLength: maxLength,
           maxLengthEnforcement: maxLength != null
               ? MaxLengthEnforcement.enforced

@@ -223,7 +223,7 @@ class _CourierScreenState extends State<CourierScreen> {
           TableColumn<CourierModel>(
             key: 'contact',
             label: 'Contact',
-            width: 160,
+            width: 172,
             sortable: false,
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
             filterTextValue: (r) =>
@@ -261,7 +261,7 @@ class _CourierScreenState extends State<CourierScreen> {
           TableColumn<CourierModel>(
             key: 'location',
             label: 'Location',
-            width: 140,
+            width: 152,
             sortable: true,
             sortValue: (r) => r.city.toLowerCase(),
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
@@ -295,32 +295,40 @@ class _CourierScreenState extends State<CourierScreen> {
           TableColumn<CourierModel>(
             key: 'areas',
             label: 'Areas',
-            width: 96,
+            width: 120,
             sortable: false,
             numeric: false,
-            cellBuilder: (r) => Center(
-              child: AppBadge(
-                label: '${r.areaMappings.length} Areas',
-                color: AppBadgeColor.neutral,
+            cellBuilder: (r) => Text(
+              '${r.areaMappings.length} Areas',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.tableCellSize,
+                fontWeight: AppTokens.weightRegular,
+                color: AppTokens.textPrimary,
               ),
             ),
           ),
           TableColumn<CourierModel>(
             key: 'contactsMap',
             label: 'Contacts',
-            width: 104,
+            width: 132,
             sortable: false,
-            cellBuilder: (r) => Center(
-              child: AppBadge(
-                label: '${r.contactMappings.length} Contacts',
-                color: AppBadgeColor.neutral,
+            cellBuilder: (r) => Text(
+              '${r.contactMappings.length} Contacts',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.tableCellSize,
+                fontWeight: AppTokens.weightRegular,
+                color: AppTokens.textPrimary,
               ),
             ),
           ),
           TableColumn<CourierModel>(
-            key: 'status',
+            key: 'courierStatus',
             label: 'Status',
-            width: 90,
+            width: 104,
             sortable: false,
             filter: const AppColumnFilter(
               type: AppColumnFilterType.select,
@@ -330,12 +338,15 @@ class _CourierScreenState extends State<CourierScreen> {
               ],
             ),
             filterSelectValue: (r) => r.status,
-            cellBuilder: (r) => Center(child: StatusChip(status: r.status)),
+            cellBuilder: (r) => Align(
+              alignment: Alignment.centerLeft,
+              child: StatusChip(status: r.status),
+            ),
           ),
           TableColumn<CourierModel>(
             key: 'audit',
             label: 'Audit',
-            width: 160,
+            width: 172,
             sortable: true,
             sortValue: (r) => r.updatedAt.millisecondsSinceEpoch,
             cellBuilder: (r) =>
@@ -370,19 +381,20 @@ class _CourierScreenState extends State<CourierScreen> {
               ),
             ),
             SizedBox(height: AppTokens.space2),
-            Wrap(
-              spacing: AppTokens.space2,
-              runSpacing: AppTokens.space2,
-              children: [
-                AppBadge(
-                  label: '${r.areaMappings.length} Areas',
-                  color: AppBadgeColor.neutral,
-                ),
-                AppBadge(
-                  label: '${r.contactMappings.length} Contacts',
-                  color: AppBadgeColor.neutral,
-                ),
-              ],
+            Text(
+              '${r.areaMappings.length} Areas',
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.captionSize,
+                color: AppTokens.textSecondary,
+              ),
+            ),
+            SizedBox(height: AppTokens.spaceHalf),
+            Text(
+              '${r.contactMappings.length} Contacts',
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.captionSize,
+                color: AppTokens.textSecondary,
+              ),
             ),
           ],
         ),

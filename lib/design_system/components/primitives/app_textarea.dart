@@ -3,8 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../tokens.dart';
+import 'app_input.dart';
 
-/// Multi-line text input matching [AppInput] label and border treatment.
+/// Multi-line text input matching [AppInput] label border, padding, and tokens.
 class AppTextarea extends StatelessWidget {
   const AppTextarea({
     super.key,
@@ -39,46 +40,29 @@ class AppTextarea extends StatelessWidget {
   final int maxLines;
   final int? maxLength;
 
-  OutlineInputBorder _border(Color color, double width) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(AppTokens.inputRadius),
-      borderSide: BorderSide(color: color, width: width),
-    );
-  }
+  static const double _bodyFontSize = 12.0;
 
   @override
   Widget build(BuildContext context) {
     final hasError = errorText != null && errorText!.isNotEmpty;
 
-    final defaultBorder = _border(AppTokens.borderDefault, AppTokens.borderWidthSm);
-    final focusBorder = _border(AppTokens.borderFocus, AppTokens.borderWidthMd);
-    final errorBorder = _border(AppTokens.error500, AppTokens.borderWidthSm);
-
-    final fieldStyle = GoogleFonts.poppins(
-      fontSize: 12.0,
-      fontWeight: FontWeight.w400,
-      color: AppTokens.textPrimary,
+    final fieldStyle = appFormFieldValueTextStyle(
+      fontSize: _bodyFontSize,
+      color: enabled ? AppTokens.textPrimary : AppTokens.textMuted,
     );
 
-    final hintStyle = GoogleFonts.poppins(
-      fontSize: 12.0,
-      fontWeight: FontWeight.w400,
-      color: AppTokens.hintColor,
-    );
-
-    final decoration = InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: enabled ? AppTokens.cardBg : AppTokens.surfaceSubtle,
+    final decoration = buildAppFormFieldDecoration(
+      enabled: enabled,
+      hasError: hasError,
       hintText: hint,
-      hintStyle: hintStyle,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      border: defaultBorder,
-      enabledBorder: hasError ? errorBorder : defaultBorder,
-      focusedBorder: hasError ? errorBorder : focusBorder,
-      errorBorder: errorBorder,
-      focusedErrorBorder: errorBorder,
-      disabledBorder: defaultBorder,
+      hintStyle: appFormFieldValueTextStyle(
+        fontSize: _bodyFontSize,
+        color: AppTokens.hintColor,
+      ),
+      counterText: maxLength != null ? '' : null,
+      counterStyle: maxLength != null
+          ? const TextStyle(height: 0, fontSize: 0)
+          : null,
     );
 
     return Material(
@@ -109,9 +93,9 @@ class AppTextarea extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: AppTokens.space1),
           ],
-          TextField(
+          TextFormField(
             controller: controller,
             focusNode: focusNode,
             enabled: enabled,
@@ -123,13 +107,14 @@ class AppTextarea extends StatelessWidget {
                 ? MaxLengthEnforcement.enforced
                 : MaxLengthEnforcement.none,
             onChanged: onChanged,
+            validator: validator,
             style: fieldStyle,
             cursorColor: AppTokens.borderFocus,
             decoration: decoration,
           ),
           if (hasError)
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: AppTokens.space1),
               child: Text(
                 errorText!,
                 style: GoogleFonts.poppins(

@@ -5,23 +5,23 @@
 | **File name** | `departments_screen.dart` |
 | **Path** | `lib/features/user_management/departments/ui/departments_screen.dart` |
 | **Language / type** | Dart source file defining Flutter UI widgets |
-| **Purpose** | Presents the **Departments** admin screen: a responsive listing (table on larger screens, cards on small screens) with KPI summaries, status tabs, text search, pagination, and row-level actions to create, edit, activate/deactivate, and delete departments. Domain state and persistence are delegated to `DepartmentsProvider`; this file wires that state into the shared `AppListingScreen` template and handles dialogs, snackbars, and navigation to the form drawer. |
+| **Purpose** | Presents the **Departments** admin screen: a responsive listing (table on larger screens, cards on small screens) with status tabs, per-column filters, text search, row selection with **bulk** activate/deactivate/delete/export, pagination, and row-level actions to create, edit, activate/deactivate, and delete departments. **`kpiCards`** are passed to **`AppListingScreen`** but **`showKpis: false`** hides the KPI strip; counts still drive tab badges. Domain state is delegated to `DepartmentsProvider`; this file wires listing props, **`AppConfirmDialog`** for delete confirmation, export snackbars, and **`DepartmentFormDrawer`**. |
 
 **Documentation comment (author intent):**
 
-```12:13:lib/features/user_management/departments/ui/departments_screen.dart
+```14:15:lib/features/user_management/departments/ui/departments_screen.dart
 /// Departments listing with KPIs, filters, and CRUD (mock API).
 class DepartmentsScreen extends StatefulWidget {
 ```
 
 **Where it is used in the system**
 
-- Registered in the application router as the widget built for the **`user-management/departments`** route.
+- Registered in the application router as the widget built for the **`/user-management/departments`** route (nested under the parent **`/user-management`** route group—see snippet below).
 - The router wraps the screen in a **`ChangeNotifierProvider<DepartmentsProvider>`** so the screen can `watch` / `read` the provider from `BuildContext`.
 
 Relevant router fragment:
 
-```196:202:lib/core/router/app_router.dart
+```423:429:lib/core/router/app_router.dart
             GoRoute(
               path: 'departments',
               builder: (context, state) => ChangeNotifierProvider(
@@ -53,7 +53,7 @@ Relevant router fragment:
 
 # 2. Ultra-Simple Explanation (ELI5)
 
-Imagine a **binder** labeled “Departments” at work. On the cover you see three sticky notes: how many departments you have in total, how many are “on,” and how many are “off.” Inside, each department is a row with a name, short code, a short description, how many people belong to it, and whether it’s active. You can **flip tabs** to see everyone, only the active ones, or only the inactive ones. You can **search** the binder by name, code, or description. If the list is long, you **turn pages** at the bottom. Buttons let you **add** a new department, **change** an existing one, **switch** it between active and inactive, or **throw away** a department—but the binder **won’t let you throw away** a department if people are still listed under it, and it **double-checks** before it really throws one away.
+Imagine a **binder** labeled “Departments” at work. **Sticky-note KPIs are not shown on the page** (`showKpis: false`), but tab badges still reflect All / Active / Inactive counts. Each row shows **name and code** together, **description**, **users**, **status**, and **created/updated audit** columns. You can **select rows**, use **bulk** activate/deactivate/delete/export (export is a **snackbar placeholder**), and use **per-column filters**. You can **search**, **tab-filter**, and **paginate**. **Add / edit / toggle / delete** use the drawer and **`AppConfirmDialog`** for delete when allowed.
 
 That binder is what this screen helps you use on the computer. The screen itself does not “remember” the departments in its own variables for the table; it asks a helper (`DepartmentsProvider`) that keeps the list and talks to the data store (here, a mock in-memory API).
 
@@ -65,15 +65,17 @@ That binder is what this screen helps you use on the computer. The screen itself
 
 | Import | Role in this file |
 |--------|-------------------|
-| `package:flutter/material.dart` | `Widget`, `BuildContext`, `Theme`, `Text`, `Column`, `Row`, `SizedBox`, `Icon`, `AlertDialog`, `SnackBar`, `ScaffoldMessenger`, `Navigator`, `WidgetsBinding`, `TextOverflow`, etc. |
-| `package:lucide_flutter/lucide_flutter.dart` | `LucideIcons` for row action icons (pencil, refresh, trash). |
-| `package:provider/provider.dart` | `context.watch`, `context.read`, integration with `ChangeNotifierProvider`. |
-| `design_system/components/components.dart` | Barrel export: `AppListingScreen`, `AppButton`, `TableColumn`, `RowAction`, `TabConfig`, `StatusChip`, etc. |
-| `design_system/components/display/kpi_metric.dart` | `KpiCard` widgets for the KPI strip. |
-| `design_system/tokens.dart` | `AppTokens` spacing and neutral colors for the mobile card layout. |
-| `../data/department_model.dart` | `DepartmentModel`, `DepartmentStatus` — row type and status enum. |
-| `../state/departments_provider.dart` | `DepartmentsProvider` — list, filters, pagination, CRUD operations. |
-| `department_form_drawer.dart` | `DepartmentFormDrawer.show` — slide-in form for create/edit. |
+| `package:flutter/material.dart` | Core widgets: `BuildContext`, `Text`, `Column`, `Row`, `SnackBar`, `ScaffoldMessenger`, etc. |
+| `package:google_fonts/google_fonts.dart` | `GoogleFonts.poppins` for cells, cards, export snackbar. |
+| `package:lucide_flutter/lucide_flutter.dart` | `LucideIcons` for row actions and KPI card icons. |
+| `package:provider/provider.dart` | `watch` / `read`; provider scope from router. |
+| `design_system/components/components.dart` | `AppListingScreen`, `TableColumn`, `RowAction`, `AppConfirmDialog`, `AppColumnFilter`, `AppSelectItem`, etc. |
+| `design_system/components/display/kpi_metric.dart` | `KpiCard` (passed; strip hidden when `showKpis: false`). |
+| `design_system/tokens.dart` | `AppTokens`. |
+| `../../shared/audit_cell.dart` | `AuditCell` for **Created By** / **Updated By**. |
+| `../data/department_model.dart` | `DepartmentModel`, `DepartmentStatus`. |
+| `../state/departments_provider.dart` | `DepartmentsProvider`. |
+| `department_form_drawer.dart` | `DepartmentFormDrawer.show`. |
 
 ## 3.2 Upstream dependencies (what must exist before this screen works)
 
@@ -85,18 +87,18 @@ That binder is what this screen helps you use on the computer. The screen itself
 
 | Dependency | Interaction |
 |-------------|-------------|
-| **`AppListingScreen<DepartmentModel>`** | Receives all layout and behavior props: title, KPIs, tabs, columns, rows, search, pagination, loading flag, row actions. Renders desktop table vs mobile cards internally. |
-| **`DepartmentFormDrawer`** | Opened with `show(context)` or `show(context, existing: row)` for add vs edit. |
-| **`DepartmentsProvider`** | Methods: `setSearchQuery`, `setStatusFilter`, `setPage`, `setPageSize`, `toggleDepartmentStatus`, `deleteDepartment`; getters supply KPI and table data. |
-| **`ScaffoldMessenger`** | Shows snackbars for delete guardrails and provider errors. |
-| **`Navigator` / dialog route** | `showDialog` for delete confirmation; dialog `ctx` used for `pop(false|true)`. |
+| **`AppListingScreen<DepartmentModel>`** | Tabs, search, column filters, checkboxes, bulk bar, optional export, table/cards, pagination, row actions. |
+| **`DepartmentFormDrawer`** | Create/edit slide-in. |
+| **`DepartmentsProvider`** | Search, status tab, paging, `toggleDepartmentStatus`, `deleteDepartment`, **`bulkActivate` / `bulkDeactivate` / `bulkDelete`**, etc. |
+| **`ScaffoldMessenger`** | Errors, guardrails, export placeholder. |
+| **`AppConfirmDialog`** | Delete confirmation. |
 
 ## 3.4 Lifecycle: when and why this file “runs”
 
 1. **Construction** — User navigates to departments route → router builds `DepartmentsScreen` and provider → `DepartmentsProvider()..fetchAll()` starts loading mock data asynchronously.
 2. **`initState`** — Registers a **post-frame callback** so `context.read<DepartmentsProvider>()` is valid (inherits context from the element tree after the first frame). Then attaches **`_onProviderChanged`** as a listener for global error display.
 3. **`build`** — Runs on first frame and **every time** `DepartmentsProvider.notifyListeners()` fires and something `watch`es it (this screen uses `context.watch` in `build`). Rebuilds the entire `AppListingScreen` subtree with fresh data.
-4. **User interactions** — Search, tabs, pagination, row actions trigger provider methods → `notifyListeners` → `build` again.
+4. **User interactions** — Search, tabs, column filters, bulk actions, export, row actions → provider → `notifyListeners` → `build` again.
 5. **`dispose`** — Removes the provider listener to avoid leaks or callbacks after unmount.
 
 ```mermaid
@@ -112,7 +114,7 @@ sequenceDiagram
   Screen->>Screen: initState post-frame read provider addListener
   Screen->>Provider: watch in build
   Screen->>Listing: AppListingScreen with rows KPIs tabs
-  User->>Listing: search tab page action
+  User->>Listing: search tab filters bulk export actions
   Listing->>Provider: setSearchQuery setStatusFilter etc
   Provider->>Screen: notifyListeners
   Screen->>Listing: rebuild with new data
@@ -170,16 +172,16 @@ Async function; flow:
 
 1. **`if (!row.canDelete)`** branch:
    - Show snackbar: *Cannot delete a department while users are assigned to it.*
-   - **`return`** — No dialog.
-2. **`final theme = Theme.of(context)`** — Read theme for dialog text styles.
-3. **`await showDialog<bool>(...)`** — Modal dialog; builder receives **`ctx`** (dialog context) distinct from the screen `context`.
-   - **Cancel** → `Navigator.of(ctx).pop(false)`.
-   - **Delete** → `Navigator.of(ctx).pop(true)`.
-   - User dismisses barrier (if dismissible) → `ok` may be `null`.
-4. **After await:** **`if (ok == true && context.mounted)`** — Only then:
-   - **`await context.read<DepartmentsProvider>().deleteDepartment(row.id)`** — Async API call path through provider.
+   - **`return`** — No confirmation UI.
+2. **`await AppConfirmDialog.show(...)`** — Design-system confirmation:
+   - **`title`**: `'Delete Department'`
+   - **`message`**: includes **`row.name`**; notes action cannot be undone.
+   - **`confirmLabel`**: `'Delete'`, **`variant`**: **`AppConfirmDialogVariant.danger`**
+3. **`if (confirmed == true && context.mounted)`** → **`deleteDepartment(row.id)`**.
 
-**Branches:** `canDelete` false → snackbar only; dialog dismissed → `ok != true` → no delete; unmounted after dialog → guarded.
+## 4.6b `_handleExport(BuildContext context, {List<DepartmentModel>? rows})`
+
+Snackbar-only placeholder for toolbar or bulk export (styled with **`GoogleFonts`** / **`AppTokens`**).
 
 ## 4.7 `build(BuildContext context)`
 
@@ -189,26 +191,13 @@ Runs whenever the `DepartmentsScreen` element rebuilds (including parent rebuild
 2. **`final filteredTotal = p.filteredItems.length`** — Count after search + status filter (not raw `_items.length`).
 3. **`return AppListingScreen<DepartmentModel>(...)`** — Single child; all UI is delegated.
 
-**Inside `AppListingScreen` arguments (order of conceptual evaluation):**
+**Inside `AppListingScreen` (summary):**
 
-- Static strings for title, subtitle, primary action label.
-- **`onPrimaryAction`** — Closure calling `DepartmentFormDrawer.show(context)` (captures screen `context`).
-- **`showCheckboxes: false`** — No selection column.
-- **`kpiCards`** — Three `KpiCard`s from `p.totalCount`, `p.activeCount`, `p.inactiveCount`.
-- **`tabs`** — Three `TabConfig`s with counts.
-- **`initialTabIndex: p.statusTabIndex`** — Keeps tab strip aligned with `_selectedStatusFilter` in provider.
-- **`onTabChanged: (i) { p.setStatusFilter(...) }`** — Maps `i` to `DepartmentStatus?`:
-  - **`i == 0`** → `null` (all)
-  - **`i == 1`** → `DepartmentStatus.active`
-  - **else** (implicitly `i == 2` for this UI) → `DepartmentStatus.inactive`
-- **`columns`** — Five `TableColumn`s; each `cellBuilder` is a closure over row `r`.
-- **`rows: p.pagedRows`** — Current page slice.
-- **`mobileCardBuilder`** — Closure using outer `context` for `Theme.of(context)`.
-- **`isLoading`, `emptyMessage`, `onSearch`, `searchHint`** — Wired to provider / literals.
-- **`rowActions`** — Three `RowAction`s with `onTap` closures.
-- **Pagination** — `totalCount: filteredTotal`, `currentPage: p.effectiveCurrentPage`, `pageSize: p.pageSize`, callbacks `p.setPage`, `p.setPageSize`.
+- **`showCheckboxes: true`**, **`bulkRowId`**, **`onBulkActivate` / `onBulkDeactivate` / `onBulkDelete`**, **`onBulkExport`**, **`onExport`** (see **`_handleExport`**).
+- **`kpiCards`** + **`showKpis: false`** (strip hidden; tab counts unchanged).
+- **Tabs**, **`columns`** (six columns with **`AppColumnFilter`** / **`AuditCell`** / **`StatusChip`**), **`mobileCardBuilder`** (**`GoogleFonts`** + **`AppTokens`**), **`rowActions`** (edit; toggle with **`labelBuilder`**/**`iconBuilder`**; delete → **`_confirmDelete`**), **pagination**.
 
-**Loops:** None in this file directly; iteration happens inside `AppListingScreen` over `rows` / columns.
+**Loops:** None here; listing iterates rows/columns internally.
 
 ---
 
@@ -240,7 +229,7 @@ class DepartmentsScreen extends StatefulWidget {
 | Aspect | Detail |
 |--------|--------|
 | **Name** | `_DepartmentsScreenState` |
-| **Purpose** | Owns ephemeral UI state: reference to `DepartmentsProvider` for listening, and methods for delete confirmation and building `AppListingScreen`. |
+| **Purpose** | Holds listener reference, delete/export helpers, and delegates UI to **`AppListingScreen`**. |
 | **Type parameter** | `State<DepartmentsScreen>` binds this state to `DepartmentsScreen` only. |
 
 ### Field: `DepartmentsProvider? _provider`
@@ -264,7 +253,7 @@ class DepartmentsScreen extends StatefulWidget {
 | **Side effects** | Registers a one-shot post-frame callback; callback may assign `_provider` and `addListener`. |
 | **Dependencies** | `WidgetsBinding.instance`, `mounted`, `context.read` (Provider), `DepartmentsProvider`. |
 
-```23:33:lib/features/user_management/departments/ui/departments_screen.dart
+```25:35:lib/features/user_management/departments/ui/departments_screen.dart
   @override
   void initState() {
     super.initState();
@@ -291,7 +280,7 @@ class DepartmentsScreen extends StatefulWidget {
 | **Side effects** | May enqueue post-frame callback; may show `SnackBar`; calls `clearError()` → additional `notifyListeners`. |
 | **Dependencies** | `DepartmentsProvider.hasError`, `.error`, `.clearError()`, `ScaffoldMessenger`, `mounted`. |
 
-```35:50:lib/features/user_management/departments/ui/departments_screen.dart
+```37:52:lib/features/user_management/departments/ui/departments_screen.dart
   void _onProviderChanged() {
     final p = _provider;
     if (p == null || !p.hasError || !mounted) {
@@ -322,7 +311,7 @@ class DepartmentsScreen extends StatefulWidget {
 | **Side effects** | `removeListener` on provider if set. |
 | **Dependencies** | `_provider`, `_onProviderChanged`, `super.dispose()`. |
 
-```52:56:lib/features/user_management/departments/ui/departments_screen.dart
+```54:58:lib/features/user_management/departments/ui/departments_screen.dart
   @override
   void dispose() {
     _provider?.removeListener(_onProviderChanged);
@@ -336,13 +325,10 @@ class DepartmentsScreen extends StatefulWidget {
 
 | Aspect | Detail |
 |--------|--------|
-| **Purpose** | Enforce **canDelete** rule with snackbar; otherwise show confirmation dialog and optionally invoke **`deleteDepartment`**. |
-| **Parameters** | **`BuildContext context`** — Typically the screen or overlay context for snackbars and dialog host. **`DepartmentModel row`** — Row being deleted; **`row.id`** sent to provider, **`row.name`/`row.code`** in dialog copy. |
-| **Return** | **`Future<void>`** — Completes after dialog await and optional delete await. |
-| **Side effects** | Snackbars, `showDialog`, async delete, provider loading/error notifications (inside provider). |
-| **Dependencies** | `DepartmentModel.canDelete`, `Theme`, `AppButton` / `AppButtonVariant` / `AppButtonSize`, `Navigator`, `Provider`, `DepartmentsProvider.deleteDepartment`. |
+| **Purpose** | Enforce **canDelete**; else **`AppConfirmDialog.show`**; then **`deleteDepartment`**. |
+| **Dependencies** | **`DepartmentModel.canDelete`**, **`AppConfirmDialog`**, **`Provider`**, **`DepartmentsProvider`**. |
 
-```58:103:lib/features/user_management/departments/ui/departments_screen.dart
+```60:81:lib/features/user_management/departments/ui/departments_screen.dart
   Future<void> _confirmDelete(BuildContext context, DepartmentModel row) async {
     if (!row.canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -354,40 +340,43 @@ class DepartmentsScreen extends StatefulWidget {
       );
       return;
     }
-    final theme = Theme.of(context);
-    final ok = await showDialog<bool>(
+    final confirmed = await AppConfirmDialog.show(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(
-            'Delete department?',
-            style: theme.textTheme.titleSmall,
-          ),
-          content: Text(
-            'This will permanently remove "${row.name}" (${row.code}). '
-            'This action cannot be undone.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          actions: [
-            AppButton(
-              label: 'Cancel',
-              onPressed: () => Navigator.of(ctx).pop(false),
-              variant: AppButtonVariant.tertiary,
-              size: AppButtonSize.md,
-            ),
-            AppButton(
-              label: 'Delete',
-              onPressed: () => Navigator.of(ctx).pop(true),
-              variant: AppButtonVariant.danger,
-              size: AppButtonSize.md,
-            ),
-          ],
-        );
-      },
+      title: 'Delete Department',
+      message: 'Delete "${row.name}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: AppConfirmDialogVariant.danger,
     );
-    if (ok == true && context.mounted) {
+    if (confirmed == true && context.mounted) {
       await context.read<DepartmentsProvider>().deleteDepartment(row.id);
     }
+  }
+```
+
+---
+
+### Method: `void _handleExport(BuildContext context, {List<DepartmentModel>? rows})`
+
+| **Purpose** | Placeholder export (snackbar only). |
+| **Dependencies** | **`GoogleFonts.poppins`**, **`AppTokens`**, **`ScaffoldMessenger`**. |
+
+```83:99:lib/features/user_management/departments/ui/departments_screen.dart
+  void _handleExport(BuildContext context, {List<DepartmentModel>? rows}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          rows != null
+              ? 'Exporting ${rows.length} records...'
+              : 'Exporting all records...',
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.textBase,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 ```
 
@@ -397,13 +386,13 @@ class DepartmentsScreen extends StatefulWidget {
 
 | Aspect | Detail |
 |--------|--------|
-| **Purpose** | Compose the full departments page UI via **`AppListingScreen<DepartmentModel>`**. |
-| **Parameters** | **`BuildContext context`** — Inherited widget lookup for `Theme`, `Provider`, `ScaffoldMessenger` in descendants/callbacks. |
-| **Return** | **`Widget`** — Always an `AppListingScreen<DepartmentModel>` (no branching to other widget types). |
-| **Side effects** | None directly in `build`; side effects occur in user callbacks (search, tabs, actions). |
-| **Dependencies** | `context.watch`, `DepartmentModel`, `DepartmentStatus`, `AppListingScreen`, `KpiCard`, `TabConfig`, `TableColumn`, `StatusChip`, `RowAction`, `LucideIcons`, `AppTokens`, `DepartmentFormDrawer`, `DepartmentsProvider` API. |
+| **Purpose** | Compose the departments page via **`AppListingScreen<DepartmentModel>`** (checkboxes, bulk actions, column filters, audit columns, tabs). |
+| **Parameters** | **`BuildContext context`**. |
+| **Return** | **`Widget`**. |
+| **Side effects** | None directly in **`build`**; callbacks mutate the provider. |
+| **Dependencies** | **`context.watch`**, **`AppListingScreen`**, **`GoogleFonts`**, **`AppColumnFilter`**, **`AuditCell`**, **`KpiCard`**, **`TabConfig`**, **`RowAction`**, **`DepartmentFormDrawer`**, **`DepartmentsProvider`** (including bulk APIs). |
 
-```105:257:lib/features/user_management/departments/ui/departments_screen.dart
+```101:348:lib/features/user_management/departments/ui/departments_screen.dart
   @override
   Widget build(BuildContext context) {
     final p = context.watch<DepartmentsProvider>();
@@ -414,21 +403,37 @@ class DepartmentsScreen extends StatefulWidget {
       subtitle: 'Organize users by department',
       primaryActionLabel: '+ Add Department',
       onPrimaryAction: () => DepartmentFormDrawer.show(context),
-      showCheckboxes: false,
+      showCheckboxes: true,
+      bulkRowId: (r) => r.id,
+      onExport: () => _handleExport(context),
+      onBulkActivate: (ids) async => p.bulkActivate(ids.cast<String>()),
+      onBulkDeactivate: (ids) async => p.bulkDeactivate(ids.cast<String>()),
+      onBulkDelete: (ids) async => p.bulkDelete(ids.cast<String>()),
+      onBulkExport: (rows) async => _handleExport(
+            context,
+            rows: rows.cast<DepartmentModel>().toList(),
+          ),
       kpiCards: [
         KpiCard(
           label: 'Total Departments',
-          value: '${p.totalCount}',
+          value: p.totalCount.toString(),
+          icon: LucideIcons.building2,
+          iconColor: AppTokens.kpiBlue,
         ),
         KpiCard(
           label: 'Active',
-          value: '${p.activeCount}',
+          value: p.activeCount.toString(),
+          icon: LucideIcons.checkCircle,
+          iconColor: AppTokens.kpiGreen,
         ),
         KpiCard(
           label: 'Inactive',
-          value: '${p.inactiveCount}',
+          value: p.inactiveCount.toString(),
+          icon: LucideIcons.xCircle,
+          iconColor: AppTokens.kpiOrange,
         ),
       ],
+      showKpis: false,
       tabs: [
         TabConfig(label: 'All', count: p.tabAllCount),
         TabConfig(label: 'Active', count: p.activeCount),
@@ -448,61 +453,130 @@ class DepartmentsScreen extends StatefulWidget {
         TableColumn<DepartmentModel>(
           key: 'name',
           label: 'Department Name',
-          cellBuilder: (r) => Text(
-            r.name,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        TableColumn<DepartmentModel>(
-          key: 'code',
-          label: 'Department Code',
-          width: 120,
-          cellBuilder: (r) => Text(
-            r.code,
-            overflow: TextOverflow.ellipsis,
+          width: 200,
+          sortable: false,
+          filter: const AppColumnFilter(type: AppColumnFilterType.text),
+          filterTextValue: (r) => '${r.name} ${r.code}',
+          cellBuilder: (r) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                r.name,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.tableCellSize,
+                  fontWeight: FontWeight.w500,
+                  color: AppTokens.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                r.code,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: FontWeight.w400,
+                  color: AppTokens.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
         TableColumn<DepartmentModel>(
           key: 'description',
           label: 'Description',
+          sortable: false,
+          filter: const AppColumnFilter(type: AppColumnFilterType.text),
+          filterTextValue: (r) => r.description ?? '',
           cellBuilder: (r) => Text(
             r.description ?? '—',
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.tableCellSize,
+              color: AppTokens.textSecondary,
+            ),
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
         TableColumn<DepartmentModel>(
           key: 'users',
-          label: 'Users Count',
-          numeric: true,
-          width: 120,
-          cellBuilder: (r) => Text('${r.usersCount}'),
+          label: 'Users',
+          width: 80,
+          sortable: true,
+          sortValue: (r) => r.usersCount,
+          cellBuilder: (r) => Center(
+            child: Text(
+              r.usersCount.toString(),
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.tableCellSize,
+                fontWeight: FontWeight.w500,
+                color: AppTokens.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ),
         TableColumn<DepartmentModel>(
           key: 'status',
           label: 'Status',
-          width: 120,
+          width: 90,
           sortable: false,
-          cellBuilder: (r) => StatusChip(status: r.status.name),
+          filter: const AppColumnFilter(
+            type: AppColumnFilterType.select,
+            options: [
+              AppSelectItem<String>(value: 'active', label: 'Active'),
+              AppSelectItem<String>(value: 'inactive', label: 'Inactive'),
+            ],
+          ),
+          filterSelectValue: (r) => r.status.name,
+          cellBuilder: (r) => Center(
+            child: StatusChip(status: r.status.name),
+          ),
+        ),
+        TableColumn<DepartmentModel>(
+          key: 'createdBy',
+          label: 'Created By',
+          width: 160,
+          sortable: true,
+          sortValue: (r) => r.createdAt.millisecondsSinceEpoch,
+          cellBuilder: (r) => AuditCell(
+            name: r.createdBy,
+            date: r.createdAt,
+          ),
+        ),
+        TableColumn<DepartmentModel>(
+          key: 'updatedBy',
+          label: 'Updated By',
+          width: 160,
+          sortable: true,
+          sortValue: (r) => r.updatedAt.millisecondsSinceEpoch,
+          cellBuilder: (r) => AuditCell(
+            name: r.updatedBy,
+            date: r.updatedAt,
+          ),
         ),
       ],
       rows: p.pagedRows,
       mobileCardBuilder: (r) {
-        final theme = Theme.of(context);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               r.name,
-              style: theme.textTheme.titleSmall,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.tableCellSize,
+                fontWeight: FontWeight.w500,
+                color: AppTokens.textPrimary,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
             SizedBox(height: AppTokens.space1),
             Text(
               r.code,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.brightness == Brightness.dark
-                    ? AppTokens.neutral400
-                    : AppTokens.neutral600,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.captionSize,
+                fontWeight: FontWeight.w400,
+                color: AppTokens.textMuted,
               ),
             ),
             SizedBox(height: AppTokens.space2),
@@ -512,8 +586,10 @@ class DepartmentsScreen extends StatefulWidget {
                 SizedBox(width: AppTokens.space3),
                 Text(
                   '${r.usersCount} users',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppTokens.neutral500,
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTokens.captionSize,
+                    fontWeight: FontWeight.w400,
+                    color: AppTokens.textSecondary,
                   ),
                 ),
               ],
@@ -534,8 +610,16 @@ class DepartmentsScreen extends StatefulWidget {
         ),
         RowAction<DepartmentModel>(
           key: 'toggle',
-          label: 'Activate / deactivate',
-          icon: const Icon(LucideIcons.refreshCw),
+          label: 'Activate',
+          icon: const Icon(LucideIcons.checkCircle),
+          labelBuilder: (row) => row.status == DepartmentStatus.active
+              ? 'Deactivate'
+              : 'Activate',
+          iconBuilder: (row) => Icon(
+            row.status == DepartmentStatus.active
+                ? LucideIcons.xCircle
+                : LucideIcons.checkCircle,
+          ),
           onTap: (row) async {
             await context.read<DepartmentsProvider>().toggleDepartmentStatus(
                   row.id,
@@ -557,30 +641,31 @@ class DepartmentsScreen extends StatefulWidget {
       onPageSizeChanged: p.setPageSize,
     );
   }
+
 ```
 
-**Column builders (inline closures)**
+**Column builders**
 
-| Column key | `cellBuilder` behavior |
-|------------|-------------------------|
-| `name` | `Text(r.name, overflow: ellipsis)` |
-| `code` | Fixed width 120; same text treatment |
-| `description` | `r.description ?? '—'` |
-| `users` | Numeric column; `'${r.usersCount}'` |
-| `status` | `StatusChip(status: r.status.name)`; **`sortable: false`** |
+| Column key | Behavior |
+|------------|----------|
+| `name` | Stacked name + code; **text** `AppColumnFilter` on name and code; width 200; not sortable. |
+| `description` | Ellipsis; text filter; not sortable. |
+| `users` | Centered count; width 80; sortable by **`usersCount`**. |
+| `status` | **Select** filter (active/inactive); **`StatusChip`**; width 90; not sortable. |
+| `createdBy` | **`AuditCell`**; sortable by **`createdAt`**. |
+| `updatedBy` | **`AuditCell`**; sortable by **`updatedAt`**. |
 
 **`mobileCardBuilder`**
 
-- Uses **`Theme.of(context)`** from the **State’s** `build` `context` (valid for theme; the parameter `r` is only the row).
-- Vertical stack: name (title style), code (muted color by brightness), row with `StatusChip` and “N users” label.
+- **`GoogleFonts.poppins`** + **`AppTokens`** (no **`Theme.textTheme`** for primary text).
 
 **`rowActions`**
 
 | key | label | onTap |
 |-----|-------|--------|
-| `edit` | Edit | `DepartmentFormDrawer.show(context, existing: row)` |
-| `toggle` | Activate / deactivate | `await context.read<...>().toggleDepartmentStatus(row.id)` |
-| `delete` | Delete | `_confirmDelete(context, row)` |
+| `edit` | Edit | **`DepartmentFormDrawer.show(context, existing: row)`** |
+| `toggle` | **Activate** / **Deactivate** via **`labelBuilder`** / **`iconBuilder`** | **`toggleDepartmentStatus(row.id)`** |
+| `delete` | Delete | **`_confirmDelete(context, row)`** |
 
 ---
 
@@ -593,7 +678,7 @@ class DepartmentsScreen extends StatefulWidget {
 | **`DepartmentsProvider`** (via `watch`) | Full public state: `items` backing store effects through getters like `filteredItems`, `pagedRows`, counts, `isLoading`, `statusTabIndex`, pagination fields, etc. |
 | **`BuildContext`** | Theme, media/orientation (indirectly via listing), `Provider` scope, `ScaffoldMessenger`. |
 | **Row callbacks** | Each `DepartmentModel` instance `r` / `row` for the row under interaction. |
-| **Dialog result** | `bool?` from `showDialog` (`true` = confirm delete). |
+| **Dialog / confirm** | **`AppConfirmDialog.show`** result (`true` = user confirmed delete). |
 
 ## 6.2 How data is transformed in this file
 
@@ -617,9 +702,9 @@ class DepartmentsScreen extends StatefulWidget {
 | Output | Mechanism |
 |--------|-----------|
 | **User-visible UI** | `AppListingScreen` subtree. |
-| **Provider mutations** | `setStatusFilter`, `setSearchQuery`, `setPage`, `setPageSize`, `toggleDepartmentStatus`, `deleteDepartment`. |
-| **Snackbars** | Error path via listener; delete guardrail; (indirectly) provider may set errors after failed API. |
-| **Navigation / overlays** | `DepartmentFormDrawer.show`, `showDialog`. |
+| **Provider mutations** | `setStatusFilter`, `setSearchQuery`, `setPage`, `setPageSize`, `toggleDepartmentStatus`, `deleteDepartment`, bulk activate/deactivate/delete. |
+| **Snackbars** | Errors, delete guardrail, export placeholder. |
+| **Navigation / overlays** | **`DepartmentFormDrawer.show`**, **`AppConfirmDialog.show`**. |
 
 ---
 
@@ -627,12 +712,14 @@ class DepartmentsScreen extends StatefulWidget {
 
 ## 7.1 Explicit rules implemented in this file
 
-1. **Delete guard (client)** — If **`!row.canDelete`**, show snackbar and **do not** open confirm dialog. `canDelete` is **`usersCount == 0`** on the model (see `department_model.dart`).
-2. **Delete confirm (user)** — Even when `canDelete` is true, user must confirm in dialog unless they cancel/dismiss.
-3. **Delete execution** — Only if dialog returns **`true`** and **`context.mounted`** after await.
+1. **Delete guard (client)** — If **`!row.canDelete`**, show snackbar and **do not** open **`AppConfirmDialog`**. `canDelete` is **`usersCount == 0`** on the model (see `department_model.dart`).
+2. **Delete confirm (user)** — When `canDelete`, user must confirm via **`AppConfirmDialog`** or cancel/dismiss.
+3. **Delete execution** — Only if **`confirmed == true`** and **`context.mounted`** after **`await`**.
 4. **Tab filter mapping** — Exactly three tabs: All (clears status filter), Active, Inactive. Assumes `AppListingScreen` never calls `onTabChanged` with an index outside `0..2` for this configuration (listing clamps internal selection if needed).
-5. **KPI semantics** — **Total / Active / Inactive** counts (`p.totalCount`, `p.activeCount`, `p.inactiveCount`) are derived from **full** `_items` list in the provider, **not** from the current search filter. The **table** uses **`p.pagedRows`** from **`filteredItems`**. So KPIs can show totals while the table shows a filtered subset (intentional or product nuance—document as-is).
-6. **Empty state copy** — `'No departments match your filters'` when filtered/page result is empty (driven by listing + `rows`).
+5. **KPI strip** — **`kpiCards`** are configured but **`showKpis: false`** hides the KPI row; tab badge counts still reflect **`tabAllCount` / `activeCount` / `inactiveCount`**. Table uses **`p.pagedRows`** from **`filteredItems`**.
+6. **Column filters** — Per-column **`AppColumnFilter`** (and listing column picker) subset rows **client-side** on the current dataset; pagination totals follow listing rules.
+7. **Bulk selection** — **`bulkRowId`** maps rows to **`String`** ids for **`onBulk*`** callbacks.
+8. **Empty state copy** — `'No departments match your filters'` when filtered/page result is empty (driven by listing + `rows`).
 
 ## 7.2 Hidden assumptions
 
@@ -641,7 +728,7 @@ class DepartmentsScreen extends StatefulWidget {
 3. **`ScaffoldMessenger`** exists above this screen (typically from `MaterialApp` / shell `Scaffold`); otherwise snackbars may not show or may throw in debug.
 4. **`initialTabIndex`** is driven by provider each build; **`AppListingScreen`** updates internal tab when the prop changes:
 
-```327:329:lib/design_system/components/listing/app_listing_screen.dart
+```448:451:lib/design_system/components/listing/app_listing_screen.dart
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
       _selectedTab = _clampTab(widget.initialTabIndex);
     }
@@ -652,8 +739,8 @@ class DepartmentsScreen extends StatefulWidget {
 | Item | Value |
 |------|--------|
 | `description` null in table | Displays **`'—'`** (em dash). |
-| `showCheckboxes` | **`false`** (explicit). |
-| Dialog dismiss | `ok` not `true` → no delete call. |
+| `showCheckboxes` | **`true`** with **`bulkRowId`** and bulk callbacks. |
+| **`AppConfirmDialog` dismiss** | `confirmed != true` → no delete call. |
 
 ---
 
@@ -670,9 +757,10 @@ This file **does not** call HTTP or platform channels directly. All persistence 
 
 | Library | Usage |
 |---------|--------|
-| **flutter/material.dart** | Material widgets and dialogs. |
+| **flutter/material.dart** | Core Material widgets; snackbars. |
+| **google_fonts** | Poppins for cells/cards/export. |
 | **provider** | `watch` / `read`. |
-| **lucide_flutter** | Icons for row actions. |
+| **lucide_flutter** | Icons. |
 
 ## 8.3 Request/response structure (indirect)
 
@@ -711,8 +799,8 @@ The screen passes **`row.id`** (String) to **`deleteDepartment`**. Provider meth
 | **Toggle action `onTap`** | `async` closure; errors go to provider; if context unmounted, listing may still complete—generally OK. |
 | **`DepartmentFormDrawer.show`** | Uses `showGeneralDialog`; if no `ScaffoldMessenger` ancestor, snackbars inside drawer could fail (drawer’s own concern). |
 | **Tab index mismatch** | If `tabs` length ever diverges from mapping in `onTabChanged`, wrong filter could apply (currently consistent). |
-| **KPI vs table mismatch** | User may see KPI “Total 10” but empty table if search is restrictive—**not a bug** unless product wants KPIs to reflect filters. |
-| **Concurrent deletes** | Double-tap delete: dialog prevents repeat until closed; after confirm, async delete—possible race if two dialogs (listing should prevent duplicate menus depending on implementation). |
+| **KPI vs table mismatch** | With **`showKpis: false`**, the KPI strip is hidden; **tab badge** counts can still disagree with a heavily filtered/paginated table (**All** reflects unfiltered totals in the provider while the table shows **`filteredItems`**). If **`showKpis`** is turned on later, the same “KPI total vs filtered rows” product question applies. |
+| **Concurrent deletes** | Double-tap delete: **`AppConfirmDialog`** prevents repeat until closed; after confirm, async delete—possible race if two dialogs (listing should prevent duplicate menus depending on implementation). |
 
 ---
 
@@ -730,7 +818,7 @@ The screen passes **`row.id`** (String) to **`deleteDepartment`**. Provider meth
 1. **No authentication or authorization** in this file—any user who can reach the route can trigger UI actions. Real apps should guard routes at router or shell level.
 2. **Delete confirmation** mitigates accidental deletion; **server-side** validation would still be required for a real API (`DepartmentsApi.delete` already enforces non-zero users).
 3. **Error strings** — `e.toString()` from exceptions may leak implementation details in SnackBars (provider/base layer concern).
-4. **Dialog content** — Interpolates **`row.name`** and **`row.code`** into dialog text. If those ever contained malicious strings displayed in HTML web contexts it could matter; in Flutter `Text` this is plain text (no script execution).
+4. **Dialog content** — Delete confirmation message includes **`row.name`** (plain **`Text`** in **`AppConfirmDialog`**).
 
 ---
 
@@ -776,8 +864,8 @@ The screen passes **`row.id`** (String) to **`deleteDepartment`**. Provider meth
 
 ## 13.3 User toggles status
 
-1. **Activate / deactivate** → **`toggleDepartmentStatus(row.id)`** → API flips enum → refresh.
-2. KPI counts and status chip update on rebuild.
+1. Row menu shows **Activate** or **Deactivate** (dynamic **`labelBuilder`** / **`iconBuilder`**) → **`toggleDepartmentStatus(row.id)`** → API flips enum → refresh.
+2. Status chip and tab badge counts update on rebuild.
 
 ## 13.4 User searches for “adm”
 
@@ -787,7 +875,7 @@ The screen passes **`row.id`** (String) to **`deleteDepartment`**. Provider meth
 ## 13.5 User deletes empty department
 
 1. Row has **`usersCount == 0`** → **`canDelete` true**.
-2. Dialog → **Delete** → **`ok == true`** → **`deleteDepartment(id)`** → row removed from mock list.
+2. **`AppConfirmDialog`** → user confirms → **`confirmed == true`** and **`context.mounted`** → **`deleteDepartment(id)`** → row removed from mock list.
 
 ## 13.6 User tries to delete “Admin” with users assigned
 
@@ -813,7 +901,10 @@ The screen passes **`row.id`** (String) to **`deleteDepartment`**. Provider meth
 | **`context.read`** | One-time lookup; does not subscribe (used for callbacks and `initState`). |
 | **Post-frame callback** | Work scheduled to run after the current frame is painted (`WidgetsBinding.instance.addPostFrameCallback`). |
 | **`mounted`** | Whether the `State` is still in the tree; `false` after `dispose`. |
-| **AppListingScreen** | Design-system reusable page: KPIs, tabs, search, table/cards, pagination, row actions. |
+| **AppListingScreen** | Design-system reusable page: optional KPI strip (**`showKpis`**), tabs, search, table/cards, pagination, row actions, bulk selection. |
+| **AppConfirmDialog** | Design-system confirmation modal (**`AppConfirmDialog.show`**) with variants such as **`AppConfirmDialogVariant.danger`** for destructive actions. |
+| **AppColumnFilter** | Declarative per-column filter config consumed by the listing (text, select, etc.). |
+| **AuditCell** | Shared widget for created/updated metadata columns (avatar, name, relative time). |
 | **TableColumn** | Descriptor for a data column: key, label, width, `cellBuilder`, sort flags. |
 | **RowAction** | Overflow menu entry: key, label, icon, `onTap(row)`, optional danger styling. |
 | **TabConfig** | Tab label + optional badge count for listing tabs. |
@@ -834,4 +925,4 @@ Think of **`departments_screen.dart`** as a **control panel faceplate**: it does
 
 ---
 
-*Generated documentation for `lib/features/user_management/departments/ui/departments_screen.dart` (259 lines). Line numbers refer to that revision.*
+*Generated documentation for `lib/features/user_management/departments/ui/departments_screen.dart` (~350 lines). Line numbers cite the repo revision synced when this doc was last updated (May 2026).*

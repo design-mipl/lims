@@ -73,7 +73,7 @@ abstract final class AppTokens {
   static const Color transparent  = Color(0x00000000);
   static const Color surfaceCard   = Color(0xFFFFFFFF);
   static const Color cardBg        = Color(0xFFFFFFFF);
-  static const Color pageBg        = Color(0xFFF0F2F5);
+  static const Color pageBg        = white;
   static const Color surfaceSubtle = Color(0xFFF8FAFC);
 
   /// App-wide page background (same as [primary50]).
@@ -165,6 +165,9 @@ abstract final class AppTokens {
   static const double focusRingWidth = 1.5;
   static const Color overlayHover    = Color(0x08000000);
   static const Color overlayPressed  = Color(0x14000000);
+
+  /// Modal / dialog barrier scrim (40% black). Prefer over [Colors.black] with alpha.
+  static const Color modalBarrierScrim = Color(0x66000000);
 
   // ---------------------------------------------------------------------------
   // Spacing (4 px base)
@@ -259,14 +262,13 @@ abstract final class AppTokens {
   static const double sidebarCollapsed = 56.0;
   static const double navItemHeight   = 34.0;
 
-  /// Canonical outer height for single-line [AppInput], [AppSelect] triggers, and
-  /// the prefix/suffix icon slot in shared [InputDecoration] constraints
-  /// ([inputFieldIconSlot]) so icon rows never force Material's default 48px slots.
+  /// Canonical outer height for single-line [AppInput] and [AppSelect] triggers.
   static const double inputHeight = 34.0;
 
-  /// Same as [inputHeight]; use for [InputDecoration.prefixIconConstraints] /
-  /// [InputDecoration.suffixIconConstraints] width and height.
-  static const double inputFieldIconSlot = inputHeight;
+  /// Prefix/suffix icon box for [InputDecoration] icon constraints. Slightly
+  /// smaller than [inputHeight] so icons center inside the bordered shell without
+  /// forcing the decorator to exceed [inputHeight] next to text.
+  static const double inputFieldIconSlot = 28.0;
 
   static const double inputHeightLg = 44.0;
   static const double inputRadius   = 6.0;

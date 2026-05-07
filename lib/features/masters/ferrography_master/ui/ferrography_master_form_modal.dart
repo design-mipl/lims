@@ -18,7 +18,7 @@ class FerrographyMasterFormModal {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) => ChangeNotifierProvider<FerrographyMasterProvider>.value(
         value: p,
         child: _FerrographyMasterFormDialog(existing: existing),

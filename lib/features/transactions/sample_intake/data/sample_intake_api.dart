@@ -1,7 +1,7 @@
 import 'sample_intake_model.dart';
 import 'sample_row_model.dart';
 
-/// In-memory mock API for Sample Intake & Data Entry.
+/// In-memory mock API for Sample Intake.
 class SampleIntakeApi {
   SampleIntakeApi() {
     final now = DateTime.now();

@@ -18,7 +18,7 @@ class SubAssemblyMasterFormModal {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) => ChangeNotifierProvider<SubAssemblyMasterProvider>.value(
         value: p,
         child: _SubAssemblyMasterFormDialog(existing: existing),

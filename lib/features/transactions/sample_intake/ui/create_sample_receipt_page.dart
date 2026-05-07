@@ -7,8 +7,9 @@ import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
 import '../state/sample_intake_provider.dart';
 
-/// Create Sample Receipt — [AppFormPage] root (header actions only, no sticky footer),
-/// [AppFormPageLayout] + [AppFormSection] cards (same structure as [CustomerFormPage] body).
+/// Create Sample Receipt — same page shell as [SiteDetailScreen] / Site create:
+/// [DetailTemplate] (breadcrumb, header card, full-width content card) +
+/// [AppFormPageLayout] + [AppFormSection] inside a scroll view.
 class CreateSampleReceiptPage extends StatefulWidget {
   const CreateSampleReceiptPage({super.key});
 
@@ -191,28 +192,78 @@ class _CreateSampleReceiptPageState extends State<CreateSampleReceiptPage> {
     }
   }
 
+  /// Inline label + [AppToggleSwitch] for the movement tracking grid (label is horizontal, not stacked).
+  Widget _sampleMovementToggle({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.fieldLabelSize,
+              fontWeight: AppTokens.fieldLabelWeight,
+              color: AppTokens.labelColor,
+            ),
+          ),
+        ),
+        SizedBox(width: AppTokens.space2),
+        AppToggleSwitch(
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<SampleIntakeProvider>();
 
-    return AppFormPage(
-      title: 'Create Sample Receipt',
-      onBack: _onCancel,
-      actions: [
-        AppButton(
-          label: 'Cancel',
-          variant: AppButtonVariant.tertiary,
-          onPressed: _onCancel,
+    return Material(
+      type: MaterialType.transparency,
+      child: DetailTemplate(
+        parentLabel: 'Sample Intake',
+        parentRoute: '/transactions/sample-intake',
+        currentLabel: 'Create Sample Receipt',
+        headerCard: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                'Create Sample Receipt',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.pageTitleSize,
+                  fontWeight: AppTokens.weightBold,
+                  color: AppTokens.textPrimary,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+            AppButton(
+              label: 'Cancel',
+              variant: AppButtonVariant.tertiary,
+              onPressed: _onCancel,
+            ),
+            SizedBox(width: AppTokens.space2),
+            AppButton(
+              label: 'Save',
+              variant: AppButtonVariant.primary,
+              onPressed: p.isLoading ? null : () => _onSave(),
+              isLoading: p.isLoading,
+            ),
+          ],
         ),
-        AppButton(
-          label: 'Save',
-          variant: AppButtonVariant.primary,
-          onPressed: p.isLoading ? null : () => _onSave(),
-          isLoading: p.isLoading,
-        ),
-      ],
-      body: AppFormPageLayout(
-        left: AppFormPageLayout.sectionsColumn([
+        tabLabels: const ['Overview'],
+        tabViews: [
+          SingleChildScrollView(
+            padding: EdgeInsets.all(AppTokens.space4),
+            child: AppFormPageLayout(
+              left: AppFormPageLayout.sectionsColumn([
                   AppFormSection(
                     title: 'Basic Receipt Details',
                     children: [
@@ -306,37 +357,65 @@ class _CreateSampleReceiptPageState extends State<CreateSampleReceiptPage> {
                     title: 'Sample Movement Tracking',
                     children: [
                       AppFormFullWidth(
-                        child: AppToggleSwitch(
-                          label: 'Sample Dispatched from Site',
-                          value: _dispatchedFromSite,
-                          onChanged: (v) => setState(() => _dispatchedFromSite = v),
-                        ),
-                      ),
-                      AppFormFullWidth(
-                        child: AppToggleSwitch(
-                          label: 'Sample Collected from Collection Center',
-                          value: _collectedFromCc,
-                          onChanged: (v) => setState(() => _collectedFromCc = v),
-                        ),
-                      ),
-                      AppFormFullWidth(
-                        child: AppToggleSwitch(
-                          label: 'Sample Received at Collection Center',
-                          value: _receivedAtCc,
-                          onChanged: (v) => setState(() => _receivedAtCc = v),
-                        ),
-                      ),
-                      AppFormFullWidth(
-                        child: AppToggleSwitch(
-                          label: 'Sample Received at Lab',
-                          value: _receivedAtLab,
-                          onChanged: (v) => setState(() => _receivedAtLab = v),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: _sampleMovementToggle(
+                                    label: 'Sample Dispatched from Site',
+                                    value: _dispatchedFromSite,
+                                    onChanged: (v) => setState(
+                                      () => _dispatchedFromSite = v,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: AppTokens.space3),
+                                Expanded(
+                                  child: _sampleMovementToggle(
+                                    label:
+                                        'Sample Collected from Collection Center',
+                                    value: _collectedFromCc,
+                                    onChanged: (v) =>
+                                        setState(() => _collectedFromCc = v),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: AppTokens.space3),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: _sampleMovementToggle(
+                                    label:
+                                        'Sample Received at Collection Center',
+                                    value: _receivedAtCc,
+                                    onChanged: (v) =>
+                                        setState(() => _receivedAtCc = v),
+                                  ),
+                                ),
+                                SizedBox(width: AppTokens.space3),
+                                Expanded(
+                                  child: _sampleMovementToggle(
+                                    label: 'Sample Received at Lab',
+                                    value: _receivedAtLab,
+                                    onChanged: (v) =>
+                                        setState(() => _receivedAtLab = v),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ]),
-                right: AppFormPageLayout.sectionsColumn([
+              ]),
+              right: AppFormPageLayout.sectionsColumn([
                   AppFormSection(
                     title: 'Site Details',
                     children: [
@@ -411,8 +490,11 @@ class _CreateSampleReceiptPageState extends State<CreateSampleReceiptPage> {
                       ),
                     ],
                   ),
-                ]),
-              ),
+              ]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

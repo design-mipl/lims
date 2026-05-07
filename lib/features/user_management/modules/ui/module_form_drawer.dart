@@ -21,7 +21,6 @@ abstract final class ModuleFormDrawer {
       barrierColor: AppTokens.neutral900.withValues(alpha: 0.45),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (ctx, animation, secondaryAnimation) {
-        final theme = Theme.of(ctx);
         final panelW = _panelWidth(ctx);
         return ChangeNotifierProvider<ModulesProvider>.value(
           value: provider,
@@ -30,7 +29,7 @@ abstract final class ModuleFormDrawer {
             child: SafeArea(
               child: Material(
                 elevation: AppTokens.space0,
-                color: theme.colorScheme.surface,
+                color: AppTokens.cardBg,
                 child: SizedBox(
                   width: panelW,
                   height: MediaQuery.sizeOf(ctx).height,
@@ -183,7 +182,7 @@ class _ModuleFormDrawerHostState extends State<_ModuleFormDrawerHost> {
               AppFormFullWidth(
                 child: AppInput(
                   label: 'Module Name',
-                  hint: 'e.g. Sample Receipt',
+                  hint: 'e.g. Sample Intake',
                   isRequired: true,
                   controller: _nameCtrl,
                   errorText: _nameError,

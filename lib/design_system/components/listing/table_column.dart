@@ -18,6 +18,7 @@ class TableColumn<T> {
     this.filterTextValue,
     this.filterSelectValue,
     this.sortValue,
+    this.headerMaxLines = 1,
   });
 
   final String key;
@@ -66,4 +67,7 @@ class TableColumn<T> {
   /// - When `null`, the column is treated as not sortable (regardless of
   ///   [sortable]); the sort handler will skip it.
   final dynamic Function(T row)? sortValue;
+
+  /// Header label max lines (1 = single line + ellipsis; 2+ allows wrapping).
+  final int headerMaxLines;
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
@@ -38,6 +39,8 @@ class AppSelect<T> extends StatefulWidget {
     this.size = AppInputSize.md,
     this.isSearchable = true,
     this.countLabel,
+    this.focusNode,
+    this.openOverlayWhenFocused = false,
   });
 
   final String? label;
@@ -56,6 +59,13 @@ class AppSelect<T> extends StatefulWidget {
   /// Noun after count, e.g. `'tests'` → `"5 tests"`. Defaults to `'items'`.
   final String? countLabel;
 
+  /// Optional external focus node (e.g. for advanced tab order). Disposed by owner.
+  final FocusNode? focusNode;
+
+  /// When true, gaining focus opens the overlay (intended for dense data grids with
+  /// [isSearchable] false so Arrow keys + Enter + Escape work in the list).
+  final bool openOverlayWhenFocused;
+
   @override
   State<AppSelect<T>> createState() => _AppSelectState<T>();
 }
@@ -65,12 +75,23 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _fieldKey = GlobalKey();
   bool _isOpen = false;
+  FocusNode? _ownedFocusNode;
+
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _ownedFocusNode!;
 
   double get _fontSize => switch (widget.size) {
         AppInputSize.sm => 11.0,
         AppInputSize.md => 12.0,
         AppInputSize.lg => 13.0,
       };
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.focusNode == null) {
+      _ownedFocusNode = FocusNode(debugLabel: 'AppSelect');
+    }
+  }
 
   void _openOverlay() {
     if (!widget.enabled || _isOpen) return;
@@ -112,6 +133,8 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
         onDismiss: _closeOverlay,
         showSearch: widget.isSearchable,
         countLabel: widget.countLabel ?? 'items',
+        hostFocusNode: _effectiveFocusNode,
+        traversalContext: this.context,
       ),
     );
   }
@@ -120,6 +143,7 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
   void dispose() {
     _detachOverlay();
     _isOpen = false;
+    _ownedFocusNode?.dispose();
     super.dispose();
   }
 
@@ -165,38 +189,72 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
           ],
           CompositedTransformTarget(
             link: _layerLink,
-            child: GestureDetector(
-              // Same fixed height and InputDecoration as [AppInput] so selects
-              // never drift taller from suffix/chevron slots.
-              onTap: widget.enabled
-                  ? (_isOpen ? _closeOverlay : _openOverlay)
-                  : null,
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox(
-                key: _fieldKey,
-                height: AppTokens.inputHeight,
-                child: InputDecorator(
-                  isFocused: widget.enabled && _isOpen,
-                  decoration: buildAppFormFieldDecoration(
-                    enabled: widget.enabled,
-                    hasError: hasError,
-                    suffixIcon: Icon(
-                      LucideIcons.chevronDown,
-                      size: AppTokens.iconButtonIconSm,
-                      color: AppTokens.textMuted,
+            child: Focus(
+              focusNode: _effectiveFocusNode,
+              canRequestFocus: widget.enabled,
+              skipTraversal: !widget.enabled,
+              onFocusChange: (focused) {
+                if (focused &&
+                    widget.openOverlayWhenFocused &&
+                    widget.enabled &&
+                    !_isOpen) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_isOpen && widget.enabled) {
+                      _openOverlay();
+                    }
+                  });
+                }
+              },
+              onKeyEvent: (node, event) {
+                if (!widget.enabled) return KeyEventResult.ignored;
+                if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                if (_isOpen) {
+                  return KeyEventResult.ignored;
+                }
+                final key = event.logicalKey;
+                if (key == LogicalKeyboardKey.enter ||
+                    key == LogicalKeyboardKey.space) {
+                  _openOverlay();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: GestureDetector(
+                // Same fixed height and InputDecoration as [AppInput] so selects
+                // never drift taller from suffix/chevron slots.
+                onTap: widget.enabled
+                    ? (_isOpen ? _closeOverlay : _openOverlay)
+                    : null,
+                behavior: HitTestBehavior.opaque,
+                child: SizedBox(
+                  key: _fieldKey,
+                  height: AppTokens.inputHeight,
+                  child: InputDecorator(
+                    isFocused: widget.enabled &&
+                        (_isOpen || _effectiveFocusNode.hasFocus),
+                    decoration: buildAppFormFieldDecoration(
+                      enabled: widget.enabled,
+                      hasError: hasError,
+                      suffixIcon: Icon(
+                        LucideIcons.chevronDown,
+                        size: AppTokens.iconButtonIconSm,
+                        color: AppTokens.textMuted,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    selectedItem?.label ?? widget.hint ?? '',
-                    style: GoogleFonts.poppins(
-                      fontSize: _fontSize,
-                      fontWeight: FontWeight.w400,
-                      color: selectedItem != null
-                          ? AppTokens.textPrimary
-                          : AppTokens.hintColor,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        selectedItem?.label ?? widget.hint ?? '',
+                        style: appFormFieldValueTextStyle(
+                          fontSize: _fontSize,
+                          color: selectedItem != null
+                              ? AppTokens.textPrimary
+                              : AppTokens.hintColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -235,6 +293,8 @@ class _SelectOverlay<T> extends StatefulWidget {
     required this.onDismiss,
     required this.showSearch,
     required this.countLabel,
+    required this.hostFocusNode,
+    required this.traversalContext,
   });
 
   final LayerLink layerLink;
@@ -246,6 +306,8 @@ class _SelectOverlay<T> extends StatefulWidget {
   final VoidCallback onDismiss;
   final bool showSearch;
   final String countLabel;
+  final FocusNode hostFocusNode;
+  final BuildContext traversalContext;
 
   @override
   State<_SelectOverlay<T>> createState() => _SelectOverlayState<T>();
@@ -255,19 +317,59 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   String _searchQuery = '';
   late final TextEditingController _searchController;
   late final FocusNode _searchFocusNode;
+  late final ScrollController _listScrollController;
+  late final FocusNode _listKeyboardFocusNode;
+  int _highlightIndex = 0;
 
   bool get _hasCode => widget.items.any(
       (e) => e.code != null && e.code!.trim().isNotEmpty,
     );
+
+  void _syncHighlightToFiltered(List<AppSelectItem<T>> filtered) {
+    if (filtered.isEmpty) {
+      _highlightIndex = 0;
+      return;
+    }
+    final i = filtered.indexWhere((e) => e.value == widget.selectedValue);
+    _highlightIndex = i < 0 ? 0 : i;
+    _highlightIndex = _highlightIndex.clamp(0, filtered.length - 1);
+  }
+
+  void _scrollHighlightIntoView() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listScrollController.hasClients) return;
+      final rowH = AppTokens.tableRowHeight;
+      final viewH = _listScrollController.position.viewportDimension;
+      final targetOffset = _highlightIndex * rowH;
+      final max = _listScrollController.position.maxScrollExtent;
+      final min = _listScrollController.position.minScrollExtent;
+      var next = _listScrollController.offset;
+      if (targetOffset < next) {
+        next = targetOffset;
+      } else if (targetOffset + rowH > next + viewH) {
+        next = targetOffset + rowH - viewH;
+      }
+      _listScrollController.jumpTo(next.clamp(min, max));
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
+    _listScrollController = ScrollController();
+    _listKeyboardFocusNode = FocusNode(debugLabel: 'AppSelectOverlayList');
+    _syncHighlightToFiltered(widget.items);
     if (widget.showSearch) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _searchFocusNode.requestFocus();
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncHighlightToFiltered(_filteredItems);
+        _listKeyboardFocusNode.requestFocus();
       });
     }
   }
@@ -276,6 +378,8 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _listScrollController.dispose();
+    _listKeyboardFocusNode.dispose();
     super.dispose();
   }
 
@@ -288,6 +392,74 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
       final codeHit = code.isNotEmpty && code.contains(q);
       return labelHit || codeHit;
     }).toList();
+  }
+
+  KeyEventResult _onListKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.tab) {
+      final goBack = HardwareKeyboard.instance.isShiftPressed;
+      widget.onDismiss();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!widget.traversalContext.mounted) return;
+        if (goBack) {
+          Actions.invoke(
+              widget.traversalContext, const PreviousFocusIntent());
+        } else {
+          Actions.invoke(widget.traversalContext, const NextFocusIntent());
+        }
+      });
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      widget.onDismiss();
+      widget.hostFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    final filtered = _filteredItems;
+    if (filtered.isEmpty) return KeyEventResult.ignored;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _highlightIndex =
+            (_highlightIndex + 1).clamp(0, filtered.length - 1);
+      });
+      _scrollHighlightIntoView();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _highlightIndex =
+            (_highlightIndex - 1).clamp(0, filtered.length - 1);
+      });
+      _scrollHighlightIntoView();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter) {
+      widget.onSelect(filtered[_highlightIndex].value);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Widget _buildList({required bool keyboardMode}) {
+    final filtered = _filteredItems;
+    return ListView.builder(
+      controller: _listScrollController,
+      padding: EdgeInsets.zero,
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final item = filtered[index];
+        final isSelected = item.value == widget.selectedValue;
+        return _SelectOverlayRow<T>(
+          item: item,
+          hasCode: _hasCode,
+          isSelected: isSelected,
+          isKeyboardHighlight:
+              keyboardMode && index == _highlightIndex,
+          onTap: () => widget.onSelect(item.value),
+        );
+      },
+    );
   }
 
   @override
@@ -338,8 +510,12 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
                             size: AppTokens.iconSizeMd,
                             color: AppTokens.textMuted,
                           ),
-                          onChanged: (v) =>
-                              setState(() => _searchQuery = v),
+                          onChanged: (v) {
+                            setState(() {
+                              _searchQuery = v;
+                              _syncHighlightToFiltered(_filteredItems);
+                            });
+                          },
                         ),
                       ),
                     if (_hasCode)
@@ -378,21 +554,13 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
                         ),
                       ),
                     Expanded(
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final item = filtered[index];
-                          final isSelected =
-                              item.value == widget.selectedValue;
-                          return _SelectOverlayRow<T>(
-                            item: item,
-                            hasCode: _hasCode,
-                            isSelected: isSelected,
-                            onTap: () => widget.onSelect(item.value),
-                          );
-                        },
-                      ),
+                      child: widget.showSearch
+                          ? _buildList(keyboardMode: false)
+                          : Focus(
+                              focusNode: _listKeyboardFocusNode,
+                              onKeyEvent: _onListKey,
+                              child: _buildList(keyboardMode: true),
+                            ),
                     ),
                     Divider(
                       height: AppTokens.borderWidthSm,
@@ -440,12 +608,14 @@ class _SelectOverlayRow<T> extends StatefulWidget {
     required this.item,
     required this.hasCode,
     required this.isSelected,
+    required this.isKeyboardHighlight,
     required this.onTap,
   });
 
   final AppSelectItem<T> item;
   final bool hasCode;
   final bool isSelected;
+  final bool isKeyboardHighlight;
   final VoidCallback onTap;
 
   @override
@@ -462,7 +632,9 @@ class _SelectOverlayRowState<T> extends State<_SelectOverlayRow<T>> {
     final code = item.code?.trim();
 
     Color background;
-    if (widget.isSelected) {
+    if (widget.isKeyboardHighlight) {
+      background = AppTokens.info50;
+    } else if (widget.isSelected) {
       background = AppTokens.primary50;
     } else if (_hovered) {
       background = AppTokens.pageBg;

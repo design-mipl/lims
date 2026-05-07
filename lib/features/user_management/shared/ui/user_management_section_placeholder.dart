@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../design_system/tokens.dart';
 
@@ -17,7 +18,7 @@ class UserManagementSectionPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final mq = MediaQuery.of(context);
     final contentHeight = (mq.size.height -
             mq.padding.vertical -
@@ -27,7 +28,7 @@ class UserManagementSectionPlaceholder extends StatelessWidget {
     return SizedBox(
       height: contentHeight,
       child: ColoredBox(
-        color: theme.scaffoldBackgroundColor,
+        color: AppTokens.pageBg,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -43,20 +44,21 @@ class UserManagementSectionPlaceholder extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: theme.brightness == Brightness.dark
-                          ? theme.colorScheme.onSurface
-                          : AppTokens.neutral900,
-                      fontWeight: AppTokens.weightSemibold,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.pageTitleSize,
+                      fontWeight: AppTokens.pageTitleWeight,
+                      color: isDark ? AppTokens.textOnDark : AppTokens.neutral900,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                   SizedBox(height: AppTokens.space2),
                   Text(
                     subtitle,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.brightness == Brightness.dark
-                          ? AppTokens.neutral400
-                          : AppTokens.neutral600,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.pageSubtitleSize,
+                      fontWeight: AppTokens.pageSubtitleWeight,
+                      color: isDark ? AppTokens.neutral400 : AppTokens.neutral600,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ],
@@ -69,10 +71,11 @@ class UserManagementSectionPlaceholder extends StatelessWidget {
                   child: Text(
                     bodyMessage,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.brightness == Brightness.dark
-                          ? AppTokens.neutral400
-                          : AppTokens.neutral500,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.bodySize,
+                      fontWeight: AppTokens.bodyWeight,
+                      color: isDark ? AppTokens.neutral400 : AppTokens.neutral500,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),

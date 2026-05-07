@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
@@ -27,11 +28,10 @@ class UserViewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final users = context.watch<UsersProvider>();
-    final muted = theme.brightness == Brightness.dark
-        ? AppTokens.neutral400
-        : AppTokens.neutral600;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted =
+        isDark ? AppTokens.neutral400 : AppTokens.neutral600;
 
     void back() {
       if (context.canPop()) {
@@ -54,7 +54,12 @@ class UserViewPage extends StatelessWidget {
               children: [
                 Text(
                   'User not found.',
-                  style: theme.textTheme.bodyLarge,
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTokens.bodySize,
+                    fontWeight: AppTokens.bodyWeight,
+                    color: AppTokens.textPrimary,
+                    decoration: TextDecoration.none,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: AppTokens.space4),
@@ -81,16 +86,21 @@ class UserViewPage extends StatelessWidget {
           children: [
             Text(
               label,
-              style: theme.textTheme.labelSmall?.copyWith(
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.fieldLabelSize,
+                fontWeight: AppTokens.fieldLabelWeight,
                 color: muted,
-                fontSize: AppTokens.textXs,
+                decoration: TextDecoration.none,
               ),
             ),
             SizedBox(height: AppTokens.space1),
             Text(
               value,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: GoogleFonts.poppins(
                 fontSize: AppTokens.textSm,
+                fontWeight: AppTokens.bodyWeight,
+                color: AppTokens.textPrimary,
+                decoration: TextDecoration.none,
               ),
             ),
           ],
@@ -138,15 +148,21 @@ class UserViewPage extends StatelessWidget {
                           children: [
                             Text(
                               u.name,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: AppTokens.weightSemibold,
+                              style: GoogleFonts.poppins(
+                                fontSize: AppTokens.sectionTitleSize,
+                                fontWeight: AppTokens.sectionTitleWeight,
+                                color: AppTokens.textPrimary,
+                                decoration: TextDecoration.none,
                               ),
                             ),
                             SizedBox(height: AppTokens.space1),
                             Text(
                               u.roleName,
-                              style: theme.textTheme.bodySmall?.copyWith(
+                              style: GoogleFonts.poppins(
+                                fontSize: AppTokens.bodySmSize,
+                                fontWeight: AppTokens.bodyWeight,
                                 color: muted,
+                                decoration: TextDecoration.none,
                               ),
                             ),
                             SizedBox(height: AppTokens.space2),
@@ -190,8 +206,11 @@ class UserViewPage extends StatelessWidget {
                   title: 'Last Login',
                   child: Text(
                     _formatLastLogin(u.lastLogin),
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: GoogleFonts.poppins(
                       fontSize: AppTokens.textSm,
+                      fontWeight: AppTokens.bodyWeight,
+                      color: AppTokens.textPrimary,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),

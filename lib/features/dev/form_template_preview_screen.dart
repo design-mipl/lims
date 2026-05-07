@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../design_system/components/components.dart';
 import '../../design_system/tokens.dart';
 
@@ -218,7 +219,7 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.all(AppTokens.space4),
       child: SingleChildScrollView(
@@ -227,17 +228,21 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
           children: [
             Text(
               'Form Template Preview',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: AppTokens.weightSemibold,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.pageTitleSize,
+                fontWeight: AppTokens.pageTitleWeight,
+                color: AppTokens.textPrimary,
+                decoration: TextDecoration.none,
               ),
             ),
             SizedBox(height: AppTokens.space2),
             Text(
               'Modal, drawer, and full-page shells (mock fields only).',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.brightness == Brightness.dark
-                    ? AppTokens.neutral400
-                    : AppTokens.neutral600,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.pageSubtitleSize,
+                fontWeight: AppTokens.pageSubtitleWeight,
+                color: isDark ? AppTokens.neutral400 : AppTokens.neutral600,
+                decoration: TextDecoration.none,
               ),
             ),
             SizedBox(height: AppTokens.space6),
@@ -248,8 +253,12 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
                 children: [
                   Text(
                     '1. Modal',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: AppTokens.weightSemibold),
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.sectionTitleSize,
+                      fontWeight: AppTokens.sectionTitleWeight,
+                      color: AppTokens.textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                   SizedBox(height: AppTokens.space3),
                   AppButton(
@@ -269,8 +278,12 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
                 children: [
                   Text(
                     '2. Drawer',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: AppTokens.weightSemibold),
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.sectionTitleSize,
+                      fontWeight: AppTokens.sectionTitleWeight,
+                      color: AppTokens.textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                   SizedBox(height: AppTokens.space3),
                   AppButton(
@@ -290,13 +303,22 @@ class _FormTemplatePreviewScreenState extends State<FormTemplatePreviewScreen> {
                 children: [
                   Text(
                     '3. Full page',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: AppTokens.weightSemibold),
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.sectionTitleSize,
+                      fontWeight: AppTokens.sectionTitleWeight,
+                      color: AppTokens.textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                   SizedBox(height: AppTokens.space2),
                   Text(
                     'Embedded [AppFormPage] with bounded height (shell scroll workaround).',
-                    style: theme.textTheme.bodySmall,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.captionSize,
+                      fontWeight: AppTokens.captionWeight,
+                      color: AppTokens.textSecondary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                   SizedBox(height: AppTokens.space4),
                   SizedBox(

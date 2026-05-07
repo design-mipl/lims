@@ -88,7 +88,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
     return Material(
       type: MaterialType.transparency,
       child: AppListingScreen<SampleIntakeModel>(
-        title: 'Sample Intake & Data Entry',
+        title: 'Sample Intake',
         subtitle:
             'Receipt lots, customer and site details, and sample data entry progress.',
         primaryActionLabel: 'Create Receipt',
@@ -98,6 +98,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
         onBulkDelete: (ids) => p.bulkDeleteReceipts(ids),
         showKpis: false,
         showExport: false,
+        showTableHorizontalScrollbar: true,
         tabs: [
           TabConfig(label: 'All', count: p.allCount),
           TabConfig(
@@ -130,7 +131,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'lot',
             label: 'Lot No.',
-            width: 120,
+            width: 136,
             sortable: true,
             sortValue: (r) => r.lotNo.toLowerCase(),
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
@@ -149,7 +150,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'receipt',
             label: 'Receipt Date & Time',
-            width: 140,
+            width: 196,
             sortable: true,
             sortValue: (r) =>
                 r.receiptDate.millisecondsSinceEpoch + r.receiptTime.hashCode,
@@ -167,6 +168,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
                     color: AppTokens.textPrimary,
                   ),
                 ),
+                SizedBox(height: AppTokens.spaceHalf),
                 Text(
                   r.receiptTime,
                   maxLines: 1,
@@ -182,7 +184,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'customer',
             label: 'Customer / Company',
-            flex: 1,
+            width: 292,
             sortable: true,
             sortValue: (r) => r.customerName.toLowerCase(),
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
@@ -201,6 +203,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
                     color: AppTokens.textPrimary,
                   ),
                 ),
+                SizedBox(height: AppTokens.spaceHalf),
                 Text(
                   r.customerCompany,
                   maxLines: 1,
@@ -216,7 +219,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'site',
             label: 'Site Contact / Site Company',
-            flex: 1,
+            width: 292,
             sortable: false,
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
             filterTextValue: (r) => '${r.siteContactPerson} ${r.siteCompany}',
@@ -234,6 +237,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
                     color: AppTokens.textPrimary,
                   ),
                 ),
+                SizedBox(height: AppTokens.spaceHalf),
                 Text(
                   r.siteCompany,
                   maxLines: 1,
@@ -249,7 +253,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'courier',
             label: 'Courier / POD No.',
-            width: 140,
+            width: 204,
             sortable: false,
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
             filterTextValue: (r) => '${r.courierName} ${r.podNo}',
@@ -267,6 +271,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
                     color: AppTokens.textPrimary,
                   ),
                 ),
+                SizedBox(height: AppTokens.spaceHalf),
                 Text(
                   r.podNo,
                   maxLines: 1,
@@ -282,7 +287,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'samples',
             label: 'No. of Samples',
-            width: 112,
+            width: 124,
             sortable: true,
             sortValue: (r) => r.noOfSamples,
             numeric: true,
@@ -297,7 +302,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'progress',
             label: 'Data Entry Progress',
-            width: 150,
+            width: 212,
             sortable: true,
             sortValue: (r) => r.dataEntryCompletedCount,
             cellBuilder: (r) => Text(
@@ -312,7 +317,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'workOrder',
             label: 'Work Order No.',
-            width: 120,
+            width: 144,
             sortable: true,
             sortValue: (r) => r.workOrderNo.toLowerCase(),
             filter: const AppColumnFilter(type: AppColumnFilterType.text),
@@ -330,7 +335,7 @@ class _SampleIntakeScreenState extends State<SampleIntakeScreen> {
           TableColumn<SampleIntakeModel>(
             key: 'status',
             label: 'Status',
-            width: 140,
+            width: 180,
             sortable: false,
             filter: const AppColumnFilter(
               type: AppColumnFilterType.select,

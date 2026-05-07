@@ -24,6 +24,9 @@ import '../../features/user_management/roles/data/roles_api.dart';
 import '../../features/user_management/users/data/user_permissions_api.dart';
 import '../../features/user_management/users/data/users_api.dart';
 import '../../features/user_management/users/state/user_permissions_provider.dart';
+import '../../features/transactions/lab_code/data/lab_code_api.dart';
+import '../../features/transactions/lab_code/state/lab_code_provider.dart';
+import '../../features/transactions/lab_manager_assignment/state/lab_manager_assignment_provider.dart';
 import '../../features/transactions/sample_intake/data/sample_intake_api.dart';
 import '../../features/transactions/sample_intake/state/sample_intake_provider.dart';
 
@@ -52,6 +55,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<PlantApi>(() => PlantApi());
   sl.registerLazySingleton<CourierApi>(() => CourierApi());
   sl.registerLazySingleton<SiteApi>(() => SiteApi());
+  sl.registerLazySingleton<LabCodeApi>(() => LabCodeApi());
   sl.registerLazySingleton<SampleIntakeApi>(() => SampleIntakeApi());
 
   sl.registerLazySingleton<DepartmentsApi>(() => DepartmentsApi());
@@ -64,5 +68,7 @@ Future<void> setupServiceLocator() async {
   sl.registerFactory<PlantProvider>(() => PlantProvider());
   sl.registerFactory<CourierProvider>(() => CourierProvider());
   sl.registerFactory<SiteProvider>(() => SiteProvider());
+  sl.registerFactory<LabCodeProvider>(() => LabCodeProvider());
+  sl.registerFactory<LabManagerAssignmentProvider>(() => LabManagerAssignmentProvider());
   sl.registerFactory<SampleIntakeProvider>(() => SampleIntakeProvider());
 }
