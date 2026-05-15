@@ -22,6 +22,7 @@ class AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('AppRoot build');
     final themeNotifier = context.watch<ThemeNotifier>();
     return MaterialApp.router(
       title: 'Ultra LIMS',
