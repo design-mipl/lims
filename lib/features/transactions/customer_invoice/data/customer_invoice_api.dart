@@ -1,0 +1,98 @@
+import '../../shared/billing_document_row.dart';
+
+class CustomerInvoiceApi {
+  Future<List<BillingDocumentListingRow>> fetchInvoices() async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    final now = DateTime.now();
+    return [
+      BillingDocumentListingRow(
+        id: 'inv-001',
+        eInvoiceActive: true,
+        docDate: DateTime(now.year, now.month, 3),
+        documentNo: 'INV-2026-01482',
+        customer: 'Acme Petrochemicals Ltd',
+        dueDays: 28,
+        total: 245890.75,
+        amountReceived: 125000,
+        statusLabel: 'Pending',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-002',
+        eInvoiceActive: true,
+        docDate: DateTime(now.year, now.month, 7),
+        documentNo: 'INV-2026-01491',
+        customer: 'Southern Lubricants Pvt Ltd',
+        dueDays: 14,
+        total: 88420.00,
+        amountReceived: 88420.00,
+        statusLabel: 'Shared',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-003',
+        eInvoiceActive: false,
+        docDate: DateTime(now.year, now.month - 1, 22),
+        documentNo: 'INV-2026-01304',
+        customer: 'Harbour Marine Services',
+        dueDays: -3,
+        total: 156700.50,
+        amountReceived: 40000,
+        statusLabel: 'Generated',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-004',
+        eInvoiceActive: true,
+        docDate: DateTime(now.year, now.month - 1, 18),
+        documentNo: 'INV-2026-01288',
+        customer: 'Ultra Labs Chennai',
+        dueDays: 7,
+        total: 32990.25,
+        amountReceived: 0,
+        statusLabel: 'Pending',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-005',
+        eInvoiceActive: false,
+        docDate: DateTime(now.year, now.month - 2, 28),
+        documentNo: 'INV-2026-01102',
+        customer: 'Northwind Power Gen',
+        dueDays: 0,
+        total: 502000.00,
+        amountReceived: 502000.00,
+        statusLabel: 'Shared',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-006',
+        eInvoiceActive: true,
+        docDate: DateTime(now.year, now.month - 2, 14),
+        documentNo: 'INV-2026-01056',
+        customer: 'Precision Gears India',
+        dueDays: 21,
+        total: 67345.80,
+        amountReceived: 20000,
+        statusLabel: 'Generated',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-007',
+        eInvoiceActive: true,
+        docDate: DateTime(now.year, now.month - 2, 5),
+        documentNo: 'INV-2026-00991',
+        customer: 'Greenfield Sugar Mills',
+        dueDays: 45,
+        total: 118990.00,
+        amountReceived: 118990.00,
+        statusLabel: 'Shared',
+      ),
+      BillingDocumentListingRow(
+        id: 'inv-008',
+        eInvoiceActive: false,
+        docDate: DateTime(now.year, now.month - 3, 26),
+        documentNo: 'INV-2026-00844',
+        customer: 'Coastal Refinery Corp',
+        dueDays: 10,
+        total: 990450.30,
+        amountReceived: 600000,
+        statusLabel: 'Pending',
+      ),
+    ];
+  }
+}

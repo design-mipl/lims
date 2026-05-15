@@ -36,7 +36,7 @@ class ModulesApi {
           'mod-transactions', ModuleStatus.active),
       _row(7, 'mod-lab-mgr-certification', 'Lab Manager Certification',
           'mod-transactions', ModuleStatus.active),
-      _row(8, 'mod-supervisor-nabl', 'Supervisor Review & NABL',
+      _row(8, 'mod-supervisor-review', 'Supervisor Review',
           'mod-transactions', ModuleStatus.active),
       _row(9, 'mod-action-taken', 'Action Taken', 'mod-transactions',
           ModuleStatus.active),

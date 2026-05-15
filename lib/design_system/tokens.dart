@@ -297,6 +297,9 @@ abstract final class AppTokens {
   // --- Table helpers ---
 
   static const double tableCheckboxColumnWidth        = 40.0;
+
+  /// Leading expand/collapse control column on listings (before checkbox).
+  static const double tableExpandColumnWidth          = 40.0;
   static const double tableActionsColumnWidth         = 72.0;
   static const double tableStatusColumnPreferredWidth = 100.0;
   static const double tableToggleColumnWidth          = 52.0;

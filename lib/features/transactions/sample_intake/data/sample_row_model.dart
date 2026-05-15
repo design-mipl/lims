@@ -18,6 +18,7 @@ class SampleRowModel {
     this.problem,
     this.comments,
     this.runningHrs,
+    this.runningHrsBaseline,
     this.subAssemblyHrs,
     this.lubeHrs,
     this.topUpVolume,
@@ -33,6 +34,10 @@ class SampleRowModel {
     this.ftrAttachment,
     this.invoiceAttachment,
     this.isCompleted = false,
+    this.oilCondition,
+    this.rowPreviousLabRef,
+    this.generatedLabCode,
+    this.labelStatus,
   });
 
   final int index;
@@ -55,6 +60,8 @@ class SampleRowModel {
   final String? comments;
 
   final double? runningHrs;
+  /// Prior total HMR reading — entered [runningHrs] must be greater when set.
+  final double? runningHrsBaseline;
   final double? subAssemblyHrs;
   final double? lubeHrs;
   final double? topUpVolume;
@@ -75,6 +82,12 @@ class SampleRowModel {
   final String? invoiceAttachment;
 
   final bool isCompleted;
+
+  final String? oilCondition;
+  final String? rowPreviousLabRef;
+  final String? generatedLabCode;
+  /// e.g. Pending | Printed
+  final String? labelStatus;
 
   static double? _num(dynamic v) {
     if (v == null) return null;
@@ -100,6 +113,7 @@ class SampleRowModel {
     Object? problem = _sentinel,
     Object? comments = _sentinel,
     Object? runningHrs = _sentinel,
+    Object? runningHrsBaseline = _sentinel,
     Object? subAssemblyHrs = _sentinel,
     Object? lubeHrs = _sentinel,
     Object? topUpVolume = _sentinel,
@@ -115,6 +129,10 @@ class SampleRowModel {
     Object? ftrAttachment = _sentinel,
     Object? invoiceAttachment = _sentinel,
     bool? isCompleted,
+    Object? oilCondition = _sentinel,
+    Object? rowPreviousLabRef = _sentinel,
+    Object? generatedLabCode = _sentinel,
+    Object? labelStatus = _sentinel,
   }) {
     return SampleRowModel(
       index: index ?? this.index,
@@ -141,6 +159,9 @@ class SampleRowModel {
       runningHrs: runningHrs == _sentinel
           ? this.runningHrs
           : runningHrs as double?,
+      runningHrsBaseline: runningHrsBaseline == _sentinel
+          ? this.runningHrsBaseline
+          : runningHrsBaseline as double?,
       subAssemblyHrs: subAssemblyHrs == _sentinel
           ? this.subAssemblyHrs
           : subAssemblyHrs as double?,
@@ -172,6 +193,18 @@ class SampleRowModel {
           ? this.invoiceAttachment
           : invoiceAttachment as String?,
       isCompleted: isCompleted ?? this.isCompleted,
+      oilCondition: oilCondition == _sentinel
+          ? this.oilCondition
+          : oilCondition as String?,
+      rowPreviousLabRef: rowPreviousLabRef == _sentinel
+          ? this.rowPreviousLabRef
+          : rowPreviousLabRef as String?,
+      generatedLabCode: generatedLabCode == _sentinel
+          ? this.generatedLabCode
+          : generatedLabCode as String?,
+      labelStatus: labelStatus == _sentinel
+          ? this.labelStatus
+          : labelStatus as String?,
     );
   }
 
@@ -202,6 +235,7 @@ class SampleRowModel {
         'problem': problem,
         'comments': comments,
         'runningHrs': runningHrs,
+        'runningHrsBaseline': runningHrsBaseline,
         'subAssemblyHrs': subAssemblyHrs,
         'lubeHrs': lubeHrs,
         'topUpVolume': topUpVolume,
@@ -217,6 +251,10 @@ class SampleRowModel {
         'ftrAttachment': ftrAttachment,
         'invoiceAttachment': invoiceAttachment,
         'isCompleted': isCompleted,
+        'oilCondition': oilCondition,
+        'rowPreviousLabRef': rowPreviousLabRef,
+        'generatedLabCode': generatedLabCode,
+        'labelStatus': labelStatus,
       };
 
   factory SampleRowModel.fromJson(Map<String, dynamic> m) {
@@ -238,6 +276,7 @@ class SampleRowModel {
       problem: m['problem'] as String?,
       comments: m['comments'] as String?,
       runningHrs: _num(m['runningHrs']),
+      runningHrsBaseline: _num(m['runningHrsBaseline']),
       subAssemblyHrs: _num(m['subAssemblyHrs']),
       lubeHrs: _num(m['lubeHrs']),
       topUpVolume: _num(m['topUpVolume']),
@@ -257,6 +296,10 @@ class SampleRowModel {
       ftrAttachment: m['ftrAttachment'] as String?,
       invoiceAttachment: m['invoiceAttachment'] as String?,
       isCompleted: m['isCompleted'] as bool? ?? false,
+      oilCondition: m['oilCondition'] as String?,
+      rowPreviousLabRef: m['rowPreviousLabRef'] as String?,
+      generatedLabCode: m['generatedLabCode'] as String?,
+      labelStatus: m['labelStatus'] as String?,
     );
   }
 
@@ -297,6 +340,10 @@ enum SampleRowField {
   imageAttachment,
   ftrAttachment,
   invoiceAttachment,
+  oilCondition,
+  rowPreviousLabRef,
+  generatedLabCode,
+  labelStatus,
 }
 
 extension SampleRowFieldKey on SampleRowField {
@@ -330,5 +377,9 @@ extension SampleRowFieldKey on SampleRowField {
         SampleRowField.imageAttachment => 'imageAttachment',
         SampleRowField.ftrAttachment => 'ftrAttachment',
         SampleRowField.invoiceAttachment => 'invoiceAttachment',
+        SampleRowField.oilCondition => 'oilCondition',
+        SampleRowField.rowPreviousLabRef => 'rowPreviousLabRef',
+        SampleRowField.generatedLabCode => 'generatedLabCode',
+        SampleRowField.labelStatus => 'labelStatus',
       };
 }

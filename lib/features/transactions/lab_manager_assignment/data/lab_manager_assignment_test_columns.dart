@@ -1,3 +1,12 @@
+/// Fixed width for each test checkbox column (equal rhythm across the matrix).
+const double kLabManagerAssignmentTestColumnWidth = 80.0;
+
+/// Header label lines for long test names (e.g. kinematic viscosity).
+const int kLabManagerAssignmentTestHeaderMaxLines = 2;
+
+/// Data table header row height when test columns use [kLabManagerAssignmentTestHeaderMaxLines].
+const double kLabManagerAssignmentTableHeaderHeight = 50.0;
+
 /// Static test matrix for Lab Manager Assignment listing checkboxes.
 ///
 /// [LabAssignmentTestColumn.key] is an ASCII slug used in [LabManagerAssignmentRow.testSelections].

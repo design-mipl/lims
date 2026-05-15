@@ -391,4 +391,24 @@ class LabManagerAssignmentProvider extends BaseProvider {
     }
     notifyListeners();
   }
+
+  /// Resolves [LabMethodDefinition.id] from a row’s [LabManagerAssignmentRow.methodLabel].
+  String? methodIdForLabel(String label) {
+    for (final m in kMethods) {
+      if (m.label == label) return m.id;
+    }
+    return null;
+  }
+
+  /// Focus filters on one lab row so the operator can adjust tests (Pending) or review (Assigned).
+  void focusRowInWorkspace(LabManagerAssignmentRow row) {
+    final mid = methodIdForLabel(row.methodLabel);
+    if (mid != null) {
+      setSelectedMethod(mid);
+    }
+    setAssignmentTabIndex(row.isAssigned ? 1 : 0);
+    setLabNoQuery(row.labId);
+    clearError();
+    notifyListeners();
+  }
 }

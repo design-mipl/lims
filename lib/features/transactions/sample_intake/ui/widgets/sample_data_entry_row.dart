@@ -27,6 +27,7 @@ class SampleDataEntryRow extends StatefulWidget {
     required this.onPatch,
     required this.onSaveRow,
     required this.pickDate,
+    this.gridProfile = SampleDataGridProfile.full,
   });
 
   final SampleRowModel row;
@@ -40,6 +41,7 @@ class SampleDataEntryRow extends StatefulWidget {
   final SampleFieldCallback onPatch;
   final VoidCallback onSaveRow;
   final Future<DateTime?> Function(DateTime? initial) pickDate;
+  final SampleDataGridProfile gridProfile;
 
   @override
   State<SampleDataEntryRow> createState() => _SampleDataEntryRowState();
@@ -59,6 +61,9 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
   late final TextEditingController _sump;
   late final TextEditingController _qty;
   late final TextEditingController _customerNote;
+  late final TextEditingController _oilCondition;
+  late final TextEditingController _prevLabRef;
+  late final TextEditingController _commentsWorkspace;
 
   @override
   void initState() {
@@ -75,6 +80,9 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     _sump = TextEditingController();
     _qty = TextEditingController();
     _customerNote = TextEditingController();
+    _oilCondition = TextEditingController();
+    _prevLabRef = TextEditingController();
+    _commentsWorkspace = TextEditingController();
     _applyControllers();
   }
 
@@ -102,6 +110,9 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     _sump.text = _numStr(r.sumpCapacity);
     _qty.text = _numStr(r.qty);
     _customerNote.text = r.customerNote;
+    _oilCondition.text = r.oilCondition ?? '';
+    _prevLabRef.text = r.rowPreviousLabRef ?? '';
+    _commentsWorkspace.text = r.comments ?? '';
   }
 
   void _syncControllersFromRow(SampleRowModel r) {
@@ -120,6 +131,9 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     sync(_sump, _numStr(r.sumpCapacity));
     sync(_qty, _numStr(r.qty));
     sync(_customerNote, r.customerNote);
+    sync(_oilCondition, r.oilCondition ?? '');
+    sync(_prevLabRef, r.rowPreviousLabRef ?? '');
+    sync(_commentsWorkspace, r.comments ?? '');
   }
 
   String _numStr(double? n) {
@@ -132,6 +146,30 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     final t = v.trim();
     if (t.isEmpty) return null;
     return double.tryParse(t);
+  }
+
+  void _onRunningHrsChanged(String v) {
+    final parsed = _parseDouble(v);
+    final b = widget.row.runningHrsBaseline;
+    if (parsed != null && b != null && parsed <= b) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Running hours must be greater than previous (${b.toString()}).',
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.bodySize,
+                color: AppTokens.white,
+              ),
+            ),
+            backgroundColor: AppTokens.error500,
+          ),
+        );
+      }
+      _runningHrs.text = _numStr(widget.row.runningHrs);
+      return;
+    }
+    widget.onPatch(SampleRowField.runningHrs, parsed);
   }
 
   /// Consistent [NumericFocusOrder] for row-wise Tab traversal (see [SampleDataGridLayout.tableFocusStride]).
@@ -159,6 +197,9 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     _sump.dispose();
     _qty.dispose();
     _customerNote.dispose();
+    _oilCondition.dispose();
+    _prevLabRef.dispose();
+    _commentsWorkspace.dispose();
     super.dispose();
   }
 
@@ -228,26 +269,51 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
     );
   }
 
-  Widget _wrapCell(int idx, Widget child) {
-    final widths = SampleDataGridLayout.scrollColumnWidths;
+  Widget _wrapMultilineCell(int idx, List<double> widths, Widget child) {
     final h = SampleDataGridLayout.dataEntryRowHeight;
     final w = widths[idx];
+    final innerW = (w - AppTokens.space2 * 2).clamp(0.0, double.infinity);
     return SizedBox(
       width: w,
       height: h,
-      child: Center(
-        child: SizedBox(
-          width: w,
-          height: AppTokens.inputHeight,
-          child: child,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
+          child: SizedBox(
+            width: innerW,
+            height: h - 8,
+            child: child,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionColumn(Color rowBgColor) {
+  Widget _wrapCell(int idx, List<double> widths, Widget child) {
+    final h = SampleDataGridLayout.dataEntryRowHeight;
+    final w = widths[idx];
+    final innerW = (w - AppTokens.space2 * 2).clamp(0.0, double.infinity);
+    return SizedBox(
+      width: w,
+      height: h,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
+          child: SizedBox(
+            width: innerW,
+            height: AppTokens.inputHeight,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionColumn(Color rowBgColor, int actionFocusSlot) {
     return _ordered(
-      30,
+      actionFocusSlot,
       Container(
         width: SampleDataGridLayout.actionColumnWidth,
         height: SampleDataGridLayout.dataEntryRowHeight,
@@ -332,11 +398,10 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
 
   @override
   Widget build(BuildContext context) {
-    final widths = SampleDataGridLayout.scrollColumnWidths;
+    final profile = widget.gridProfile;
+    final widths = SampleDataGridLayout.scrollColumnWidthsFor(profile);
     final gap = SampleDataGridLayout.interColumnGap;
     final r = widget.row;
-
-    assert(widths.length == 30);
 
     final rowBgColor = widget.isActive
         ? AppTokens.primary50
@@ -351,12 +416,221 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
             width: AppTokens.borderWidthSm,
           );
 
-    final modelItems = SampleMasterOptions.modelsForMakeItems(r.make);
+    final actionSlot = profile == SampleDataGridProfile.workspace
+        ? widths.length
+        : 30;
 
-    final scrollCells = <Widget>[
-      _wrapCell(
-        0,
-        Row(
+    final List<Widget> scrollCells;
+    if (profile == SampleDataGridProfile.workspace) {
+      scrollCells = [
+        _wrapCell(
+          0,
+          widths,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ordered(
+                0,
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Checkbox(
+                    value: widget.rowSelected,
+                    onChanged: (v) => widget.onRowSelected(v ?? false),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              Text('${r.index}', style: _body),
+              if (r.isCompleted) ...[
+                SizedBox(width: AppTokens.space2),
+                Icon(
+                  LucideIcons.circleCheckBig,
+                  size: AppTokens.iconButtonIconSm,
+                  color: AppTokens.success500,
+                ),
+              ],
+            ],
+          ),
+        ),
+        _wrapCell(
+          1,
+          widths,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(r.sampleId, style: _body),
+          ),
+        ),
+        _wrapCell(
+          2,
+          widths,
+          _ordered(
+            1,
+            AnchoredSearchableDropdownField<String>(
+              hint: '—',
+              value: r.typeOfSample,
+              items: SampleMasterOptions.typeOfSample,
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.typeOfSample, v),
+              size: AppInputSize.sm,
+              isSearchable: true,
+              openOverlayWhenFocused: true,
+              overlayMinimalShadow: true,
+            ),
+          ),
+        ),
+        _wrapCell(
+          3,
+          widths,
+          _ordered(
+            2,
+            AnchoredSearchableDropdownField<String>(
+              hint: '—',
+              value: r.grade,
+              items: SampleMasterOptions.grade,
+              onChanged: (v) => widget.onPatch(SampleRowField.grade, v),
+              size: AppInputSize.sm,
+              isSearchable: true,
+              openOverlayWhenFocused: true,
+              overlayMinimalShadow: true,
+            ),
+          ),
+        ),
+        _wrapCell(
+          4,
+          widths,
+          _ordered(
+            3,
+            AnchoredSearchableDropdownField<String>(
+              hint: '—',
+              value: r.brandOfOil,
+              items: SampleMasterOptions.brandOfOil,
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.brandOfOil, v),
+              size: AppInputSize.sm,
+              isSearchable: true,
+              openOverlayWhenFocused: true,
+              overlayMinimalShadow: true,
+            ),
+          ),
+        ),
+        _wrapCell(
+          5,
+          widths,
+          _ordered(
+            4,
+            AppInput(
+              controller: _runningHrs,
+              hint: r.runningHrsBaseline != null
+                  ? '> ${r.runningHrsBaseline}'
+                  : '—',
+              size: AppInputSize.sm,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              onChanged: _onRunningHrsChanged,
+            ),
+          ),
+        ),
+        _wrapCell(
+          6,
+          widths,
+          _ordered(
+            5,
+            AppInput(
+              controller: _topUp,
+              hint: '—',
+              size: AppInputSize.sm,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              ],
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.topUpVolume, _parseDouble(v)),
+            ),
+          ),
+        ),
+        _wrapCell(
+          7,
+          widths,
+          _ordered(
+            6,
+            AppInput(
+              controller: _oilCondition,
+              hint: '—',
+              size: AppInputSize.sm,
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.oilCondition, v),
+            ),
+          ),
+        ),
+        _wrapCell(
+          8,
+          widths,
+          _ordered(
+            7,
+            AppInput(
+              controller: _prevLabRef,
+              hint: '—',
+              size: AppInputSize.sm,
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.rowPreviousLabRef, v),
+            ),
+          ),
+        ),
+        _wrapCell(
+          9,
+          widths,
+          _ordered(
+            8,
+            AppInput(
+              controller: _commentsWorkspace,
+              hint: '—',
+              size: AppInputSize.sm,
+              maxLines: 2,
+              onChanged: (v) =>
+                  widget.onPatch(SampleRowField.comments, v),
+            ),
+          ),
+        ),
+        _wrapCell(
+          10,
+          widths,
+          _ordered(
+            9,
+            SampleAttachmentCell(
+              filename: r.imageAttachment,
+              onPickMock: (f) =>
+                  widget.onPatch(SampleRowField.imageAttachment, f),
+              dense: true,
+              prefix: 'img',
+            ),
+          ),
+        ),
+        _wrapCell(
+          11,
+          widths,
+          _ordered(
+            10,
+            SampleAttachmentCell(
+              filename: r.ftrAttachment,
+              onPickMock: (f) =>
+                  widget.onPatch(SampleRowField.ftrAttachment, f),
+              dense: true,
+              prefix: 'ftr',
+            ),
+          ),
+        ),
+      ];
+    } else {
+      final modelItems = SampleMasterOptions.modelsForMakeItems(r.make);
+
+      scrollCells = [
+      _wrapCell(0, widths, Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _ordered(
@@ -384,16 +658,12 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ],
         ),
       ),
-      _wrapCell(
-        1,
-        Align(
+      _wrapCell(1, widths, Align(
           alignment: Alignment.centerLeft,
           child: Text(r.sampleId, style: _body),
         ),
       ),
-      _wrapCell(
-        2,
-        _ordered(
+      _wrapCell(2, widths, _ordered(
           1,
           AppInput(
             controller: _equipSr,
@@ -403,9 +673,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        3,
-        _ordered(
+      _wrapCell(3, widths, _ordered(
           2,
           AppInput(
             controller: _equipId,
@@ -415,9 +683,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        4,
-        _ordered(
+      _wrapCell(4, widths, _ordered(
           3,
           AppInput(
             controller: _site,
@@ -427,88 +693,81 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        5,
-        _ordered(
+      _wrapCell(5, widths, _ordered(
           4,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.make,
             items: SampleMasterOptions.makes,
             onChanged: (v) => widget.onPatch(SampleRowField.make, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        6,
-        _ordered(
+      _wrapCell(6, widths, _ordered(
           5,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.model,
             items: modelItems,
             onChanged: (v) => widget.onPatch(SampleRowField.model, v),
             size: AppInputSize.sm,
             enabled: r.make != null && r.make!.isNotEmpty,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        7,
-        _ordered(
+      _wrapCell(7, widths, _ordered(
           6,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.typeOfSample,
             items: SampleMasterOptions.typeOfSample,
             onChanged: (v) => widget.onPatch(SampleRowField.typeOfSample, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        8,
-        _ordered(
+      _wrapCell(8, widths, _ordered(
           7,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.natureOfSample,
             items: SampleMasterOptions.natureOfSample,
             onChanged: (v) => widget.onPatch(SampleRowField.natureOfSample, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        9,
-        _ordered(
+      _wrapCell(9, widths, _ordered(
           8,
           AppInput(
             controller: _runningHrs,
-            hint: '—',
+            hint: r.runningHrsBaseline != null
+                ? '> ${r.runningHrsBaseline}'
+                : '—',
             size: AppInputSize.sm,
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
             ],
-            onChanged: (v) =>
-                widget.onPatch(SampleRowField.runningHrs, _parseDouble(v)),
+            onChanged: _onRunningHrsChanged,
           ),
         ),
       ),
-      _wrapCell(
-        10,
-        _ordered(
+      _wrapCell(10, widths, _ordered(
           9,
           AppInput(
             controller: _subAsmNo,
@@ -518,9 +777,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        11,
-        _ordered(
+      _wrapCell(11, widths, _ordered(
           10,
           AppInput(
             controller: _subAsmHrs,
@@ -536,43 +793,37 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        12,
-        _dateField(r.samplingDate, SampleRowField.samplingDate, 11),
+      _wrapCell(12, widths, _dateField(r.samplingDate, SampleRowField.samplingDate, 11),
       ),
-      _wrapCell(
-        13,
-        _ordered(
+      _wrapCell(13, widths, _ordered(
           12,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.brandOfOil,
             items: SampleMasterOptions.brandOfOil,
             onChanged: (v) => widget.onPatch(SampleRowField.brandOfOil, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        14,
-        _ordered(
+      _wrapCell(14, widths, _ordered(
           13,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.grade,
             items: SampleMasterOptions.grade,
             onChanged: (v) => widget.onPatch(SampleRowField.grade, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        15,
-        _ordered(
+      _wrapCell(15, widths, _ordered(
           14,
           AppInput(
             controller: _lubeHrs,
@@ -588,9 +839,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        16,
-        _ordered(
+      _wrapCell(16, widths, _ordered(
           15,
           AppInput(
             controller: _topUp,
@@ -606,9 +855,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        17,
-        _ordered(
+      _wrapCell(17, widths, _ordered(
           16,
           AppInput(
             controller: _sump,
@@ -624,28 +871,23 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        18,
-        _ordered(
+      _wrapCell(18, widths, _ordered(
           17,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.samplingFrom,
             items: SampleMasterOptions.samplingFrom,
             onChanged: (v) => widget.onPatch(SampleRowField.samplingFrom, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        19,
-        _dateField(r.reportExpected, SampleRowField.reportExpected, 18),
+      _wrapCell(19, widths, _dateField(r.reportExpected, SampleRowField.reportExpected, 18),
       ),
-      _wrapCell(
-        20,
-        _ordered(
+      _wrapCell(20, widths, _ordered(
           19,
           AppInput(
             controller: _qty,
@@ -661,97 +903,89 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        21,
-        _ordered(
+      _wrapCell(21, widths, _ordered(
           20,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.typeOfBottle,
             items: SampleMasterOptions.typeOfBottle,
             onChanged: (v) => widget.onPatch(SampleRowField.typeOfBottle, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        22,
-        _ordered(
+      _wrapCell(22, widths, _ordered(
           21,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.problem,
             items: SampleMasterOptions.problem,
             onChanged: (v) => widget.onPatch(SampleRowField.problem, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        23,
-        _ordered(
+      _wrapCell(23, widths, _ordered(
           22,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.comments,
             items: SampleMasterOptions.comments,
             onChanged: (v) => widget.onPatch(SampleRowField.comments, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        24,
-        _ordered(
+      _wrapMultilineCell(24, widths, _ordered(
           23,
           AppInput(
             controller: _customerNote,
             hint: '—',
             size: AppInputSize.sm,
-            maxLines: 1,
+            minLines: 2,
+            maxLines: 3,
             onChanged: (v) => widget.onPatch(SampleRowField.customerNote, v),
           ),
         ),
       ),
-      _wrapCell(
-        25,
-        _ordered(
+      _wrapCell(25, widths, _ordered(
           24,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.severity,
             items: SampleMasterOptions.severity,
             onChanged: (v) => widget.onPatch(SampleRowField.severity, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        26,
-        _ordered(
+      _wrapCell(26, widths, _ordered(
           25,
-          AppSelect<String>(
+          AnchoredSearchableDropdownField<String>(
             hint: '—',
             value: r.oilDrained,
             items: SampleMasterOptions.oilDrained,
             onChanged: (v) => widget.onPatch(SampleRowField.oilDrained, v),
             size: AppInputSize.sm,
-            isSearchable: false,
+            isSearchable: true,
             openOverlayWhenFocused: true,
+            overlayMinimalShadow: true,
           ),
         ),
       ),
-      _wrapCell(
-        27,
-        _ordered(
+      _wrapCell(27, widths, _ordered(
           26,
           SampleAttachmentCell(
             filename: r.imageAttachment,
@@ -762,9 +996,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        28,
-        _ordered(
+      _wrapCell(28, widths, _ordered(
           27,
           SampleAttachmentCell(
             filename: r.ftrAttachment,
@@ -775,9 +1007,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
           ),
         ),
       ),
-      _wrapCell(
-        29,
-        SizedBox(
+      _wrapCell(29, widths, SizedBox(
           height: AppTokens.inputHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -785,15 +1015,16 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
               Expanded(
                 child: _ordered(
                   28,
-                  AppSelect<String>(
+                  AnchoredSearchableDropdownField<String>(
                     hint: '—',
                     value: r.invoiceStatus,
                     items: SampleMasterOptions.invoiceStatus,
                     onChanged: (v) =>
                         widget.onPatch(SampleRowField.invoiceStatus, v),
                     size: AppInputSize.sm,
-                    isSearchable: false,
+                    isSearchable: true,
                     openOverlayWhenFocused: true,
+                    overlayMinimalShadow: true,
                   ),
                 ),
               ),
@@ -831,6 +1062,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
         ),
       ),
     ];
+    }
 
     return Material(
       color: AppTokens.transparent,
@@ -889,7 +1121,7 @@ class _SampleDataEntryRowState extends State<SampleDataEntryRow> {
                     },
                   ),
                 ),
-                _buildActionColumn(rowBgColor),
+                _buildActionColumn(rowBgColor, actionSlot),
               ],
             ),
           ),

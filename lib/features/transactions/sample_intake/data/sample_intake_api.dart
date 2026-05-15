@@ -34,7 +34,17 @@ class SampleIntakeApi {
         sampleReceivedAtLab: false,
         freightCharges: 450.0,
         dataEntryCompletedCount: 3,
-        status: SampleIntakeStatus.dataEntryPending,
+        status: SampleIntakeStatus.receiptComplete,
+        receiptMode: 'Courier',
+        receivedBy: 'Receiving Desk',
+        typeOfSample: 'LUBE OIL',
+        equipmentMake: 'Atlas Copco',
+        equipmentModel: 'GX55',
+        operatingConditions: 'Continuous duty',
+        receiptRunningHours: 1200,
+        receiptTopUpVolume: 2.5,
+        previousLabReference: 'LAB-2025-991',
+        internalNotes: 'VIP customer.',
       ),
       SampleIntakeModel(
         id: 'si-2',
@@ -63,8 +73,11 @@ class SampleIntakeApi {
         sampleReceivedAtCollectionCenter: false,
         sampleReceivedAtLab: false,
         freightCharges: null,
-        dataEntryCompletedCount: 0,
+        dataEntryCompletedCount: 2,
         status: SampleIntakeStatus.inProgress,
+        receiptMode: 'Courier',
+        receivedBy: 'Night shift',
+        typeOfSample: 'HYDRAULIC FLUID',
       ),
       SampleIntakeModel(
         id: 'si-3',
@@ -95,6 +108,73 @@ class SampleIntakeApi {
         freightCharges: 200.0,
         dataEntryCompletedCount: 8,
         status: SampleIntakeStatus.forwardedToLab,
+        receiptMode: 'Hand delivery',
+        receivedBy: 'Gate A',
+        typeOfSample: 'USED ENGINE OIL',
+        intakeCompletedAt: now.subtract(const Duration(days: 2)),
+        generatedBy: 'system',
+      ),
+      SampleIntakeModel(
+        id: 'si-track-1',
+        lotNo: 'LOT-2026-099',
+        receiptDate: DateTime(now.year, now.month, now.day),
+        receiptTime: '08:30',
+        courierName: 'Delhivery',
+        podNo: 'TRK-101',
+        noOfSamples: 3,
+        customerName: 'Quick Capture Co',
+        customerCompany: 'Quick Capture Co',
+        customerAddress: '',
+        customerMobile: '',
+        customerEmail: '',
+        siteContactPerson: '',
+        siteCompany: 'Plant North',
+        siteAddress: '',
+        siteMobile: '',
+        siteEmail: '',
+        reportExpectedBy: null,
+        workOrderNo: '',
+        sampleDispatchedFromSite: false,
+        sampleCollectedFromCollectionCenter: false,
+        sampleReceivedAtCollectionCenter: false,
+        sampleReceivedAtLab: false,
+        dataEntryCompletedCount: 0,
+        status: SampleIntakeStatus.trackingDraft,
+        receiptMode: 'Courier',
+        receivedBy: 'Morning intake',
+        quickRemarks: 'Awaiting full receipt.',
+      ),
+      SampleIntakeModel(
+        id: 'si-4',
+        lotNo: 'LOT-2026-004',
+        receiptDate: DateTime(now.year, now.month, now.day - 3),
+        receiptTime: '10:00',
+        courierName: 'Self',
+        podNo: '',
+        noOfSamples: 4,
+        customerName: 'Northwind Traders',
+        customerCompany: 'Northwind Traders',
+        customerAddress: '',
+        customerMobile: '',
+        customerEmail: '',
+        siteContactPerson: '',
+        siteCompany: 'Pune DC',
+        siteAddress: '',
+        siteMobile: '',
+        siteEmail: '',
+        reportExpectedBy: null,
+        workOrderNo: '',
+        sampleDispatchedFromSite: false,
+        sampleCollectedFromCollectionCenter: false,
+        sampleReceivedAtCollectionCenter: false,
+        sampleReceivedAtLab: false,
+        dataEntryCompletedCount: 4,
+        status: SampleIntakeStatus.completed,
+        receiptMode: 'Hand delivery',
+        receivedBy: 'Lab admin',
+        typeOfSample: 'Coolant',
+        intakeCompletedAt: now.subtract(const Duration(days: 1)),
+        generatedBy: 'Lab admin',
       ),
     ];
   }
@@ -105,7 +185,7 @@ class SampleIntakeApi {
 
   late List<SampleIntakeModel> _items;
 
-  int _nextId = 4;
+  int _nextId = 5;
 
   Future<List<SampleIntakeModel>> fetchAll() async {
     return List<SampleIntakeModel>.unmodifiable(_items);
@@ -154,6 +234,15 @@ class SampleIntakeApi {
     _nextUsn++;
     return 'USN$v';
   }
+
+  /// Next lot label if a receipt were added now (does not mutate).
+  String peekNextLotNo() {
+    final n = _items.length + 1;
+    return 'LOT-2026-${n.toString().padLeft(3, '0')}';
+  }
+
+  /// Next receipt / lot number label for quick receipt.
+  String allocateLotNo() => peekNextLotNo();
 
   Future<List<SampleRowModel>> fetchRows(String receiptId) async {
     await Future<void>.delayed(Duration.zero);

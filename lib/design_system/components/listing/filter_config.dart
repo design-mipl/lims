@@ -11,7 +11,7 @@ enum FilterType {
 enum ColumnFilterType { text, select }
 
 /// Filter type for [TableColumn.filter] (new API parallel to [ColumnFilterConfig]).
-enum AppColumnFilterType { text, select }
+enum AppColumnFilterType { text, select, dateRange }
 
 /// Per-column filter on [TableColumn.filter]. Prefer this or [ColumnFilterConfig];
 /// when both are set, [TableColumn.filter] takes precedence in [AppListingScreen].

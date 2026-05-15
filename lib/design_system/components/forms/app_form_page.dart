@@ -104,6 +104,8 @@ class AppFormPage extends StatelessWidget {
                       children: [
                         Text(
                           title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.poppins(
                             fontSize: AppTokens.pageTitleSize,
                             fontWeight: AppTokens.pageTitleWeight,
@@ -116,6 +118,8 @@ class AppFormPage extends StatelessWidget {
                           SizedBox(height: AppTokens.space1),
                           Text(
                             subtitle!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
                               fontSize: AppTokens.pageSubtitleSize,
                               fontWeight: AppTokens.pageSubtitleWeight,
@@ -127,11 +131,16 @@ class AppFormPage extends StatelessWidget {
                     ),
                   ),
                   if (actions != null && actions!.isNotEmpty)
-                    Wrap(
-                      spacing: AppTokens.space2,
-                      runSpacing: AppTokens.space2,
-                      alignment: WrapAlignment.end,
-                      children: actions!,
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          spacing: AppTokens.space2,
+                          runSpacing: AppTokens.space2,
+                          alignment: WrapAlignment.end,
+                          children: actions!,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -179,10 +188,13 @@ class AppFormPage extends StatelessWidget {
                   horizontal: AppTokens.space5,
                   vertical: AppTokens.space3,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Wrap(
+                  spacing: AppTokens.space2,
+                  runSpacing: AppTokens.space2,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (onCancel != null) ...[
+                    if (onCancel != null)
                       AppButton(
                         label: cancelText,
                         onPressed:
@@ -190,9 +202,7 @@ class AppFormPage extends StatelessWidget {
                         variant: AppButtonVariant.tertiary,
                         size: AppButtonSize.md,
                       ),
-                      SizedBox(width: AppTokens.space2),
-                    ],
-                    if (onSaveAndContinue != null) ...[
+                    if (onSaveAndContinue != null)
                       AppButton(
                         label: saveContinueText,
                         onPressed: isPrimaryLoading
@@ -201,8 +211,6 @@ class AppFormPage extends StatelessWidget {
                         variant: AppButtonVariant.secondary,
                         size: AppButtonSize.md,
                       ),
-                      SizedBox(width: AppTokens.space2),
-                    ],
                     if (onPrimary != null)
                       AppButton(
                         label: primaryText,

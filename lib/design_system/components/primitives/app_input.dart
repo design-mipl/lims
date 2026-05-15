@@ -131,6 +131,8 @@ class AppInput extends StatelessWidget {
     this.validator,
     this.isRequired = false,
     this.inputFormatters,
+    this.contentPadding,
+    this.textAlignVertical,
   });
 
   final String? label;
@@ -155,6 +157,12 @@ class AppInput extends StatelessWidget {
   final bool isRequired;
   final String? Function(String?)? validator;
   final List<TextInputFormatter>? inputFormatters;
+
+  /// Overrides default field padding (e.g. multiline vertical balance).
+  final EdgeInsetsGeometry? contentPadding;
+
+  /// Multiline fields only — vertical alignment of text within the input.
+  final TextAlignVertical? textAlignVertical;
 
   bool get _isRequired => required || isRequired;
 
@@ -196,6 +204,7 @@ class AppInput extends StatelessWidget {
         ),
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
+        contentPadding: contentPadding,
       );
 
       textField = TextFormField(
@@ -218,6 +227,7 @@ class AppInput extends StatelessWidget {
         style: fieldStyle,
         cursorColor: AppTokens.borderFocus,
         inputFormatters: inputFormatters,
+        textAlignVertical: textAlignVertical,
         decoration: decoration,
       );
     } else {
@@ -229,6 +239,7 @@ class AppInput extends StatelessWidget {
         hintStyle: hintStyle,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
+        contentPadding: contentPadding,
         counterText: maxLength != null ? '' : null,
         counterStyle: maxLength != null
             ? const TextStyle(height: 0, fontSize: 0)

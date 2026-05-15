@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
+import '../../shared/form_read_only_field.dart';
 import '../data/lab_manager_assignment_model.dart';
 import '../data/lab_manager_assignment_test_columns.dart';
 import '../state/lab_manager_assignment_provider.dart';
@@ -187,11 +188,15 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
     const idx = 48.0;
     const date = 104.0;
     const lab = 108.0;
-    const perTest = 56.0;
     const assigned = 128.0;
     const status = 112.0;
     final n = kLabManagerAssignmentTestColumns.length;
-    return idx + date + lab + perTest * n + assigned + status;
+    return idx +
+        date +
+        lab +
+        kLabManagerAssignmentTestColumnWidth * n +
+        assigned +
+        status;
   }
 
   List<TableColumn<LabManagerAssignmentRow>> _buildColumns(
@@ -251,8 +256,9 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
         TableColumn<LabManagerAssignmentRow>(
           key: 'test_$tkey',
           label: colDef.label,
-          width: 56,
+          width: kLabManagerAssignmentTestColumnWidth,
           sortable: false,
+          headerMaxLines: kLabManagerAssignmentTestHeaderMaxLines,
           cellBuilder: (r) {
             final v = r.testSelections[tkey] ?? false;
             return Center(
@@ -449,10 +455,12 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _filtersCard(context, p),
+            SizedBox(width: double.infinity, child: _filtersCard(context, p)),
             SizedBox(height: AppTokens.space3),
             Expanded(
-              child: AppListingScreen<LabManagerAssignmentRow>(
+              child: SizedBox(
+                width: double.infinity,
+                child: AppListingScreen<LabManagerAssignmentRow>(
                 key: ValueKey<int>(p.tableRevision),
                 title: 'Tests',
                 subtitle: 'Assignment listing',
@@ -464,6 +472,9 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
                 showColumnToggle: false,
                 showTableHorizontalScrollbar: true,
                 tableBodyFillsViewport: true,
+                tableHeaderHeight: kLabManagerAssignmentTableHeaderHeight,
+                listingShellPadding:
+                    const EdgeInsets.only(bottom: AppTokens.space4),
                 tableScrollableMinWidth: _tableMinWidth(),
                 columns: _buildColumns(p, rows),
                 rows: rows,
@@ -528,20 +539,25 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
                     key: 'view',
                     label: 'View',
                     icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
-                    onTap: (r) => _stubSnack(
-                      context,
-                      'Details for ${r.labId} — coming soon',
-                    ),
+                    onTap: (r) => _showAssignmentRowDetails(context, r),
                   ),
                   RowAction<LabManagerAssignmentRow>(
                     key: 'edit',
                     label: 'Edit',
                     icon:
                         Icon(LucideIcons.pencil, size: AppTokens.iconButtonIconMd),
-                    onTap: (r) => _stubSnack(
-                      context,
-                      'Edit ${r.labId} — coming soon',
-                    ),
+                    onTap: (r) {
+                      context
+                          .read<LabManagerAssignmentProvider>()
+                          .focusRowInWorkspace(r);
+                      if (!context.mounted) return;
+                      _stubSnack(
+                        context,
+                        r.isAssigned
+                            ? 'Review ${r.labId} on Assigned tab. Delete assignment to return to Pending before changing tests.'
+                            : 'Filters set to ${r.labId}. Select tests, choose chemist, then bulk **Save**.',
+                      );
+                    },
                   ),
                   RowAction<LabManagerAssignmentRow>(
                     key: 'print',
@@ -560,9 +576,75 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
                 onPageSizeChanged: p.setPageSize,
               ),
             ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showAssignmentRowDetails(
+    BuildContext context,
+    LabManagerAssignmentRow row,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: AppTokens.cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(AppTokens.space4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    row.labId,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.textLg,
+                      fontWeight: AppTokens.weightSemibold,
+                      color: AppTokens.textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  SizedBox(height: AppTokens.space3),
+                  FormReadOnlyField(
+                    label: 'Sample date',
+                    value: _formatDate(row.sampleDate),
+                  ),
+                  FormReadOnlyField(label: 'Sample ID', value: row.sampleId),
+                  FormReadOnlyField(label: 'Customer', value: row.customer),
+                  FormReadOnlyField(label: 'Equipment', value: row.equipment),
+                  FormReadOnlyField(label: 'Method', value: row.methodLabel),
+                  FormReadOnlyField(
+                    label: 'Assigned to',
+                    value: row.assignedToName ?? '—',
+                  ),
+                  FormReadOnlyField(
+                    label: 'Status',
+                    value: row.isAssigned ? 'Assigned' : 'Pending',
+                  ),
+                  SizedBox(height: AppTokens.space3),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: AppButton(
+                      label: 'Close',
+                      variant: AppButtonVariant.secondary,
+                      size: AppButtonSize.md,
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

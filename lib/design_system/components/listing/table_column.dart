@@ -17,6 +17,7 @@ class TableColumn<T> {
     this.filter,
     this.filterTextValue,
     this.filterSelectValue,
+    this.filterDateValue,
     this.sortValue,
     this.headerMaxLines = 1,
   });
@@ -58,6 +59,9 @@ class TableColumn<T> {
   /// [AppColumnFilterType.select] / select [ColumnFilterConfig]. If null while
   /// a select filter is applied, that filter is ignored for the row.
   final String Function(T row)? filterSelectValue;
+
+  /// Row calendar day used for [AppColumnFilterType.dateRange] column filters.
+  final DateTime Function(T row)? filterDateValue;
 
   /// Returns a comparable value for client-side sorting.
   ///

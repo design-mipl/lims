@@ -10,6 +10,8 @@ class LabCodeProvider extends BaseProvider {
 
   List<LabCodeModel> items = <LabCodeModel>[];
 
+  LabCodeModel? selected;
+
   String _searchQuery = '';
   String _statusFilter = LabCodeStatus.pending;
   int _currentPage = 1;
@@ -136,12 +138,22 @@ class LabCodeProvider extends BaseProvider {
     });
   }
 
+  Future<void> loadItemForView(String id) async {
+    await runAsync(() async {
+      selected = await _api.fetchById(id);
+      notifyListeners();
+    });
+  }
+
   Future<void> refresh() => loadItems();
 
   Future<void> deleteItem(String id) async {
     await runAsync(() async {
       await _api.delete(id);
       items = await _api.fetchAll();
+      if (selected?.id == id) {
+        selected = null;
+      }
     });
   }
 
@@ -150,6 +162,10 @@ class LabCodeProvider extends BaseProvider {
     await runAsync(() async {
       await _api.deleteMany(ids.cast<String>());
       items = await _api.fetchAll();
+      final removed = ids.cast<String>().toSet();
+      if (selected != null && removed.contains(selected!.id)) {
+        selected = null;
+      }
     });
   }
 }

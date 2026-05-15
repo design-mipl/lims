@@ -1,5 +1,11 @@
 import '../../../../../design_system/tokens.dart';
 
+/// Full sheet vs operational datasheet workspace (subset columns).
+enum SampleDataGridProfile {
+  full,
+  workspace,
+}
+
 /// Column geometry for the sample data entry sheet: scrollable detail columns + sticky actions.
 abstract final class SampleDataGridLayout {
   /// Slightly wider than listing gaps so many columns stay readable without overlap.
@@ -11,38 +17,58 @@ abstract final class SampleDataGridLayout {
   /// Slots per row for [NumericFocusOrder] tab traversal (`listIndex * tableFocusStride + slot`).
   static const int tableFocusStride = 50;
 
+  /// Uniform width for data columns (after serial/checkbox column).
+  static const double uniformDataColumnWidth = 116;
+
+  /// Serial no. + checkbox column (fixed narrow slot).
+  static const double serialCheckboxColumnWidth = 84;
+
   /// Thirty scrollable columns: serial + checkbox, sample id, … invoice; then sticky [actionColumnWidth].
   static List<double> get scrollColumnWidths => <double>[
-        76, // 0 serial + checkbox
-        108, // 1 sample id
-        92, // 2 equip sr *
-        92, // 3 equip id
-        112, // 4 site
-        100, // 5 make
-        104, // 6 model *
-        120, // 7 type of sample *
-        108, // 8 nature
-        100, // 9 running hrs (total hmr) *
-        100, // 10 sub asm no
-        92, // 11 sub asm hrs
-        108, // 12 sampling date
-        108, // 13 brand of oil
-        96, // 14 grade *
-        96, // 15 lube hrs *
-        88, // 16 top up
-        88, // 17 sump
-        116, // 18 sampling from *
-        112, // 19 report expected
-        64, // 20 qty
-        108, // 21 bottle
-        108, // 22 problem
-        108, // 23 comments
-        128, // 24 customer note
-        92, // 25 severity
-        88, // 26 oil drained
-        100, // 27 image
-        100, // 28 ftr
-        128, // 29 invoice
+        serialCheckboxColumnWidth,
+        ...List<double>.filled(29, uniformDataColumnWidth),
+      ];
+
+  /// Operational datasheet subset — mapped to existing row fields + attachments.
+  static List<double> get workspaceScrollColumnWidths => <double>[
+        serialCheckboxColumnWidth,
+        ...List<double>.filled(
+          workspaceColumnLabels.length - 1,
+          uniformDataColumnWidth,
+        ),
+      ];
+
+  static List<double> scrollColumnWidthsFor(SampleDataGridProfile profile) {
+    switch (profile) {
+      case SampleDataGridProfile.full:
+        return scrollColumnWidths;
+      case SampleDataGridProfile.workspace:
+        return workspaceScrollColumnWidths;
+    }
+  }
+
+  static List<String> columnLabelsFor(SampleDataGridProfile profile) {
+    switch (profile) {
+      case SampleDataGridProfile.full:
+        return columnLabels;
+      case SampleDataGridProfile.workspace:
+        return workspaceColumnLabels;
+    }
+  }
+
+  static List<String> get workspaceColumnLabels => <String>[
+        'Serial No.',
+        'Sample Id',
+        'Type of Sample*',
+        'Grade*',
+        'Brand of Oil',
+        'Running Hrs (Total HMR)*',
+        'Top Up Volume (Ltr)',
+        'Oil Condition',
+        'Previous Lab Ref.',
+        'Comments',
+        'Image Attachment',
+        'FTR Attachment',
       ];
 
   static double get actionColumnWidth => AppTokens.tableActionsColumnWidth;
@@ -81,8 +107,8 @@ abstract final class SampleDataGridLayout {
         'Invoice',
       ];
 
-  static double get scrollColumnsRunWidth {
-    final ws = scrollColumnWidths;
+  static double scrollColumnsRunWidthFor(SampleDataGridProfile profile) {
+    final ws = scrollColumnWidthsFor(profile);
     var sum = 0.0;
     for (final w in ws) {
       sum += w;
@@ -93,10 +119,16 @@ abstract final class SampleDataGridLayout {
     return sum;
   }
 
+  static double get scrollColumnsRunWidth =>
+      scrollColumnsRunWidthFor(SampleDataGridProfile.full);
+
   /// Width of the horizontally scrollable content (matches header + row [ConstrainedBox] logic).
-  static double horizontalScrollContentWidth(double viewportWidth) {
+  static double horizontalScrollContentWidth(
+    double viewportWidth, [
+    SampleDataGridProfile profile = SampleDataGridProfile.full,
+  ]) {
     final pad = AppTokens.space2 * 2;
-    final intrinsic = pad + scrollColumnsRunWidth;
+    final intrinsic = pad + scrollColumnsRunWidthFor(profile);
     return viewportWidth > intrinsic ? viewportWidth : intrinsic;
   }
 }

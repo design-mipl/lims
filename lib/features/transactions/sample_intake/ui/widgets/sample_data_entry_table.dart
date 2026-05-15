@@ -1,16 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../design_system/components/components.dart';
 import '../../../../../design_system/tokens.dart';
 import '../../state/sample_intake_provider.dart';
 import 'sample_data_entry_row.dart';
 import 'sample_data_grid_layout.dart';
 
-/// Sample data sheet: listing-style header (sticky), linked horizontal scroll, sticky actions.
+/// Sample data sheet: bulk bar + listing-style header (sticky), linked horizontal scroll, sticky actions.
 class SampleDataEntryTable extends StatefulWidget {
-  const SampleDataEntryTable({super.key});
+  const SampleDataEntryTable({
+    super.key,
+    this.gridProfile = SampleDataGridProfile.full,
+    required this.onSaveSelected,
+    required this.onSaveAndGenerateLabCode,
+    this.isActionBusy = false,
+  });
+
+  final SampleDataGridProfile gridProfile;
+
+  /// Persists the grid (selected indexes indicate scope for UX; full grid is persisted).
+  final Future<void> Function(Set<int> indexes) onSaveSelected;
+
+  /// Persists then navigates to Generate Lab Code with [indexes] in the query string.
+  final Future<void> Function(Set<int> indexes) onSaveAndGenerateLabCode;
+
+  final bool isActionBusy;
 
   @override
   State<SampleDataEntryTable> createState() => _SampleDataEntryTableState();
@@ -74,6 +92,195 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
     });
   }
 
+  void _clearSelection() {
+    setState(_selectedDetailRows.clear);
+  }
+
+  Future<void> _runSaveSelected() async {
+    if (widget.isActionBusy || _selectedDetailRows.isEmpty) return;
+    final sel = Set<int>.from(_selectedDetailRows);
+    await widget.onSaveSelected(sel);
+  }
+
+  Future<void> _runSaveAndGenerate() async {
+    if (widget.isActionBusy || _selectedDetailRows.isEmpty) return;
+    final sel = Set<int>.from(_selectedDetailRows);
+    await widget.onSaveAndGenerateLabCode(sel);
+  }
+
+  Widget _datasheetBulkMiniButton({
+    required String label,
+    required IconData icon,
+    VoidCallback? onPressed,
+  }) {
+    final borderColor = AppTokens.borderDefault;
+    final bg = AppTokens.cardBg;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(AppTokens.bulkActionButtonRadius),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius:
+            BorderRadius.circular(AppTokens.bulkActionButtonRadius),
+        child: Container(
+          height: AppTokens.bulkActionButtonHeight,
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius:
+                BorderRadius.circular(AppTokens.bulkActionButtonRadius),
+            border: Border.all(
+              color: borderColor,
+              width: AppTokens.borderWidthSm,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: AppTokens.bulkActionIconSize,
+                color: AppTokens.textMuted,
+              ),
+              SizedBox(width: AppTokens.space1),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.bulkActionFontSize,
+                  fontWeight: AppTokens.weightRegular,
+                  color: AppTokens.textPrimary,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _datasheetBulkBar(int rowCount) {
+    final selectedCount = _selectedDetailRows.length;
+    final showActiveBar = rowCount > 0 && selectedCount > 0;
+    final bg = showActiveBar ? AppTokens.warning50 : AppTokens.surfaceSubtle;
+    final bottomBorder = showActiveBar
+        ? AppTokens.bulkBarActiveBottomBorder
+        : AppTokens.borderDefault;
+
+    final validSelection = rowCount > 0 &&
+        _selectedDetailRows.isNotEmpty &&
+        _selectedDetailRows.every((i) => i >= 0 && i < rowCount);
+    final canAct = validSelection && !widget.isActionBusy;
+
+    final rightActions = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: canAct ? AppTokens.opacityFull : AppTokens.bulkBarGreyedOpacity,
+            child: IgnorePointer(
+              ignoring: !canAct,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _datasheetBulkMiniButton(
+                    label: 'Save Selected',
+                    icon: LucideIcons.save,
+                    onPressed: _runSaveSelected,
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  _datasheetBulkMiniButton(
+                    label: 'Save & Generate Lab Code',
+                    icon: LucideIcons.hash,
+                    onPressed: _runSaveAndGenerate,
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  _datasheetBulkMiniButton(
+                    label: 'Clear Selection',
+                    icon: LucideIcons.x,
+                    onPressed: () => _clearSelection(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: bg,
+        border: Border(
+          bottom: BorderSide(
+            color: bottomBorder,
+            width: AppTokens.borderWidthSm,
+          ),
+        ),
+      ),
+      child: SizedBox(
+        height: AppTokens.listingBulkBarHeight,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+          child: Row(
+            children: [
+              Expanded(
+                child: showActiveBar
+                    ? Row(
+                        children: [
+                          Container(
+                            width: AppTokens.bulkBarMiniCheckSize,
+                            height: AppTokens.bulkBarMiniCheckSize,
+                            decoration: BoxDecoration(
+                              color: AppTokens.primary800,
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.bulkBarMiniCheckRadius,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: AppTokens.listingToolbarActionsGap),
+                          Text(
+                            '$selectedCount rows selected',
+                            style: GoogleFonts.poppins(
+                              fontSize: AppTokens.textXs,
+                              fontWeight: AppTokens.weightMedium,
+                              color: AppTokens.textPrimary,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          SizedBox(width: AppTokens.space2),
+                          GestureDetector(
+                            onTap: _clearSelection,
+                            child: Text(
+                              '✕ Clear',
+                              style: GoogleFonts.poppins(
+                                fontSize: AppTokens.textXs,
+                                color: AppTokens.textMuted,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Text(
+                        'Select rows to perform bulk actions',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppTokens.textXs,
+                          fontWeight: AppTokens.weightRegular,
+                          color: AppTokens.textMuted,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+              ),
+              rightActions,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<DateTime?> _pickDate(DateTime? current) async {
     final now = DateTime.now();
     return showDatePicker(
@@ -84,7 +291,7 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
     );
   }
 
-  static const double _bottomHScrollTrackHeight = 14;
+  static const double _bottomHScrollTrackHeight = 36;
 
   /// Horizontal scrollbar only; width matches scrollable grid (not sticky ACTIONS).
   ///
@@ -101,18 +308,15 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Scrollbar(
+              child: AppScrollbar(
                 controller: _bottomHScroll,
-                thumbVisibility: true,
-                trackVisibility: true,
-                thickness: AppTokens.space1,
-                radius: Radius.circular(AppTokens.inputRadius),
-                interactive: true,
+                scrollDirection: Axis.horizontal,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final contentW =
                         SampleDataGridLayout.horizontalScrollContentWidth(
                       constraints.maxWidth,
+                      widget.gridProfile,
                     );
                     return SingleChildScrollView(
                       controller: _bottomHScroll,
@@ -137,8 +341,10 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
   @override
   Widget build(BuildContext context) {
     final p = context.watch<SampleIntakeProvider>();
-    final labels = SampleDataGridLayout.columnLabels;
-    final widths = SampleDataGridLayout.scrollColumnWidths;
+    final labels =
+        SampleDataGridLayout.columnLabelsFor(widget.gridProfile);
+    final widths =
+        SampleDataGridLayout.scrollColumnWidthsFor(widget.gridProfile);
     final gap = SampleDataGridLayout.interColumnGap;
 
     final rowCount = p.sampleRows.length;
@@ -333,6 +539,7 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
             return SampleDataEntryRow(
               key: ValueKey<String>('${row.sampleId}_$listIndex'),
               row: row,
+              gridProfile: widget.gridProfile,
               listIndex: listIndex,
               isActive: isActive,
               isLast: isLast,
@@ -395,28 +602,30 @@ class _SampleDataEntryTableState extends State<SampleDataEntryTable> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            headerRow,
-            Expanded(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: AppTokens.tableRowHeight * 5,
+        child: AppShiftWheelHorizontalScroll(
+          controller: _headerHScroll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _datasheetBulkBar(rowCount),
+              headerRow,
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: AppTokens.tableRowHeight * 5,
+                  ),
+                  child: rowCount == 0
+                      ? body
+                      : AppScrollbar(
+                          controller: _vCtrl,
+                          child: body,
+                        ),
                 ),
-                child: rowCount == 0
-                    ? body
-                    : Scrollbar(
-                        controller: _vCtrl,
-                        thumbVisibility: true,
-                        interactive: true,
-                        child: body,
-                      ),
               ),
-            ),
-            if (rowCount > 0) _bottomHorizontalScrollBar(),
-            footer,
-          ],
+              if (rowCount > 0) _bottomHorizontalScrollBar(),
+              footer,
+            ],
+          ),
         ),
       ),
     );

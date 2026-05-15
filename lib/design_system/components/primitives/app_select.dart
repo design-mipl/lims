@@ -41,6 +41,8 @@ class AppSelect<T> extends StatefulWidget {
     this.countLabel,
     this.focusNode,
     this.openOverlayWhenFocused = false,
+    this.overlayMinimalShadow = false,
+    this.overlayWidthMatchesTrigger = false,
   });
 
   final String? label;
@@ -65,6 +67,12 @@ class AppSelect<T> extends StatefulWidget {
   /// When true, gaining focus opens the overlay (intended for dense data grids with
   /// [isSearchable] false so Arrow keys + Enter + Escape work in the list).
   final bool openOverlayWhenFocused;
+
+  /// When true, overlay surface omits drop shadow (better inside dialogs/popovers).
+  final bool overlayMinimalShadow;
+
+  /// When true, overlay width equals the trigger field width (no 320px minimum).
+  final bool overlayWidthMatchesTrigger;
 
   @override
   State<AppSelect<T>> createState() => _AppSelectState<T>();
@@ -135,6 +143,8 @@ class _AppSelectState<T> extends State<AppSelect<T>> {
         countLabel: widget.countLabel ?? 'items',
         hostFocusNode: _effectiveFocusNode,
         traversalContext: this.context,
+        minimalOverlayShadow: widget.overlayMinimalShadow,
+        overlayWidthMatchesTrigger: widget.overlayWidthMatchesTrigger,
       ),
     );
   }
@@ -295,6 +305,8 @@ class _SelectOverlay<T> extends StatefulWidget {
     required this.countLabel,
     required this.hostFocusNode,
     required this.traversalContext,
+    required this.minimalOverlayShadow,
+    required this.overlayWidthMatchesTrigger,
   });
 
   final LayerLink layerLink;
@@ -308,6 +320,8 @@ class _SelectOverlay<T> extends StatefulWidget {
   final String countLabel;
   final FocusNode hostFocusNode;
   final BuildContext traversalContext;
+  final bool minimalOverlayShadow;
+  final bool overlayWidthMatchesTrigger;
 
   @override
   State<_SelectOverlay<T>> createState() => _SelectOverlayState<T>();
@@ -465,8 +479,9 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredItems;
-    final overlayWidth =
-        math.max(widget.triggerWidth, _kOverlayMinWidth);
+    final overlayWidth = widget.overlayWidthMatchesTrigger
+        ? widget.triggerWidth
+        : math.max(widget.triggerWidth, _kOverlayMinWidth);
 
     return Stack(
       children: [
@@ -491,7 +506,9 @@ class _SelectOverlayState<T> extends State<_SelectOverlay<T>> {
                   borderRadius:
                       BorderRadius.circular(AppTokens.radiusMd),
                   border: Border.all(color: AppTokens.border),
-                  boxShadow: AppTokens.shadowMd,
+                  boxShadow: widget.minimalOverlayShadow
+                      ? null
+                      : AppTokens.shadowMd,
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Column(

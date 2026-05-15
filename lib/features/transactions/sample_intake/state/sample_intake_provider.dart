@@ -3,36 +3,146 @@ import 'dart:async';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/providers/base_provider.dart';
 import '../../../../design_system/components/components.dart';
+import '../../lab_code/data/lab_code_api.dart';
 import '../data/sample_intake_api.dart';
 import '../data/sample_intake_model.dart';
 import '../data/sample_master_options.dart';
 import '../data/sample_row_model.dart';
 
+/// Primary tabs on Sample Intake hub ([SampleIntakeHubScreen]).
+enum SampleIntakeHubTab {
+  receiptTracking,
+  sampleReceipt,
+  completedReceipt,
+}
+
+extension SampleIntakeModelWorkflowUi on SampleIntakeModel {
+  String get datasheetStatusDisplay {
+    return switch (status) {
+      SampleIntakeStatus.forwardedToLab => 'Complete',
+      SampleIntakeStatus.completed => 'Complete',
+      SampleIntakeStatus.inProgress => 'In progress',
+      SampleIntakeStatus.receiptComplete => 'Pending',
+      SampleIntakeStatus.dataEntryPending => 'Pending',
+      _ when isReceiptTrackingPending => '—',
+      _ => 'Pending',
+    };
+  }
+
+  String get labCodeStatusDisplay {
+    return switch (status) {
+      SampleIntakeStatus.forwardedToLab => 'Generated',
+      SampleIntakeStatus.completed => 'Ready',
+      SampleIntakeStatus.inProgress => 'Pending',
+      SampleIntakeStatus.receiptComplete => 'Pending',
+      _ when isReceiptTrackingPending => '—',
+      _ => 'Pending',
+    };
+  }
+
+  String get receiptTrackingStatusDisplay {
+    if (isReceiptTrackingPending) return 'Incomplete';
+    return 'Submitted';
+  }
+
+  String get courierOrHandDisplay =>
+      receiptMode.isNotEmpty ? receiptMode : courierName;
+}
+
 class SampleIntakeProvider extends BaseProvider {
-  SampleIntakeProvider({SampleIntakeApi? api})
-      : _api = api ?? sl<SampleIntakeApi>();
+  SampleIntakeProvider({
+    SampleIntakeApi? api,
+    LabCodeApi? labCodeApi,
+  })  : _api = api ?? sl<SampleIntakeApi>(),
+        _labCodeApi = labCodeApi ?? sl<LabCodeApi>();
 
   final SampleIntakeApi _api;
+  final LabCodeApi _labCodeApi;
+
+  String peekNextLotNo() => _api.peekNextLotNo();
 
   List<SampleIntakeModel> receipts = <SampleIntakeModel>[];
   SampleIntakeModel? selected;
 
-  /// Sample grid for the loaded receipt detail (`fetchById`).
   List<SampleRowModel> sampleRows = <SampleRowModel>[];
   int? activeRowIndex;
 
   String _searchQuery = '';
-  String _statusFilter = 'all';
+  SampleIntakeHubTab _hubTab = SampleIntakeHubTab.receiptTracking;
+
   int _currentPage = 1;
   int _pageSize = 10;
 
   int get currentPage => _currentPage;
   int get pageSize => _pageSize;
 
+  SampleIntakeHubTab get hubTab => _hubTab;
+
+  int get hubTabIndex => switch (_hubTab) {
+        SampleIntakeHubTab.receiptTracking => 0,
+        SampleIntakeHubTab.sampleReceipt => 1,
+        SampleIntakeHubTab.completedReceipt => 2,
+      };
+
+  void setHubTab(SampleIntakeHubTab tab) {
+    if (_hubTab == tab) return;
+    _hubTab = tab;
+    _currentPage = 1;
+    notifyListeners();
+  }
+
+  void setHubTabIndex(int index) {
+    setHubTab(
+      switch (index) {
+        0 => SampleIntakeHubTab.receiptTracking,
+        1 => SampleIntakeHubTab.sampleReceipt,
+        _ => SampleIntakeHubTab.completedReceipt,
+      },
+    );
+  }
+
+  static bool _isTerminalIntakeHistory(SampleIntakeModel e) {
+    return e.status == SampleIntakeStatus.forwardedToLab ||
+        (e.status == SampleIntakeStatus.completed &&
+            e.intakeCompletedAt != null);
+  }
+
+  int hubReceiptTrackingCount() => receipts
+      .where(
+        (e) =>
+            !_isTerminalIntakeHistory(e) && e.isReceiptTrackingPending,
+      )
+      .length;
+
+  int hubSampleReceiptCount() => receipts
+      .where(
+        (e) =>
+            !_isTerminalIntakeHistory(e) && !e.isReceiptTrackingPending,
+      )
+      .length;
+
+  int hubCompletedReceiptCount() =>
+      receipts.where(_isTerminalIntakeHistory).length;
+
+  /// Alias for dashboards referencing completed intake volume.
+  int completedIntakeCount() => hubCompletedReceiptCount();
+
+  bool _matchesSurface(SampleIntakeModel e) {
+    switch (_hubTab) {
+      case SampleIntakeHubTab.receiptTracking:
+        return !_isTerminalIntakeHistory(e) && e.isReceiptTrackingPending;
+      case SampleIntakeHubTab.sampleReceipt:
+        return !_isTerminalIntakeHistory(e) && !e.isReceiptTrackingPending;
+      case SampleIntakeHubTab.completedReceipt:
+        return _isTerminalIntakeHistory(e);
+    }
+  }
+
   bool _matchesSearch(SampleIntakeModel e, String q) {
     if (q.isEmpty) return true;
     final buckets = <String>[
       e.lotNo,
+      e.primarySampleId,
       e.customerName,
       e.customerCompany,
       e.siteContactPerson,
@@ -40,15 +150,14 @@ class SampleIntakeProvider extends BaseProvider {
       e.courierName,
       e.podNo,
       e.workOrderNo,
+      e.typeOfSample,
+      e.receivedBy,
     ];
     return buckets.any((s) => s.toLowerCase().contains(q));
   }
 
   List<SampleIntakeModel> get filteredItems {
-    Iterable<SampleIntakeModel> items = receipts;
-    if (_statusFilter != 'all') {
-      items = items.where((e) => e.status == _statusFilter);
-    }
+    Iterable<SampleIntakeModel> items = receipts.where(_matchesSurface);
     final q = _searchQuery.trim().toLowerCase();
     if (q.isNotEmpty) {
       items = items.where((e) => _matchesSearch(e, q));
@@ -77,32 +186,8 @@ class SampleIntakeProvider extends BaseProvider {
 
   int get allCount => receipts.length;
 
-  int get statusTabIndex {
-    return switch (_statusFilter) {
-      SampleIntakeStatus.draft => 1,
-      SampleIntakeStatus.dataEntryPending => 2,
-      SampleIntakeStatus.inProgress => 3,
-      SampleIntakeStatus.completed => 4,
-      SampleIntakeStatus.forwardedToLab => 5,
-      _ => 0,
-    };
-  }
-
   void setSearchQuery(String value) {
     _searchQuery = value;
-    _currentPage = 1;
-    notifyListeners();
-  }
-
-  void setStatusFilterByTab(int index) {
-    _statusFilter = switch (index) {
-      1 => SampleIntakeStatus.draft,
-      2 => SampleIntakeStatus.dataEntryPending,
-      3 => SampleIntakeStatus.inProgress,
-      4 => SampleIntakeStatus.completed,
-      5 => SampleIntakeStatus.forwardedToLab,
-      _ => 'all',
-    };
     _currentPage = 1;
     notifyListeners();
   }
@@ -129,6 +214,36 @@ class SampleIntakeProvider extends BaseProvider {
   void _clearDetailGrid() {
     sampleRows = <SampleRowModel>[];
     activeRowIndex = null;
+  }
+
+  Future<void> loadReceiptForForm(String id) async {
+    await runAsync(() async {
+      selected = await _api.fetchById(id);
+      notifyListeners();
+    });
+  }
+
+  Future<void> updateReceiptFromForm(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    await runAsync(() async {
+      final existing = await _api.fetchById(id);
+      if (existing == null) {
+        setError('Receipt not found');
+        return;
+      }
+      final merged = SampleIntakeModel.fromJson({
+        ...existing.toJson(),
+        ...patch,
+        'id': id,
+        'dataEntryCompletedCount': existing.dataEntryCompletedCount,
+        'status': patch['status'] ?? existing.status,
+      });
+      await _api.update(id, merged);
+      selected = merged;
+      receipts = await _api.fetchAll();
+    });
   }
 
   Future<void> fetchById(String id) async {
@@ -186,13 +301,21 @@ class SampleIntakeProvider extends BaseProvider {
         SampleRowModel.empty(
           index: i + 1,
           sampleId: _api.nextSampleId(),
+        ).copyWith(
+          runningHrsBaseline: 1000.0 + i * 100,
         ),
     ];
     await _api.upsertRows(receiptId, list);
+    final rec = await _api.fetchById(receiptId);
+    if (rec != null && list.isNotEmpty) {
+      await _api.update(
+        receiptId,
+        rec.copyWith(primarySampleId: list.first.sampleId),
+      );
+    }
     return list;
   }
 
-  /// Regenerates in-memory/API rows when [count] should match receipt.
   Future<void> generateRows(int count) async {
     final receipt = selected;
     if (receipt == null) return;
@@ -202,6 +325,7 @@ class SampleIntakeProvider extends BaseProvider {
       activeRowIndex = null;
       await _persistReceiptAggregate(recomputeReceiptStatus: true);
       receipts = await _api.fetchAll();
+      selected = await _api.fetchById(receipt.id);
       notifyListeners();
     } catch (e) {
       setError(e.toString());
@@ -279,7 +403,9 @@ class SampleIntakeProvider extends BaseProvider {
               ))) {
         status = SampleIntakeStatus.inProgress;
       } else if (completed == 0 && sampleRows.isNotEmpty) {
-        status = SampleIntakeStatus.dataEntryPending;
+        if (!receipt.isReceiptTrackingPending) {
+          status = SampleIntakeStatus.receiptComplete;
+        }
       }
       next = receipt.copyWith(
         dataEntryCompletedCount: completed,
@@ -301,10 +427,19 @@ class SampleIntakeProvider extends BaseProvider {
     }
   }
 
-  /// Persists grid + marks one row completed; clears active selection.
   Future<void> saveRow(int index) async {
     final receipt = selected;
     if (receipt == null || index < 0 || index >= sampleRows.length) {
+      return;
+    }
+    final row = sampleRows[index];
+    final baseline = row.runningHrsBaseline;
+    final hrs = row.runningHrs;
+    if (baseline != null && hrs != null && hrs <= baseline) {
+      setError(
+        'Running hours must be greater than previous (${baseline.toString()}).',
+      );
+      notifyListeners();
       return;
     }
     try {
@@ -314,14 +449,17 @@ class SampleIntakeProvider extends BaseProvider {
       await _api.upsertRows(receipt.id, sampleRows);
       final completed = getCompletedCount();
       String status = receipt.status;
+      DateTime? intakeCompletedAt = receipt.intakeCompletedAt;
       if (completed >= receipt.noOfSamples && receipt.noOfSamples > 0) {
         status = SampleIntakeStatus.completed;
+        intakeCompletedAt ??= DateTime.now();
       } else {
         status = SampleIntakeStatus.inProgress;
       }
       final nextReceipt = receipt.copyWith(
         dataEntryCompletedCount: completed,
         status: status,
+        intakeCompletedAt: intakeCompletedAt,
       );
       await _api.update(receipt.id, nextReceipt);
       selected = nextReceipt;
@@ -339,14 +477,240 @@ class SampleIntakeProvider extends BaseProvider {
         make.isEmpty ? null : make,
       );
 
-  Future<void> createReceipt(Map<String, dynamic> data) async {
+  /// Quick receipt (tracking draft).
+  Future<String?> saveQuickReceipt(Map<String, dynamic> data) async {
+    String? newId;
     await runAsync(() async {
       final payload = Map<String, dynamic>.from(data)
-        ..['status'] = SampleIntakeStatus.dataEntryPending
+        ..['status'] = SampleIntakeStatus.trackingDraft
+        ..['dataEntryCompletedCount'] = 0
+        ..['id'] = ''
+        ..['lotNo'] = data['lotNo'] ?? _api.allocateLotNo();
+      final created =
+          await _api.create(SampleIntakeModel.fromJson(payload));
+      newId = created.id;
+      receipts = await _api.fetchAll();
+    });
+    if (hasError) return null;
+    return newId;
+  }
+
+  /// Full operational receipt create (e.g. enquiry prefill) → intake queue.
+  Future<String?> createReceipt(Map<String, dynamic> data) async {
+    String? newId;
+    await runAsync(() async {
+      final payload = Map<String, dynamic>.from(data)
+        ..['status'] =
+            data['status'] ?? SampleIntakeStatus.receiptComplete
         ..['dataEntryCompletedCount'] = 0
         ..['id'] = '';
-      await _api.create(SampleIntakeModel.fromJson(payload));
+      final created =
+          await _api.create(SampleIntakeModel.fromJson(payload));
+      newId = created.id;
       receipts = await _api.fetchAll();
+    });
+    if (hasError) return null;
+    return newId;
+  }
+
+  /// Create samples — new receipt row; optional [linkReceiptId] copies party/site from that receipt.
+  Future<String?> createSamples({
+    String? linkReceiptId,
+    required int noOfSamples,
+    required String typeOfSample,
+    String internalNotes = '',
+  }) async {
+    String? newId;
+    await runAsync(() async {
+      final now = DateTime.now();
+      final time =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      Map<String, dynamic> payload;
+
+      final link = (linkReceiptId != null && linkReceiptId.isNotEmpty)
+          ? await _api.fetchById(linkReceiptId)
+          : null;
+      if (link != null) {
+        payload = Map<String, dynamic>.from(link.toJson());
+      } else {
+        payload = {
+          'receiptDate': now.toIso8601String(),
+          'receiptTime': time,
+          'customerName': '',
+          'customerCompany': '',
+          'customerAddress': '',
+          'customerMobile': '',
+          'customerEmail': '',
+          'siteContactPerson': '',
+          'siteCompany': '',
+          'siteAddress': '',
+          'siteMobile': '',
+          'siteEmail': '',
+          'reportExpectedBy': null,
+          'workOrderNo': '',
+          'workOrderDate': null,
+          'additionalInformation': null,
+          'courierName': '',
+          'podNo': '',
+          'sampleDispatchedFromSite': false,
+          'sampleCollectedFromCollectionCenter': false,
+          'sampleReceivedAtCollectionCenter': false,
+          'sampleReceivedAtLab': false,
+          'freightCharges': null,
+          'receivedBy': '',
+          'receiptMode': '',
+        };
+      }
+
+      final n = noOfSamples < 1 ? 1 : noOfSamples;
+      payload
+        ..['id'] = ''
+        ..['lotNo'] = _api.allocateLotNo()
+        ..['noOfSamples'] = n
+        ..['typeOfSample'] = typeOfSample
+        ..['internalNotes'] = internalNotes
+        ..['status'] = SampleIntakeStatus.receiptComplete
+        ..['dataEntryCompletedCount'] = 0
+        ..['primarySampleId'] = ''
+        ..['intakeCompletedAt'] = null;
+
+      final created =
+          await _api.create(SampleIntakeModel.fromJson(payload));
+      newId = created.id;
+      receipts = await _api.fetchAll();
+    });
+    if (hasError) return null;
+    return newId;
+  }
+
+  Future<void> saveReceiptDraftFromCompleteForm(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    await updateReceiptFromForm(id, patch);
+  }
+
+  Future<void> saveReceiptAndContinueToQueue(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    await runAsync(() async {
+      final existing = await _api.fetchById(id);
+      if (existing == null) {
+        setError('Receipt not found');
+        return;
+      }
+      final merged = SampleIntakeModel.fromJson({
+        ...existing.toJson(),
+        ...patch,
+        'id': id,
+        'status': SampleIntakeStatus.receiptComplete,
+      });
+      await _api.update(id, merged);
+      selected = merged;
+      receipts = await _api.fetchAll();
+    });
+    await fetchById(id);
+  }
+
+  Future<void> persistDatasheetGrid(String receiptId) async {
+    await runAsync(() async {
+      await _api.upsertRows(receiptId, sampleRows);
+      receipts = await _api.fetchAll();
+      notifyListeners();
+    });
+  }
+
+  Future<void> generateLabCodesForSamples({
+    required String receiptId,
+    required Iterable<int> rowIndexes,
+    bool regenerate = false,
+  }) async {
+    await runAsync(() async {
+      final receipt = await _api.fetchById(receiptId);
+      if (receipt == null) {
+        setError('Receipt not found');
+        return;
+      }
+      var rows = List<SampleRowModel>.from(await _api.fetchRows(receiptId));
+      if (rows.isEmpty && receipt.noOfSamples > 0) {
+        rows = [
+          for (var i = 0; i < receipt.noOfSamples; i++)
+            SampleRowModel.empty(
+              index: i + 1,
+              sampleId: _api.nextSampleId(),
+            ),
+        ];
+        await _api.upsertRows(receiptId, rows);
+      }
+      for (final i in rowIndexes) {
+        if (i < 0 || i >= rows.length) continue;
+        final row = rows[i];
+        final code =
+            regenerate || (row.generatedLabCode?.isEmpty ?? true)
+                ? _labCodeApi.allocateLabCode()
+                : row.generatedLabCode!;
+        await _labCodeApi.upsertFromIntake(
+          sampleId: row.sampleId,
+          linkedReceiptId: receiptId,
+          customerName: receipt.customerName,
+          customerCompany: receipt.customerCompany,
+          sampleType: row.typeOfSample ?? receipt.typeOfSample,
+          siteCompany: receipt.siteCompany,
+          labCode: code,
+        );
+        rows[i] = row.copyWith(
+          generatedLabCode: code,
+          labelStatus: 'Pending',
+        );
+      }
+      await _api.upsertRows(receiptId, rows);
+      var status = receipt.status;
+      if (rows.isNotEmpty &&
+          rows.every((r) => (r.generatedLabCode ?? '').isNotEmpty)) {
+        status = SampleIntakeStatus.completed;
+      }
+      final updated = receipt.copyWith(status: status);
+      await _api.update(receiptId, updated);
+      if (selected?.id == receiptId) {
+        sampleRows = rows;
+        selected = updated;
+      }
+      receipts = await _api.fetchAll();
+      notifyListeners();
+    });
+  }
+
+  Future<void> forwardReceiptToLabModule(String receiptId) async {
+    await runAsync(() async {
+      final receipt = await _api.fetchById(receiptId);
+      if (receipt == null) return;
+      final rows = await _api.fetchRows(receiptId);
+      final now = DateTime.now();
+      for (final row in rows) {
+        final code = row.generatedLabCode;
+        if (code != null && code.isNotEmpty) {
+          await _labCodeApi.upsertFromIntake(
+            sampleId: row.sampleId,
+            linkedReceiptId: receiptId,
+            customerName: receipt.customerName,
+            customerCompany: receipt.customerCompany,
+            sampleType: row.typeOfSample ?? receipt.typeOfSample,
+            siteCompany: receipt.siteCompany,
+            labCode: code,
+          );
+        }
+      }
+      final next = receipt.copyWith(
+        status: SampleIntakeStatus.forwardedToLab,
+        intakeCompletedAt: receipt.intakeCompletedAt ?? now,
+        generatedBy: receipt.generatedBy.isEmpty
+            ? 'Current user'
+            : receipt.generatedBy,
+      );
+      await _api.update(receiptId, next);
+      receipts = await _api.fetchAll();
+      notifyListeners();
     });
   }
 
@@ -371,6 +735,59 @@ class SampleIntakeProvider extends BaseProvider {
         selected = null;
         _clearDetailGrid();
       }
+    });
+  }
+
+  Future<void> deleteSampleRow(int index) async {
+    final receipt = selected;
+    if (receipt == null ||
+        index < 0 ||
+        index >= sampleRows.length ||
+        sampleRows.length <= 1) {
+      return;
+    }
+    await runAsync(() async {
+      final next = List<SampleRowModel>.from(sampleRows)..removeAt(index);
+      final reindexed = [
+        for (var i = 0; i < next.length; i++)
+          next[i].copyWith(index: i + 1),
+      ];
+      sampleRows = reindexed;
+      await _api.upsertRows(receipt.id, sampleRows);
+      await _api.update(
+        receipt.id,
+        receipt.copyWith(noOfSamples: sampleRows.length),
+      );
+      receipts = await _api.fetchAll();
+      selected = await _api.fetchById(receipt.id);
+      await _persistReceiptAggregate(recomputeReceiptStatus: true);
+    });
+  }
+
+  Future<void> addSampleRow() async {
+    final receipt = selected;
+    if (receipt == null) return;
+    await runAsync(() async {
+      final next = List<SampleRowModel>.from(sampleRows)
+        ..add(
+          SampleRowModel.empty(
+            index: sampleRows.length + 1,
+            sampleId: _api.nextSampleId(),
+          ),
+        );
+      final reindexed = [
+        for (var i = 0; i < next.length; i++)
+          next[i].copyWith(index: i + 1),
+      ];
+      sampleRows = reindexed;
+      await _api.upsertRows(receipt.id, sampleRows);
+      await _api.update(
+        receipt.id,
+        receipt.copyWith(noOfSamples: sampleRows.length),
+      );
+      receipts = await _api.fetchAll();
+      selected = await _api.fetchById(receipt.id);
+      notifyListeners();
     });
   }
 }

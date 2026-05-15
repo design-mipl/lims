@@ -64,6 +64,16 @@ class StatusChip extends StatelessWidget {
           background: AppTokens.primary50,
           foreground: AppTokens.primary700,
         );
+      case 'receiptcomplete':
+        return const _StatusColors(
+          background: AppTokens.warning100,
+          foreground: AppTokens.warning500,
+        );
+      case 'trackingdraft':
+        return const _StatusColors(
+          background: AppTokens.primary50,
+          foreground: AppTokens.primary800,
+        );
       default:
         return null;
     }
@@ -95,6 +105,10 @@ class StatusChip extends StatelessWidget {
         return 'In progress';
       case 'forwardedtolab':
         return 'Forwarded to lab';
+      case 'receiptcomplete':
+        return 'Receipt complete';
+      case 'trackingdraft':
+        return 'Tracking draft';
       default:
         return original;
     }
