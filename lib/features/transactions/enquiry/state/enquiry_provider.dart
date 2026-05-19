@@ -1,12 +1,18 @@
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/providers/base_provider.dart';
+import '../../quotation/data/quotation_api.dart';
 import '../data/enquiry_api.dart';
 import '../data/enquiry_model.dart';
 
 class EnquiryProvider extends BaseProvider {
-  EnquiryProvider({EnquiryApi? api}) : _api = api ?? sl<EnquiryApi>();
+  EnquiryProvider({
+    EnquiryApi? api,
+    QuotationApi? quotationApi,
+  })  : _api = api ?? sl<EnquiryApi>(),
+        _quotationApi = quotationApi ?? sl<QuotationApi>();
 
   final EnquiryApi _api;
+  final QuotationApi _quotationApi;
 
   List<EnquiryRecord> items = <EnquiryRecord>[];
 
@@ -23,8 +29,7 @@ class EnquiryProvider extends BaseProvider {
 
   String _tabStatus(int tabIndex) => switch (tabIndex) {
         0 => EnquiryStatus.pending,
-        1 => EnquiryStatus.submitted,
-        _ => EnquiryStatus.converted,
+        _ => EnquiryStatus.submitted,
       };
 
   int countForTab(int tabIdx) =>
@@ -112,9 +117,23 @@ class EnquiryProvider extends BaseProvider {
     notifyListeners();
   }
 
+  Future<void> _ensureQuotationDraft(EnquiryRecord e) async {
+    if (e.status != EnquiryStatus.submitted) return;
+    final hasQuote = _quotationApi
+        .fetchAllSync()
+        .any((q) => q.enquiryId == e.id);
+    if (!hasQuote) {
+      await _quotationApi.createDraftFromEnquiry(e.id);
+    }
+  }
+
   Future<void> saveEnquiry(EnquiryRecord record) async {
     await runAsync(() async {
       await _api.upsert(record);
+      final saved = await _api.fetchById(record.id);
+      if (saved != null) {
+        await _ensureQuotationDraft(saved);
+      }
       items = await _api.fetchAll();
       detail = await _api.fetchById(record.id);
     });
@@ -124,7 +143,9 @@ class EnquiryProvider extends BaseProvider {
     await runAsync(() async {
       final e = await _api.fetchById(id);
       if (e == null) return;
-      await _api.upsert(e.copyWith(status: EnquiryStatus.submitted));
+      final submitted = e.copyWith(status: EnquiryStatus.submitted);
+      await _api.upsert(submitted);
+      await _ensureQuotationDraft(submitted);
       items = await _api.fetchAll();
       detail = await _api.fetchById(id);
     });

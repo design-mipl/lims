@@ -4,12 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/di/service_locator.dart';
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
 import '../data/enquiry_model.dart';
 import '../state/enquiry_provider.dart';
-import '../../quotation/data/quotation_api.dart';
 
 class EnquiryScreen extends StatefulWidget {
   const EnquiryScreen({super.key});
@@ -81,25 +79,6 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
     }
   }
 
-  Future<void> _createQuotation(BuildContext context, EnquiryRecord row) async {
-    try {
-      final q = await sl<QuotationApi>().createDraftFromEnquiry(row.id);
-      if (!context.mounted) return;
-      context.push('/transactions/quotation/${q.id}/workspace');
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not create quotation: $e',
-            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
-          ),
-          backgroundColor: AppTokens.error500,
-        ),
-      );
-    }
-  }
-
   StatusChip _statusChip(EnquiryRecord r) {
     final label = switch (r.status) {
       EnquiryStatus.pending => 'Pending',
@@ -132,7 +111,8 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
         bulkRowId: (r) => r.id,
         onBulkDelete: (ids) => p.bulkDelete(ids.cast<String>()),
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Enquiry',
+        exportSourceRows: p.filteredItems,
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableScrollableMinWidth:
@@ -152,7 +132,6 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
         tabs: [
           TabConfig(label: 'Pending', count: p.countForTab(0)),
           TabConfig(label: 'Submitted', count: p.countForTab(1)),
-          TabConfig(label: 'Converted', count: p.countForTab(2)),
         ],
         initialTabIndex: p.tabIndex,
         onTabChanged: p.setTabByIndex,
@@ -352,13 +331,6 @@ class _EnquiryScreenState extends State<EnquiryScreen> {
             icon: Icon(LucideIcons.pencil, size: AppTokens.iconButtonIconMd),
             onTap: (row) =>
                 context.push('/transactions/enquiry/${row.id}/edit'),
-          ),
-          RowAction<EnquiryRecord>(
-            key: 'quote',
-            label: 'Create quotation',
-            icon: Icon(LucideIcons.fileText, size: AppTokens.iconButtonIconMd),
-            isEnabled: (row) => row.status != EnquiryStatus.converted,
-            onTap: (row) => _createQuotation(context, row),
           ),
           RowAction<EnquiryRecord>(
             key: 'delete',

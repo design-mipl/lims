@@ -205,4 +205,22 @@ class ActionTakenProvider extends BaseProvider {
       setError(e.toString());
     }
   }
+
+  Future<void> bulkDelete(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await runAsync(() async {
+      await _api.deleteRows(ids);
+      items.removeWhere((e) => ids.contains(e.id));
+      if (_workspaceRow != null && ids.contains(_workspaceRow!.id)) {
+        clearWorkspace();
+      }
+    });
+  }
+
+  Future<void> sendEmailForRows(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await runAsync(() async {
+      await _api.sendEmailForRows(ids);
+    });
+  }
 }

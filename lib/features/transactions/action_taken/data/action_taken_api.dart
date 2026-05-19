@@ -35,6 +35,24 @@ class ActionTakenApi {
     await Future<void>.delayed(const Duration(milliseconds: 140));
     _workspaceDrafts[draft.rowId] = draft;
   }
+
+  Future<void> deleteRows(List<String> ids) async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    _items.removeWhere((e) => ids.contains(e.id));
+    for (final id in ids) {
+      _workspaceDrafts.remove(id);
+    }
+  }
+
+  Future<void> sendEmailForRows(List<String> ids) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (ids.isEmpty) return;
+    for (final id in ids) {
+      if (rowById(id) == null) {
+        throw StateError('Row not found: $id');
+      }
+    }
+  }
 }
 
 const List<String> _chemists = [

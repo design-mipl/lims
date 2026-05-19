@@ -797,20 +797,27 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
     return Padding(
       padding: EdgeInsets.only(bottom: AppTokens.space2),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: emphasize ? AppTokens.textSm : AppTokens.tableCellSize,
-              fontWeight: emphasize
-                  ? AppTokens.weightSemibold
-                  : AppTokens.weightRegular,
-              color: AppTokens.textSecondary,
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.start,
+              style: GoogleFonts.poppins(
+                fontSize:
+                    emphasize ? AppTokens.textSm : AppTokens.tableCellSize,
+                fontWeight: emphasize
+                    ? AppTokens.weightSemibold
+                    : AppTokens.weightRegular,
+                color: AppTokens.textSecondary,
+              ),
             ),
           ),
+          SizedBox(width: AppTokens.space3),
           Text(
             value,
+            textAlign: TextAlign.end,
             style: GoogleFonts.poppins(
               fontSize: emphasize ? AppTokens.textMd : AppTokens.tableCellSize,
               fontWeight: emphasize
@@ -1366,6 +1373,14 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
       child: itemTable,
     );
 
+    final sectionFinancialBelowItems = Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: sectionFinancial,
+      ),
+    );
+
     final formBody = SingleChildScrollView(
       padding: EdgeInsets.all(AppTokens.space4),
       child: Column(
@@ -1376,18 +1391,15 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: AppFormPageLayout.sectionsColumn([
-                  sectionCustomer,
-                  sectionFinancial,
-                ]),
-              ),
+              Expanded(child: sectionCustomer),
               SizedBox(width: AppTokens.space4),
               Expanded(child: sectionRef),
             ],
           ),
           SizedBox(height: AppTokens.space3),
           sectionInvoiceItems,
+          SizedBox(height: AppTokens.space3),
+          sectionFinancialBelowItems,
         ],
       ),
     );

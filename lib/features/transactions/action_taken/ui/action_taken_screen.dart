@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
+import '../../../../design_system/components/listing/listing_excel_export.dart';
 import '../../../../design_system/tokens.dart';
 import '../data/action_taken_model.dart';
 import '../state/action_taken_provider.dart';
@@ -61,6 +64,76 @@ class _ActionTakenScreenState extends State<ActionTakenScreen> {
     super.dispose();
   }
 
+  void _openWorkspace(BuildContext context, ActionTakenRow row) {
+    context.push('/transactions/action-taken/${row.id}/workspace');
+  }
+
+  Future<void> _onSendEmail(
+    BuildContext context,
+    ActionTakenProvider p,
+    List<ActionTakenRow> selected,
+  ) async {
+    if (selected.isEmpty) return;
+    final ids = selected.map((r) => r.id).toList(growable: false);
+    await p.sendEmailForRows(ids);
+    if (!context.mounted || p.hasError) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Email sent for ${ids.length} selected record(s)',
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.bodySize,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+      ),
+    );
+  }
+
+  Future<void> _onBulkExport(
+    BuildContext context,
+    List<TableColumn<ActionTakenRow>> columns,
+    List<dynamic> selected,
+  ) async {
+    final rows = selected.cast<ActionTakenRow>();
+    if (rows.isEmpty || columns.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No data available to export.',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.neutral700,
+        ),
+      );
+      return;
+    }
+    await exportListingToExcel<ActionTakenRow>(
+      moduleName: 'Action_Taken',
+      columns: columns,
+      rows: rows,
+    );
+    if (!context.mounted) return;
+    final message = kIsWeb
+        ? 'Exported ${rows.length} row(s) to Excel'
+        : 'Copied ${rows.length} row(s) to clipboard — paste into Excel';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.bodySize,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   static String _formatYmd(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -101,31 +174,8 @@ class _ActionTakenScreenState extends State<ActionTakenScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<ActionTakenProvider>();
-    final rows = p.pagedRows;
-
-    final severityItems = <AppSelectItem<ActionTakenSeverityFilter>>[
-      const AppSelectItem<ActionTakenSeverityFilter>(
-        value: ActionTakenSeverityFilter.all,
-        label: 'All severities',
-      ),
-      const AppSelectItem<ActionTakenSeverityFilter>(
-        value: ActionTakenSeverityFilter.critical,
-        label: 'Critical',
-      ),
-      const AppSelectItem<ActionTakenSeverityFilter>(
-        value: ActionTakenSeverityFilter.cautions,
-        label: 'Cautions',
-      ),
-      const AppSelectItem<ActionTakenSeverityFilter>(
-        value: ActionTakenSeverityFilter.normal,
-        label: 'Normal',
-      ),
-    ];
-
-    final columns = <TableColumn<ActionTakenRow>>[
+  List<TableColumn<ActionTakenRow>> _buildColumns() {
+    return [
       TableColumn<ActionTakenRow>(
         key: 'companyName',
         label: 'Company Name',
@@ -233,24 +283,58 @@ class _ActionTakenScreenState extends State<ActionTakenScreen> {
         cellBuilder: (r) => _cell(_statusLabel(r.status)),
       ),
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.watch<ActionTakenProvider>();
+    final rows = p.pagedRows;
+    final columns = _buildColumns();
 
     return Material(
       type: MaterialType.transparency,
       child: AppListingScreen<ActionTakenRow>(
+        key: ValueKey('action-taken-${p.statusTabIndex}'),
         title: 'Action Taken',
         subtitle:
             'Post-report actions and corrective follow-ups after laboratory release.',
         showKpis: false,
+        showCheckboxes: true,
+        bulkRowId: (r) => r.id,
+        bulkBarBeforeToolbar: true,
+        columnToggleInToolbar: false,
+        showColumnToggle: true,
+        onBulkDelete: (ids) => p.bulkDelete(ids.cast<String>()),
+        onBulkExport: (selected) =>
+            _onBulkExport(context, columns, selected),
+        bulkActions: [
+          BulkAction<ActionTakenRow>(
+            key: 'sendEmail',
+            label: 'Send Email',
+            icon: Icon(
+              LucideIcons.mail,
+              size: AppTokens.bulkActionIconSize,
+            ),
+            onTap: (sel) => _onSendEmail(context, p, sel),
+          ),
+        ],
+        exportModuleName: 'Action_Taken',
+        exportSourceRows: p.filteredItems,
         showExport: false,
-        showBulkBar: false,
-        showCheckboxes: false,
         showTableHorizontalScrollbar: true,
-        showActionsColumnLeadingBorder: false,
+        showActionsColumnLeadingBorder: true,
         tableBodyFillsViewport: true,
         tableScrollableMinWidth: _kColW * _kCols + AppTokens.space4,
         rowBackgroundColor: _rowTint,
-        onRowTap: (r) =>
-            context.push('/transactions/action-taken/${r.id}/workspace'),
+        onRowTap: (r) => _openWorkspace(context, r),
+        rowActions: [
+          RowAction<ActionTakenRow>(
+            key: 'view',
+            label: 'View',
+            icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
+            onTap: (row) => _openWorkspace(context, row),
+          ),
+        ],
         tabs: [
           TabConfig(
             label: 'Pending',
@@ -274,7 +358,24 @@ class _ActionTakenScreenState extends State<ActionTakenScreen> {
               child: AnchoredSearchableDropdownField<ActionTakenSeverityFilter>(
                 hint: 'Severity',
                 value: p.severityFilter,
-                items: severityItems,
+                items: const [
+                  AppSelectItem(
+                    value: ActionTakenSeverityFilter.all,
+                    label: 'All severities',
+                  ),
+                  AppSelectItem(
+                    value: ActionTakenSeverityFilter.critical,
+                    label: 'Critical',
+                  ),
+                  AppSelectItem(
+                    value: ActionTakenSeverityFilter.cautions,
+                    label: 'Cautions',
+                  ),
+                  AppSelectItem(
+                    value: ActionTakenSeverityFilter.normal,
+                    label: 'Normal',
+                  ),
+                ],
                 onChanged: (v) {
                   if (v != null) p.setSeverityFilter(v);
                 },

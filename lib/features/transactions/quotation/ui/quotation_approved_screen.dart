@@ -4,8 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/di/service_locator.dart';
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
+import '../../enquiry/data/enquiry_api.dart';
+import '../../enquiry/data/enquiry_model.dart';
+import '../data/quotation_api.dart';
 import '../data/quotation_model.dart';
 import '../state/quotation_provider.dart';
 
@@ -54,6 +58,29 @@ class _QuotationApprovedScreenState extends State<QuotationApprovedScreen> {
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  Future<void> _createQuotationFromEnquiryRow(
+    BuildContext context,
+    QuotationRecord row,
+  ) async {
+    try {
+      final q =
+          await sl<QuotationApi>().createDraftFromEnquiry(row.enquiryId);
+      if (!context.mounted) return;
+      context.push('/transactions/quotation/${q.id}/workspace');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not create quotation: $e',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.error500,
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context, QuotationRecord row) async {
     final ok = await AppConfirmDialog.show(
       context: context,
@@ -86,7 +113,8 @@ class _QuotationApprovedScreenState extends State<QuotationApprovedScreen> {
         bulkRowId: (r) => r.id,
         onBulkDelete: (ids) => p.bulkDelete(ids.cast<String>()),
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Quotation_Approved',
+        exportSourceRows: all,
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableScrollableMinWidth: 1100,
@@ -167,6 +195,16 @@ class _QuotationApprovedScreenState extends State<QuotationApprovedScreen> {
             icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
             onTap: (row) =>
                 context.push('/transactions/quotation/${row.id}/sales-review'),
+          ),
+          RowAction<QuotationRecord>(
+            key: 'quote',
+            label: 'Create quotation',
+            icon: Icon(LucideIcons.fileText, size: AppTokens.iconButtonIconMd),
+            isEnabled: (row) {
+              final e = sl<EnquiryApi>().getByIdSync(row.enquiryId);
+              return e != null && e.status != EnquiryStatus.converted;
+            },
+            onTap: (row) => _createQuotationFromEnquiryRow(context, row),
           ),
           RowAction<QuotationRecord>(
             key: 'history',

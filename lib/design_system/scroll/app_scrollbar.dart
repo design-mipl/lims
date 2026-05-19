@@ -7,6 +7,9 @@ abstract final class AppScrollMetrics {
   /// Wide enough for mouse click/drag on desktop and web.
   static const double thickness = AppTokens.space3;
 
+  /// Compact thumb for listing table horizontal scroll strips.
+  static const double listingHorizontalThickness = 6.0;
+
   static Radius get radius => Radius.circular(AppTokens.inputRadius);
 }
 
@@ -19,6 +22,7 @@ class AppScrollbar extends StatelessWidget {
     this.scrollDirection = Axis.vertical,
     this.thumbVisibility = true,
     this.trackVisibility = true,
+    this.thickness,
   });
 
   final ScrollController controller;
@@ -26,6 +30,7 @@ class AppScrollbar extends StatelessWidget {
   final Axis scrollDirection;
   final bool thumbVisibility;
   final bool trackVisibility;
+  final double? thickness;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +39,7 @@ class AppScrollbar extends StatelessWidget {
       thumbVisibility: thumbVisibility,
       trackVisibility: trackVisibility,
       interactive: true,
-      thickness: AppScrollMetrics.thickness,
+      thickness: thickness ?? AppScrollMetrics.thickness,
       radius: AppScrollMetrics.radius,
       notificationPredicate: scrollDirection == Axis.horizontal
           ? (ScrollNotification n) => n.metrics.axis == Axis.horizontal

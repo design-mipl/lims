@@ -398,6 +398,7 @@ class SupervisorCommentsApi {
         freshFluidValue: '120',
         typical: '< 200',
         highlightFlag: true,
+        retestFlag: true,
         previousValue: '280',
         trendDisplay: '',
         historicalComparisonValues: const [

@@ -24,6 +24,9 @@ class LabCodeProvider extends BaseProvider {
   int get currentPage => _currentPage;
   int get pageSize => _pageSize;
 
+  /// Bumped after print to reset listing checkbox selection.
+  int listingResetKey = 0;
+
   DateTime? get labIdFromDate => _labIdFromDate;
   DateTime? get labIdToDate => _labIdToDate;
 
@@ -166,6 +169,16 @@ class LabCodeProvider extends BaseProvider {
       if (selected != null && removed.contains(selected!.id)) {
         selected = null;
       }
+    });
+  }
+
+  Future<void> printLabelsForRows(List<LabCodeModel> rows) async {
+    if (rows.isEmpty) return;
+    final ids = rows.map((e) => e.id).toList(growable: false);
+    await runAsync(() async {
+      await _api.markLabelsPrinted(ids);
+      items = await _api.fetchAll();
+      listingResetKey++;
     });
   }
 }

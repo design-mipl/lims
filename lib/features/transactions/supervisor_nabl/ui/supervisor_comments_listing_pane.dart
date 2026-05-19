@@ -310,7 +310,8 @@ class _SupervisorCommentsListingPaneState
         subtitle:
             'Review and complete supervisor comments on sample rows post-verification.',
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Supervisor_Comments',
+        exportSourceRows: p.filteredItems,
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableRowHeight: _kListingRowHeight,

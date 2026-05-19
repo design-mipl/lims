@@ -19,6 +19,11 @@ const List<NavItem> kTransactionNavChildren = [
     icon: Icon(LucideIcons.fileText, size: AppTokens.iconButtonIconMd),
   ),
   NavItem(
+    path: '/transactions/order',
+    label: 'Order',
+    icon: Icon(LucideIcons.shoppingCart, size: AppTokens.iconButtonIconMd),
+  ),
+  NavItem(
     path: '/transactions/sample-intake',
     label: 'Sample Intake',
     icon: Icon(LucideIcons.clipboardList, size: AppTokens.iconButtonIconMd),

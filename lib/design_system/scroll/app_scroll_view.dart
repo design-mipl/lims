@@ -18,6 +18,7 @@ class AppScrollView extends StatefulWidget {
     this.padding,
     this.showScrollbar = true,
     this.enableShiftWheel = true,
+    this.scrollbarThickness,
   });
 
   final Axis scrollDirection;
@@ -28,6 +29,9 @@ class AppScrollView extends StatefulWidget {
   final EdgeInsetsGeometry? padding;
   final bool showScrollbar;
   final bool enableShiftWheel;
+
+  /// Overrides [AppScrollbar] thickness (e.g. [AppScrollMetrics.listingHorizontalThickness]).
+  final double? scrollbarThickness;
 
   @override
   State<AppScrollView> createState() => _AppScrollViewState();
@@ -75,6 +79,7 @@ class _AppScrollViewState extends State<AppScrollView> {
     return AppScrollbar(
       controller: _controller,
       scrollDirection: widget.scrollDirection,
+      thickness: widget.scrollbarThickness,
       child: scrollable,
     );
   }

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -8,8 +7,6 @@ import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
 import '../../nabl_no/data/nabl_no_model.dart';
 import '../../nabl_no/state/nabl_no_provider.dart';
-import '../../nabl_no/utils/nabl_listing_export.dart';
-
 /// NABL No. listing (embedded in [SupervisorNablWorkspaceScreen] or standalone).
 class NablNoListingPane extends StatefulWidget {
   const NablNoListingPane({super.key, this.showPageHeader = false});
@@ -90,22 +87,6 @@ class _NablNoListingPaneState extends State<NablNoListingPane> {
     if (!mounted) return;
     if (p.hasError) return;
     _snack('NABL records authorized successfully');
-  }
-
-  Future<void> _onExportToExcel(List<NablNoRow> selected) async {
-    if (selected.isEmpty) {
-      _snack('Select at least one NABL record to export.', error: true);
-      return;
-    }
-    await exportNablListingToExcel(selected);
-    if (!mounted) return;
-    if (kIsWeb) {
-      _snack('Exported ${selected.length} row(s) to Excel');
-    } else {
-      _snack(
-        'Copied ${selected.length} row(s) to clipboard — paste into Excel',
-      );
-    }
   }
 
   Future<void> _onBulkDelete(
@@ -220,7 +201,8 @@ class _NablNoListingPaneState extends State<NablNoListingPane> {
         subtitle:
             'Track NABL registrations and laboratory code linkage for reports.',
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'NABL_No',
+        exportSourceRows: p.filteredItems,
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableScrollableMinWidth: _kCol * columns.length + 480,
@@ -258,15 +240,6 @@ class _NablNoListingPaneState extends State<NablNoListingPane> {
               size: AppTokens.iconButtonIconSm,
             ),
             onTap: (rows) => _onAuthorize(p, rows),
-          ),
-          BulkAction<NablNoRow>(
-            key: 'export_excel',
-            label: 'Export To Excel',
-            icon: Icon(
-              LucideIcons.fileSpreadsheet,
-              size: AppTokens.iconButtonIconSm,
-            ),
-            onTap: _onExportToExcel,
           ),
           BulkAction<NablNoRow>(
             key: 'delete',

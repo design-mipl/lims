@@ -52,8 +52,9 @@ import '../../features/transactions/enquiry/state/enquiry_provider.dart';
 import '../../features/transactions/enquiry/ui/enquiry_detail_screen.dart';
 import '../../features/transactions/enquiry/ui/enquiry_form_page.dart';
 import '../../features/transactions/enquiry/ui/enquiry_screen.dart';
+import '../../features/transactions/order/state/order_provider.dart';
+import '../../features/transactions/order/ui/order_screen.dart';
 import '../../features/transactions/quotation/state/quotation_provider.dart';
-import '../../features/transactions/quotation/ui/quotation_approved_screen.dart';
 import '../../features/transactions/quotation/ui/quotation_history_screen.dart';
 import '../../features/transactions/quotation/ui/create_quotation_page.dart';
 import '../../features/transactions/quotation/ui/quotation_pending_screen.dart';
@@ -130,8 +131,16 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/transactions/enquiry/create',
-          builder: (context, _) => ChangeNotifierProvider(
-            create: (_) => sl<EnquiryProvider>(),
+          builder: (context, _) => MultiProvider(
+            providers: [
+              ChangeNotifierProvider(create: (_) => sl<EnquiryProvider>()),
+              ChangeNotifierProvider(
+                create: (_) => sl<CustomerProvider>()..fetchAll(),
+              ),
+              ChangeNotifierProvider(
+                create: (_) => sl<SiteProvider>()..fetchAll(),
+              ),
+            ],
             child: const EnquiryFormPage(),
           ),
         ),
@@ -139,8 +148,16 @@ final GoRouter appRouter = GoRouter(
           path: '/transactions/enquiry/:id/view',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return ChangeNotifierProvider(
-              create: (_) => sl<EnquiryProvider>(),
+            return MultiProvider(
+              providers: [
+                ChangeNotifierProvider(create: (_) => sl<EnquiryProvider>()),
+                ChangeNotifierProvider(
+                  create: (_) => sl<CustomerProvider>()..fetchAll(),
+                ),
+                ChangeNotifierProvider(
+                  create: (_) => sl<SiteProvider>()..fetchAll(),
+                ),
+              ],
               child: EnquiryDetailScreen(enquiryId: id),
             );
           },
@@ -149,8 +166,16 @@ final GoRouter appRouter = GoRouter(
           path: '/transactions/enquiry/:id/edit',
           builder: (context, state) {
             final id = state.pathParameters['id']!;
-            return ChangeNotifierProvider(
-              create: (_) => sl<EnquiryProvider>(),
+            return MultiProvider(
+              providers: [
+                ChangeNotifierProvider(create: (_) => sl<EnquiryProvider>()),
+                ChangeNotifierProvider(
+                  create: (_) => sl<CustomerProvider>()..fetchAll(),
+                ),
+                ChangeNotifierProvider(
+                  create: (_) => sl<SiteProvider>()..fetchAll(),
+                ),
+              ],
               child: EnquiryFormPage(enquiryId: id),
             );
           },
@@ -182,9 +207,13 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/transactions/quotation/approved',
+          redirect: (context, state) => '/transactions/quotation/pending',
+        ),
+        GoRoute(
+          path: '/transactions/order',
           builder: (context, _) => ChangeNotifierProvider(
-            create: (_) => sl<QuotationProvider>(),
-            child: const QuotationApprovedScreen(),
+            create: (_) => sl<OrderProvider>(),
+            child: const OrderScreen(),
           ),
         ),
         GoRoute(

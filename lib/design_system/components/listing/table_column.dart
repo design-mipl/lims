@@ -19,6 +19,7 @@ class TableColumn<T> {
     this.filterSelectValue,
     this.filterDateValue,
     this.sortValue,
+    this.exportValue,
     this.headerMaxLines = 1,
   });
 
@@ -71,6 +72,10 @@ class TableColumn<T> {
   /// - When `null`, the column is treated as not sortable (regardless of
   ///   [sortable]); the sort handler will skip it.
   final dynamic Function(T row)? sortValue;
+
+  /// Plain-text value for toolbar Excel export. Falls back to [filterTextValue],
+  /// [filterSelectValue], then [sortValue] when null.
+  final String Function(T row)? exportValue;
 
   /// Header label max lines (1 = single line + ellipsis; 2+ allows wrapping).
   final int headerMaxLines;

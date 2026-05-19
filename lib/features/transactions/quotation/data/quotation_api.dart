@@ -14,8 +14,10 @@ class QuotationApi {
 
   Future<List<QuotationRecord>> fetchAll() async {
     await Future<void>.delayed(const Duration(milliseconds: 100));
-    return List<QuotationRecord>.from(_items);
+    return fetchAllSync();
   }
+
+  List<QuotationRecord> fetchAllSync() => List<QuotationRecord>.from(_items);
 
   Future<QuotationRecord?> fetchById(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 60));
@@ -297,7 +299,10 @@ class QuotationApi {
         customerName: 'Coastal Chemicals',
         siteName: 'Chennai Dock',
         typeOfSample: 'Coolant',
-        status: QuotationStatus.approved,
+        status: QuotationStatus.inReview,
+        orderReference: 'ORD-00001',
+        versionNo: 2,
+        salesPerson: 'Anita Rao',
         createdAt: now.subtract(const Duration(days: 12)),
         updatedAt: now.subtract(const Duration(days: 9)),
         preparedBy: 'Anita Rao',
@@ -313,7 +318,7 @@ class QuotationApi {
         discountAmount: 150,
         gstPercent: 18,
         terms: 'Advance 50%',
-        notes: 'Approved by customer verbally.',
+        notes: 'Converted to order ORD-00001.',
         internalComments: '',
         attachmentNames: const [],
         activity: [

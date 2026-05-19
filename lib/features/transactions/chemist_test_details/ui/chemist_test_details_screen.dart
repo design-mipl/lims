@@ -122,174 +122,276 @@ class _ChemistTestDetailsScreenState extends State<ChemistTestDetailsScreen> {
     );
   }
 
+  Future<void> _onSubmit(ChemistTestDetailsProvider p) async {
+    await p.submitSelected();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Test details submitted',
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.bodySize,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+      ),
+    );
+  }
+
+  StatusChip _tagChip(String tag) =>
+      StatusChip(status: 'info', customLabel: tag);
+
+  StatusChip _historyStatusChip(String label) {
+    final key = switch (label.trim().toLowerCase()) {
+      'completed' => 'completed',
+      'retest requested' => 'pending',
+      _ => 'draft',
+    };
+    return StatusChip(status: key, customLabel: label);
+  }
+
+  List<TableColumn<ChemistTestSummaryRow>> _listingColumns(
+    ChemistTestDetailsProvider p,
+  ) {
+    final base = <TableColumn<ChemistTestSummaryRow>>[
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'labDate',
+        label: 'Lab Date',
+        width: 116,
+        sortValue: (r) => r.labDate.millisecondsSinceEpoch,
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => _formatDate(r.labDate),
+        cellBuilder: (r) => Text(
+          _formatDate(r.labDate),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+        ),
+      ),
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'labNo',
+        label: 'Lab No.',
+        width: 132,
+        sortable: false,
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => r.labNo,
+        cellBuilder: (r) => Text(
+          r.labNo,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.tableCellSize,
+            fontWeight: AppTokens.weightSemibold,
+            color: AppTokens.primary800,
+          ),
+        ),
+      ),
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'testCount',
+        label: 'No. of Test',
+        width: 88,
+        sortValue: (r) => r.testCount,
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => '${r.testCount}',
+        cellBuilder: (r) => Text(
+          '${r.testCount}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+        ),
+      ),
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'expDate',
+        label: 'Exp. Date',
+        width: 116,
+        sortValue: (r) =>
+            r.expectedDate?.millisecondsSinceEpoch ?? -9223372036854775808,
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => _formatDateNullable(r.expectedDate),
+        cellBuilder: (r) => Text(
+          _formatDateNullable(r.expectedDate),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+        ),
+      ),
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'sample',
+        label: 'Sample',
+        flex: 1,
+        sortValue: (r) => r.sample.toLowerCase(),
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => r.sample,
+        cellBuilder: (r) => Text(
+          r.sample,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+        ),
+      ),
+    ];
+
+    if (!p.isHistoryTab) return base;
+
+    return [
+      ...base,
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'tag',
+        label: 'Tag',
+        width: 100,
+        sortValue: (r) => (r.tag ?? '').toLowerCase(),
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => r.tag ?? '',
+        cellBuilder: (r) {
+          final tag = r.tag?.trim();
+          if (tag == null || tag.isEmpty) {
+            return Text(
+              '—',
+              style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+            );
+          }
+          return _tagChip(tag);
+        },
+      ),
+      TableColumn<ChemistTestSummaryRow>(
+        key: 'status',
+        label: 'Status',
+        width: 120,
+        sortValue: (r) => (r.statusLabel ?? '').toLowerCase(),
+        filter: const AppColumnFilter(type: AppColumnFilterType.text),
+        filterTextValue: (r) => r.statusLabel ?? '',
+        cellBuilder: (r) {
+          final label = r.statusLabel?.trim();
+          if (label == null || label.isEmpty) {
+            return Center(
+              child: Text(
+                '—',
+                style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
+              ),
+            );
+          }
+          return Center(child: _historyStatusChip(label));
+        },
+      ),
+    ];
+  }
+
+  List<Widget> _headerActions(ChemistTestDetailsProvider p) {
+    final actions = <Widget>[
+      AppButton(
+        label: 'Save',
+        variant: AppButtonVariant.secondary,
+        size: AppButtonSize.sm,
+        leadingIcon: Icon(
+          LucideIcons.save,
+          size: 14,
+          color: AppTokens.textPrimary,
+        ),
+        onPressed: () => _onSave(p),
+      ),
+      AppButton(
+        label: 'Export',
+        variant: AppButtonVariant.secondary,
+        size: AppButtonSize.sm,
+        leadingIcon: Icon(
+          LucideIcons.download,
+          size: 14,
+          color: AppTokens.textPrimary,
+        ),
+        onPressed: () => _onExport(p),
+      ),
+      AppButton(
+        label: 'Import',
+        variant: AppButtonVariant.secondary,
+        size: AppButtonSize.sm,
+        leadingIcon: Icon(
+          LucideIcons.upload,
+          size: 14,
+          color: AppTokens.textPrimary,
+        ),
+        onPressed: () => _onImport(p),
+      ),
+    ];
+    if (p.isPendingTab) {
+      actions.add(
+        AppButton(
+          label: 'Submit',
+          variant: AppButtonVariant.primary,
+          size: AppButtonSize.sm,
+          leadingIcon: Icon(
+            LucideIcons.send,
+            size: 14,
+            color: AppTokens.white,
+          ),
+          onPressed: p.canSubmitSelected ? () => _onSubmit(p) : null,
+        ),
+      );
+    }
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<ChemistTestDetailsProvider>();
     final selectedId = p.selectedSummaryId;
     final selected = p.selectedSummary;
 
+    final historyExtraWidth = p.isHistoryTab ? 100 + 120 : 0;
     final listing = AppListingScreen<ChemistTestSummaryRow>(
+      key: ValueKey('chemist-test-details-${p.tabIndex}'),
       title: 'Chemist Test Details',
       subtitle:
-          'Tap Lab No. to load parameter lines in the Test Details panel on the right.',
+          'Click a row to load parameter lines in the Test Details panel on the right.',
       showPageHeader: true,
       showKpis: false,
       showCheckboxes: false,
       showBulkBar: false,
-      showExport: false,
+      exportModuleName: 'Chemist_Test_Details',
+      exportSourceRows: p.filteredItems,
       showImport: false,
       showPrint: false,
       showColumnToggle: false,
-      tableScrollableMinWidth: 116 + 132 + 88 + 116 + 260 + AppTokens.space4,
+      tableScrollableMinWidth:
+          116 + 132 + 88 + 116 + 260 + historyExtraWidth + AppTokens.space4,
       showTableHorizontalScrollbar: true,
       tableBodyFillsViewport: true,
+      tabs: [
+        TabConfig(label: 'Pending', count: p.countForTab(0)),
+        TabConfig(label: 'Retest', count: p.countForTab(1)),
+        TabConfig(label: 'History', count: p.countForTab(2)),
+      ],
+      initialTabIndex: p.tabIndex,
+      onTabChanged: p.setTabByIndex,
       searchHint: 'Lab No., sample, dates…',
       onSearch: p.setSearchQuery,
-      extraActions: [
-        AppButton(
-          label: 'Refresh',
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.sm,
-          leadingIcon: Icon(
-            LucideIcons.refreshCw,
-            size: 14,
-            color: AppTokens.textPrimary,
-          ),
-          onPressed: p.isLoading ? null : () => p.load(),
-        ),
-        AppButton(
-          label: 'Save',
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.sm,
-          leadingIcon: Icon(
-            LucideIcons.save,
-            size: 14,
-            color: AppTokens.textPrimary,
-          ),
-          onPressed: () => _onSave(p),
-        ),
-        AppButton(
-          label: 'Export Details',
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.sm,
-          leadingIcon: Icon(
-            LucideIcons.download,
-            size: 14,
-            color: AppTokens.textPrimary,
-          ),
-          onPressed: () => _onExport(p),
-        ),
-        AppButton(
-          label: 'Import Details',
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.sm,
-          leadingIcon: Icon(
-            LucideIcons.upload,
-            size: 14,
-            color: AppTokens.textPrimary,
-          ),
-          onPressed: () => _onImport(p),
-        ),
-      ],
-      columns: [
-        TableColumn<ChemistTestSummaryRow>(
-          key: 'labDate',
-          label: 'Lab Date',
-          width: 116,
-          sortValue: (r) => r.labDate.millisecondsSinceEpoch,
-          filter: const AppColumnFilter(type: AppColumnFilterType.text),
-          filterTextValue: (r) => _formatDate(r.labDate),
-          cellBuilder: (r) => Text(
-            _formatDate(r.labDate),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
-          ),
-        ),
-        TableColumn<ChemistTestSummaryRow>(
-          key: 'labNo',
-          label: 'Lab No.',
-          width: 132,
-          sortable: false,
-          filter: const AppColumnFilter(type: AppColumnFilterType.text),
-          filterTextValue: (r) => r.labNo,
-          cellBuilder: (r) => InkWell(
-            onTap: () => p.toggleSummarySelection(r.id),
-            child: Text(
-              r.labNo,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(
-                fontSize: AppTokens.tableCellSize,
-                fontWeight: AppTokens.weightSemibold,
-                color: AppTokens.primary800,
-                decoration: TextDecoration.none,
-              ),
+      toolbarAfterSearch: [
+        Tooltip(
+          message: 'Refresh',
+          child: IconButton(
+            onPressed: p.isLoading ? null : () => p.load(),
+            icon: Icon(
+              LucideIcons.refreshCw,
+              size: AppTokens.iconButtonIconMd,
             ),
           ),
         ),
-        TableColumn<ChemistTestSummaryRow>(
-          key: 'testCount',
-          label: 'No. of Test',
-          width: 88,
-          sortValue: (r) => r.testCount,
-          filter: const AppColumnFilter(type: AppColumnFilterType.text),
-          filterTextValue: (r) => '${r.testCount}',
-          cellBuilder: (r) => Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${r.testCount}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
-            ),
-          ),
-        ),
-        TableColumn<ChemistTestSummaryRow>(
-          key: 'expDate',
-          label: 'Exp. Date',
-          width: 116,
-          sortValue: (r) =>
-              r.expectedDate?.millisecondsSinceEpoch ?? -9223372036854775808,
-          filter: const AppColumnFilter(type: AppColumnFilterType.text),
-          filterTextValue: (r) => _formatDateNullable(r.expectedDate),
-          cellBuilder: (r) => Text(
-            _formatDateNullable(r.expectedDate),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
-          ),
-        ),
-        TableColumn<ChemistTestSummaryRow>(
-          key: 'sample',
-          label: 'Sample',
-          flex: 1,
-          sortValue: (r) => r.sample.toLowerCase(),
-          filter: const AppColumnFilter(type: AppColumnFilterType.text),
-          filterTextValue: (r) => r.sample,
-          cellBuilder: (r) => Text(
-            r.sample,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
-          ),
-        ),
       ],
+      extraActions: _headerActions(p),
+      columns: _listingColumns(p),
       rows: p.pagedRows,
+      onRowTap: (row) => p.openSummaryView(row.id),
       mobileCardBuilder: (r) => Padding(
         padding: EdgeInsets.all(AppTokens.space3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              onTap: () => p.toggleSummarySelection(r.id),
-              child: Text(
-                r.labNo,
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.textSm,
-                  fontWeight: AppTokens.weightSemibold,
-                  color: AppTokens.primary800,
-                ),
+            Text(
+              r.labNo,
+              style: GoogleFonts.poppins(
+                fontSize: AppTokens.textSm,
+                fontWeight: AppTokens.weightSemibold,
+                color: AppTokens.primary800,
               ),
             ),
             SizedBox(height: AppTokens.space1),
@@ -297,11 +399,23 @@ class _ChemistTestDetailsScreenState extends State<ChemistTestDetailsScreen> {
               r.sample,
               style: GoogleFonts.poppins(fontSize: AppTokens.tableCellSize),
             ),
+            if (p.isHistoryTab && r.tag != null) ...[
+              SizedBox(height: AppTokens.space2),
+              _tagChip(r.tag!),
+            ],
+            if (p.isHistoryTab && r.statusLabel != null) ...[
+              SizedBox(height: AppTokens.space1),
+              _historyStatusChip(r.statusLabel!),
+            ],
           ],
         ),
       ),
       isLoading: p.isLoading,
-      emptyMessage: 'No labs in queue',
+      emptyMessage: p.isHistoryTab
+          ? 'No history records'
+          : p.isRetestTab
+              ? 'No retest items'
+              : 'No labs in queue',
       totalCount: p.totalFilteredCount,
       currentPage: p.currentPage,
       pageSize: p.pageSize,
@@ -330,9 +444,8 @@ class _ChemistTestDetailsScreenState extends State<ChemistTestDetailsScreen> {
       lines: selected != null ? p.selectedDetailLines : const [],
       readOnly: !p.detailPanelEditable,
       onValueChanged: p.updateDetailValue,
-      onClearSelection: selected != null
-          ? () => p.toggleSummarySelection(selected.id)
-          : null,
+      onClearSelection:
+          selected != null ? () => p.clearSummarySelection() : null,
       onBeginEdit: selected != null
           ? () => p.openSummaryEdit(selected.id)
           : null,
@@ -422,7 +535,7 @@ class _ChemistTestDetailsRightPane extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Text(
-                    'Select a Lab No. from the listing to load parameters.',
+                    'Select a row from the listing to load parameters.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.poppins(
                       fontSize: AppTokens.tableCellSize,
@@ -495,7 +608,7 @@ class _ChemistTestDetailWorkspaceState
     1: FlexColumnWidth(1.0),
     2: FlexColumnWidth(1.0),
     3: FlexColumnWidth(1.0),
-    4: FixedColumnWidth(34),
+    4: FixedColumnWidth(48),
   };
 
   /// Uniform cell padding for aligned grid lines.
@@ -763,14 +876,14 @@ class _ChemistTestDetailWorkspaceState
             tooltip:
                 'Generate PDF for this test (${widget.summary.labNo} • row ${lineIndex + 1}) — placeholder',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
             style: IconButton.styleFrom(
               foregroundColor: AppTokens.primary800,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
             ),
             onPressed: () {},
-            icon: Icon(LucideIcons.fileText, size: 15),
+            icon: Icon(LucideIcons.fileText, size: AppTokens.iconButtonIconSm),
           ),
         ),
       ),

@@ -208,4 +208,23 @@ class LabCodeApi {
     next[idx] = row;
     _items = next;
   }
+
+  /// Marks lab-id rows as printed (removes from Lab ID tab queue).
+  Future<void> markLabelsPrinted(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final set = ids.toSet();
+    final now = DateTime.now();
+    _items = _items
+        .map(
+          (e) => set.contains(e.id) && e.status == LabCodeStatus.completed
+              ? e.copyWith(
+                  status: LabCodeStatus.printed,
+                  updatedAt: now,
+                  updatedBy: 'label-print',
+                )
+              : e,
+        )
+        .toList();
+  }
 }

@@ -9,7 +9,7 @@ import '../../../../design_system/tokens.dart';
 import '../data/quotation_model.dart';
 import '../state/quotation_provider.dart';
 
-/// Pending preparation + in-review + approved tabs (main quotation hub).
+/// Pending and in-review quotation listings (main quotation hub).
 class QuotationPendingScreen extends StatefulWidget {
   const QuotationPendingScreen({super.key});
 
@@ -94,7 +94,7 @@ class _QuotationPendingScreenState extends State<QuotationPendingScreen> {
       child: AppListingScreen<QuotationRecord>(
         title: 'Quotation',
         subtitle:
-            'Prepare pricing, send for sales review, and approve proposals.',
+            'Prepare pricing from submitted enquiries and track sales review.',
         extraActions: [
           AppButton(
             label: 'Create quotation',
@@ -107,22 +107,12 @@ class _QuotationPendingScreenState extends State<QuotationPendingScreen> {
         bulkRowId: (r) => r.id,
         onBulkDelete: (ids) => p.bulkDelete(ids.cast<String>()),
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Quotation',
+        exportSourceRows: p.filteredItems,
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableScrollableMinWidth: 1180,
         toolbarAfterSearch: [
-          Tooltip(
-            message: 'Approved register',
-            child: IconButton(
-              onPressed: () =>
-                  context.push('/transactions/quotation/approved'),
-              icon: Icon(
-                LucideIcons.clipboardCheck,
-                size: AppTokens.iconButtonIconMd,
-              ),
-            ),
-          ),
           Tooltip(
             message: 'Refresh',
             child: IconButton(
@@ -135,9 +125,8 @@ class _QuotationPendingScreenState extends State<QuotationPendingScreen> {
           ),
         ],
         tabs: [
-          TabConfig(label: 'Pending prep', count: p.countForTab(0)),
+          TabConfig(label: 'Pending', count: p.countForTab(0)),
           TabConfig(label: 'In review', count: p.countForTab(1)),
-          TabConfig(label: 'Approved', count: p.countForTab(2)),
         ],
         initialTabIndex: p.tabIndex,
         onTabChanged: p.setTabByIndex,
@@ -286,7 +275,6 @@ class _QuotationPendingScreenState extends State<QuotationPendingScreen> {
             onTap: (row) {
               final st = row.status;
               if (st == QuotationStatus.inReview ||
-                  st == QuotationStatus.approved ||
                   st == QuotationStatus.changesRequested) {
                 context.push('/transactions/quotation/${row.id}/sales-review');
               } else {
@@ -310,7 +298,6 @@ class _QuotationPendingScreenState extends State<QuotationPendingScreen> {
             icon: Icon(LucideIcons.fileSearch, size: AppTokens.iconButtonIconMd),
             isEnabled: (r) =>
                 r.status == QuotationStatus.inReview ||
-                r.status == QuotationStatus.approved ||
                 r.status == QuotationStatus.changesRequested,
             onTap: (row) => context.push(
               '/transactions/quotation/${row.id}/sales-review',

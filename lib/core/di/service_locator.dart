@@ -39,6 +39,8 @@ import '../../features/transactions/nabl_no/data/nabl_no_api.dart';
 import '../../features/transactions/nabl_no/state/nabl_no_provider.dart';
 import '../../features/transactions/supervisor_comments/data/supervisor_comments_api.dart';
 import '../../features/transactions/supervisor_comments/state/supervisor_comments_provider.dart';
+import '../../features/transactions/order/data/order_api.dart';
+import '../../features/transactions/order/state/order_provider.dart';
 import '../../features/transactions/quotation/data/quotation_api.dart';
 import '../../features/transactions/quotation/state/quotation_provider.dart';
 import '../../features/transactions/sample_intake/data/sample_intake_api.dart';
@@ -83,6 +85,8 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<EnquiryApi>(() => EnquiryApi());
   sl.registerLazySingleton<QuotationApi>(
       () => QuotationApi(enquiryApi: sl<EnquiryApi>()));
+  sl.registerLazySingleton<OrderApi>(
+      () => OrderApi(quotationApi: sl<QuotationApi>()));
   sl.registerLazySingleton<LabManagerCertificationApi>(
       () => LabManagerCertificationApi());
   sl.registerLazySingleton<SampleIntakeApi>(() => SampleIntakeApi());
@@ -111,6 +115,7 @@ Future<void> setupServiceLocator() async {
       () => LabManagerVerificationProvider());
   sl.registerFactory<EnquiryProvider>(() => EnquiryProvider());
   sl.registerFactory<QuotationProvider>(() => QuotationProvider());
+  sl.registerFactory<OrderProvider>(() => OrderProvider());
   sl.registerFactory<LabManagerCertificationProvider>(
       () => LabManagerCertificationProvider());
   sl.registerFactory<SampleIntakeProvider>(() => SampleIntakeProvider());

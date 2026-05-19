@@ -16,12 +16,14 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
   List<ChemistTestSummaryRow> _summaries = [];
   final Map<String, List<ChemistTestDetailLine>> _details = {};
   String _searchQuery = '';
+  int _tabIndex = 0;
   String? _selectedSummaryId;
   bool _detailPanelEditable = false;
   bool _loading = false;
   String? _error;
 
   String get searchQuery => _searchQuery;
+  int get tabIndex => _tabIndex;
 
   static const int defaultPageSize = 25;
   int _currentPage = 1;
@@ -53,6 +55,8 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
   int get pageSize => _pageSize;
   int get totalFilteredCount => _filteredSummaries().length;
 
+  List<ChemistTestSummaryRow> get filteredItems => _filteredSummaries();
+
   List<ChemistTestSummaryRow> get pagedRows {
     final all = _filteredSummaries();
     if (all.isEmpty) return const [];
@@ -62,16 +66,47 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
     return all.sublist(start, end);
   }
 
+  String _statusForTab(int tab) => switch (tab) {
+        0 => ChemistTestWorkflowStatus.pending,
+        1 => ChemistTestWorkflowStatus.retest,
+        _ => ChemistTestWorkflowStatus.history,
+      };
+
+  bool get isPendingTab => _tabIndex == 0;
+  bool get isRetestTab => _tabIndex == 1;
+  bool get isHistoryTab => _tabIndex == 2;
+
+  int countForTab(int tab) =>
+      _summaries.where((s) => s.workflowStatus == _statusForTab(tab)).length;
+
   List<ChemistTestSummaryRow> _filteredSummaries() {
+    final status = _statusForTab(_tabIndex);
+    Iterable<ChemistTestSummaryRow> rows =
+        _summaries.where((s) => s.workflowStatus == status);
     final q = _searchQuery.trim().toLowerCase();
-    if (q.isEmpty) return List<ChemistTestSummaryRow>.from(_summaries);
-    return _summaries.where((s) {
+    if (q.isEmpty) return rows.toList();
+    return rows.where((s) {
       return s.labNo.toLowerCase().contains(q) ||
           s.sample.toLowerCase().contains(q) ||
           _formatDate(s.labDate).contains(q) ||
           (s.expectedDate != null &&
-              _formatDate(s.expectedDate!).contains(q));
+              _formatDate(s.expectedDate!).contains(q)) ||
+          (s.tag?.toLowerCase().contains(q) ?? false) ||
+          (s.statusLabel?.toLowerCase().contains(q) ?? false);
     }).toList();
+  }
+
+  /// True when the selected pending row has Value 1 entered on every test line.
+  bool get canSubmitSelected {
+    if (!isPendingTab || _selectedSummaryId == null) return false;
+    final summary = selectedSummary;
+    if (summary == null ||
+        summary.workflowStatus != ChemistTestWorkflowStatus.pending) {
+      return false;
+    }
+    final lines = selectedDetailLines;
+    if (lines.isEmpty) return false;
+    return lines.every((l) => l.value1.trim().isNotEmpty);
   }
 
   static String _formatDate(DateTime d) =>
@@ -156,6 +191,19 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setTabByIndex(int index) {
+    _tabIndex = index.clamp(0, 2);
+    final status = _statusForTab(_tabIndex);
+    final sel = selectedSummary;
+    if (sel != null && sel.workflowStatus != status) {
+      _selectedSummaryId = null;
+      _detailPanelEditable = false;
+    }
+    _currentPage = 1;
+    _clampPage();
+    notifyListeners();
+  }
+
   void setPage(int page) {
     _currentPage = page < 1 ? 1 : page;
     _clampPage();
@@ -169,15 +217,26 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Toggle workspace: same Lab No. again collapses. Row tap opens **view** mode.
-  void toggleSummarySelection(String id) {
-    if (_selectedSummaryId == id) {
-      _selectedSummaryId = null;
-      _detailPanelEditable = false;
-    } else {
-      _selectedSummaryId = id;
-      _detailPanelEditable = false;
-    }
+  Future<void> submitSelected() async {
+    if (!canSubmitSelected) return;
+    final id = _selectedSummaryId;
+    if (id == null) return;
+    final i = _summaries.indexWhere((s) => s.id == id);
+    if (i < 0) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (_disposed) return;
+
+    _summaries[i] = _summaries[i].copyWith(
+      workflowStatus: ChemistTestWorkflowStatus.history,
+      tag: 'Submitted',
+      statusLabel: 'Completed',
+    );
+    _selectedSummaryId = null;
+    _detailPanelEditable = false;
+    _tabIndex = 2;
+    _currentPage = 1;
+    _clampPage();
     notifyListeners();
   }
 
@@ -217,8 +276,15 @@ class ChemistTestDetailsProvider extends ChangeNotifier {
       default:
         return;
     }
-    // Values persist on [_ChemistTestDetailWorkspace] controllers; avoid notifying
-    // every keystroke (caret jump / needless rebuilds).
+    if (isPendingTab && _selectedSummaryId == sid) {
+      notifyListeners();
+    }
+  }
+
+  void clearSummarySelection() {
+    _selectedSummaryId = null;
+    _detailPanelEditable = false;
+    notifyListeners();
   }
 
   Future<void> saveDraft() async {

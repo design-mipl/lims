@@ -56,6 +56,7 @@ class ChemistTestDetailsApi {
         testCount: 4,
         expectedDate: now.add(const Duration(days: 3)),
         sample: 'Used Oil — Engine #HD785',
+        workflowStatus: ChemistTestWorkflowStatus.pending,
       ),
       ChemistTestSummaryRow(
         id: 'ctd_2',
@@ -64,6 +65,7 @@ class ChemistTestDetailsApi {
         testCount: 4,
         expectedDate: now.add(const Duration(days: 2)),
         sample: 'Hydraulic — Swing Motor',
+        workflowStatus: ChemistTestWorkflowStatus.pending,
       ),
       ChemistTestSummaryRow(
         id: 'ctd_3',
@@ -72,6 +74,9 @@ class ChemistTestDetailsApi {
         testCount: 4,
         expectedDate: now.add(const Duration(days: 5)),
         sample: 'Coolant — Radiator Flush',
+        workflowStatus: ChemistTestWorkflowStatus.retest,
+        tag: 'Retest',
+        statusLabel: 'Retest requested',
       ),
       ChemistTestSummaryRow(
         id: 'ctd_4',
@@ -80,6 +85,9 @@ class ChemistTestDetailsApi {
         testCount: 4,
         expectedDate: null,
         sample: 'Grease — Final Drive EP2',
+        workflowStatus: ChemistTestWorkflowStatus.history,
+        tag: 'Routine',
+        statusLabel: 'Completed',
       ),
       ChemistTestSummaryRow(
         id: 'ctd_5',
@@ -88,6 +96,7 @@ class ChemistTestDetailsApi {
         testCount: 4,
         expectedDate: now.add(const Duration(days: 1)),
         sample: 'Used Oil — Transmission PC200',
+        workflowStatus: ChemistTestWorkflowStatus.pending,
       ),
     ];
   }

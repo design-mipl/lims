@@ -69,6 +69,8 @@ class QuotationRecord {
     this.approvedDiscountAmount,
     this.discussionNotes = '',
     this.orderReference,
+    this.versionNo = 1,
+    this.salesPerson = '',
   });
 
   final String id;
@@ -95,6 +97,8 @@ class QuotationRecord {
   final double? approvedDiscountAmount;
   final String discussionNotes;
   final String? orderReference;
+  final int versionNo;
+  final String salesPerson;
 
   double get subtotal =>
       lines.fold<double>(0, (sum, line) => sum + line.amount);
@@ -128,6 +132,8 @@ class QuotationRecord {
     Object? approvedDiscountAmount = _sentinel,
     String? discussionNotes,
     Object? orderReference = _sentinel,
+    int? versionNo,
+    String? salesPerson,
   }) {
     return QuotationRecord(
       id: id ?? this.id,
@@ -156,6 +162,8 @@ class QuotationRecord {
       orderReference: orderReference == _sentinel
           ? this.orderReference
           : orderReference as String?,
+      versionNo: versionNo ?? this.versionNo,
+      salesPerson: salesPerson ?? this.salesPerson,
     );
   }
 }

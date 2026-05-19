@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/di/service_locator.dart';
@@ -8,10 +9,14 @@ import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
 import '../../quotation/data/quotation_api.dart';
 import '../../quotation/ui/widgets/quotation_activity_timeline.dart';
+import '../../shared/form_read_only_dropdown_field.dart';
 import '../../shared/form_read_only_field.dart';
 import '../data/enquiry_model.dart';
 import '../state/enquiry_provider.dart';
+import 'enquiry_form_page.dart';
+import 'widgets/enquiry_requested_tests_table.dart';
 
+/// Enquiry view with inline edit — layout aligned with Sample Intake view.
 class EnquiryDetailScreen extends StatefulWidget {
   const EnquiryDetailScreen({super.key, required this.enquiryId});
 
@@ -23,6 +28,7 @@ class EnquiryDetailScreen extends StatefulWidget {
 
 class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
   EnquiryProvider? _provider;
+  bool _editingFromView = false;
 
   @override
   void initState() {
@@ -57,6 +63,11 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  String _dashIfEmpty(String? s) {
+    final t = s?.trim() ?? '';
+    return t.isEmpty ? '—' : t;
+  }
+
   Future<void> _createQuote(BuildContext context, EnquiryRecord e) async {
     try {
       final q = await sl<QuotationApi>().createDraftFromEnquiry(e.id);
@@ -71,6 +82,14 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _exitInlineEdit({required bool reload}) async {
+    if (reload) {
+      await context.read<EnquiryProvider>().loadDetail(widget.enquiryId);
+    }
+    if (!mounted) return;
+    setState(() => _editingFromView = false);
   }
 
   Widget _status(EnquiryRecord r) {
@@ -89,71 +108,298 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
     return StatusChip(status: key, customLabel: label);
   }
 
+  Widget _attachmentChips(EnquiryRecord e) {
+    if (e.attachmentNames.isEmpty) {
+      return Text(
+        '—',
+        style: GoogleFonts.poppins(
+          fontSize: AppTokens.bodySize,
+          color: AppTokens.textMuted,
+        ),
+      );
+    }
+    return Wrap(
+      spacing: AppTokens.space2,
+      runSpacing: AppTokens.space2,
+      children: e.attachmentNames.map((name) {
+        return Material(
+          color: AppTokens.primary50,
+          borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Open attachment: $name')),
+              );
+            },
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppTokens.space3,
+                vertical: AppTokens.space1,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.paperclip,
+                    size: AppTokens.iconButtonIconSm,
+                    color: AppTokens.primary700,
+                  ),
+                  SizedBox(width: AppTokens.space1),
+                  Text(
+                    name,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.captionSize,
+                      color: AppTokens.primary700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildReadOnlyOverview(EnquiryRecord e) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(AppTokens.space4),
+      child: AppFormPageLayout(
+        left: AppFormPageLayout.sectionsColumn([
+          AppFormSection(
+            title: 'Enquiry Details',
+            children: [
+              FormReadOnlyField(
+                label: 'Enquiry No.',
+                value: e.enquiryNo,
+              ),
+              FormReadOnlyField(
+                label: 'Enquiry Date',
+                value: _formatDate(e.enquiryDate),
+              ),
+              FormReadOnlyField(
+                label: 'Enquiry Source',
+                value: e.enquirySource,
+              ),
+              FormReadOnlyField(
+                label: 'Created By',
+                value: e.createdBy,
+              ),
+            ],
+          ),
+          AppFormSection(
+            title: 'Sample Requirement Information',
+            children: [
+              FormReadOnlyField(
+                label: 'Type of Sample',
+                value: e.typeOfSample,
+              ),
+              FormReadOnlyField(
+                label: 'Sample Count',
+                value: '${e.sampleCount}',
+              ),
+              FormReadOnlyField(
+                label: 'Expected Timeline',
+                value: e.expectedTimeline.isEmpty ? null : e.expectedTimeline,
+              ),
+              FormReadOnlyField(
+                label: 'Priority',
+                value: e.samplePriority,
+              ),
+              AppFormFullWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Requested Tests',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.fieldLabelSize,
+                        fontWeight: AppTokens.fieldLabelWeight,
+                        color: AppTokens.labelColor,
+                      ),
+                    ),
+                    SizedBox(height: AppTokens.space2),
+                    EnquiryRequestedTestsTable(tests: e.requestedTests),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          AppFormSection(
+            title: 'Notes & Attachments',
+            children: [
+              AppFormFullWidth(
+                child: FormReadOnlyField(
+                  label: 'Internal Notes',
+                  value: e.internalNotes,
+                ),
+              ),
+              AppFormFullWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Attachments',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.fieldLabelSize,
+                        fontWeight: AppTokens.fieldLabelWeight,
+                        color: AppTokens.labelColor,
+                      ),
+                    ),
+                    SizedBox(height: AppTokens.space2),
+                    _attachmentChips(e),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ]),
+        right: AppFormPageLayout.sectionsColumn([
+          AppFormSection(
+            title: 'Customer Details',
+            children: [
+              FormReadOnlyDropdownField(
+                label: 'Customer Name',
+                value: e.customerName,
+              ),
+              FormReadOnlyField(
+                label: 'Customer Company',
+                value: e.customerCompany,
+              ),
+              FormReadOnlyField(
+                label: 'Contact Person',
+                value: e.contactPerson,
+              ),
+              FormReadOnlyField(
+                label: 'Contact Email',
+                value: e.contactEmail,
+              ),
+              FormReadOnlyField(
+                label: 'Contact Phone',
+                value: e.contactPhone,
+              ),
+            ],
+          ),
+          AppFormSection(
+            title: 'Site Details',
+            children: [
+              FormReadOnlyDropdownField(
+                label: 'Site Name',
+                value: e.siteName,
+              ),
+              FormReadOnlyField(
+                label: 'Site Company',
+                value: e.siteCompany,
+              ),
+              FormReadOnlyField(
+                label: 'Site Contact',
+                value: e.siteContactPerson,
+              ),
+            ],
+          ),
+          AppFormSection(
+            title: 'Activity Timeline',
+            child: QuotationActivityTimeline(entries: e.activity),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<EnquiryProvider>();
     final e = p.detail;
 
     if (p.isLoading && e == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Material(
+        type: MaterialType.transparency,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (e == null) {
-      return Center(
-        child: Text(
-          'Enquiry not found',
-          style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+      return Material(
+        type: MaterialType.transparency,
+        child: Center(
+          child: Text(
+            'Enquiry not found',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
         ),
       );
     }
 
-    return DetailTemplate(
-      parentLabel: 'Enquiry',
-      parentRoute: '/transactions/enquiry',
-      currentLabel: e.enquiryNo,
-      headerCard: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      e.enquiryNo,
-                      style: GoogleFonts.poppins(
-                        fontSize: AppTokens.textXl,
-                        fontWeight: AppTokens.weightSemibold,
+    final overviewBody = _editingFromView
+        ? EnquiryFormPage(
+            enquiryId: widget.enquiryId,
+            inlineEdit: true,
+            onInlineCancel: () => _exitInlineEdit(reload: true),
+            onInlineSaved: () => _exitInlineEdit(reload: true),
+          )
+        : _buildReadOnlyOverview(e);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: DetailTemplate(
+        parentLabel: 'Enquiry',
+        parentRoute: '/transactions/enquiry',
+        currentLabel: e.enquiryNo,
+        headerCard: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppAvatar(
+              name: 'EN',
+              size: AppAvatarSize.lg,
+            ),
+            SizedBox(width: AppTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    e.enquiryNo,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.textXl,
+                      fontWeight: AppTokens.weightBold,
+                      color: AppTokens.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: AppTokens.space1),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _status(e),
+                    ],
+                  ),
+                  SizedBox(height: AppTokens.space2),
+                  Wrap(
+                    spacing: AppTokens.space4,
+                    runSpacing: AppTokens.space1,
+                    children: [
+                      _EnquiryViewInfoItem(
+                        icon: LucideIcons.calendar,
+                        label: _formatDate(e.enquiryDate),
                       ),
-                    ),
-                    SizedBox(height: AppTokens.space2),
-                    Wrap(
-                      spacing: AppTokens.space3,
-                      runSpacing: AppTokens.space2,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _status(e),
-                        Text(
-                          _formatDate(e.enquiryDate),
-                          style: GoogleFonts.poppins(
-                            fontSize: AppTokens.bodySize,
-                            color: AppTokens.textMuted,
-                          ),
+                      _EnquiryViewInfoItem(
+                        icon: LucideIcons.user,
+                        label: _dashIfEmpty(e.customerName),
+                      ),
+                      _EnquiryViewInfoItem(
+                        icon: LucideIcons.mapPin,
+                        label: _dashIfEmpty(e.siteName),
+                      ),
+                      if (e.quotationId != null)
+                        _EnquiryViewInfoItem(
+                          icon: LucideIcons.fileText,
+                          label: 'Quote: ${e.quotationId}',
                         ),
-                        if (e.quotationId != null)
-                          Text(
-                            'Linked quote: ${e.quotationId}',
-                            style: GoogleFonts.poppins(
-                              fontSize: AppTokens.captionSize,
-                              color: AppTokens.primary700,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
+            ),
+            if (!_editingFromView)
               Wrap(
                 spacing: AppTokens.space2,
                 children: [
@@ -161,9 +407,7 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
                     label: 'Edit',
                     variant: AppButtonVariant.secondary,
                     size: AppButtonSize.md,
-                    onPressed: () => context.push(
-                      '/transactions/enquiry/${e.id}/edit',
-                    ),
+                    onPressed: () => setState(() => _editingFromView = true),
                   ),
                   AppButton(
                     label: 'Create quotation',
@@ -182,289 +426,42 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
                     ),
                   ),
                 ],
+              )
+            else
+              AppButton(
+                label: 'Back to view',
+                variant: AppButtonVariant.tertiary,
+                size: AppButtonSize.md,
+                onPressed: () => _exitInlineEdit(reload: true),
               ),
-            ],
-          ),
-        ],
+          ],
+        ),
+        tabController: null,
+        tabLabels: const ['Overview'],
+        tabViews: [overviewBody],
       ),
-      tabLabels: const ['Overview'],
-      tabViews: [
-        SingleChildScrollView(
-          padding: EdgeInsets.all(AppTokens.space4),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1100),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Enquiry summary',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  Wrap(
-                    spacing: AppTokens.space4,
-                    runSpacing: AppTokens.space4,
-                    children: [
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Enquiry source',
-                          value: e.enquirySource,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Created by',
-                          value: e.createdBy,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: AppTokens.space5),
-                  Text(
-                    'Customer & site',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  Wrap(
-                    spacing: AppTokens.space4,
-                    runSpacing: AppTokens.space4,
-                    children: [
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Customer',
-                          value: e.customerName,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Company',
-                          value: e.customerCompany,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Site',
-                          value: e.siteName,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Site contact',
-                          value: e.siteContactPerson,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Site company',
-                          value: e.siteCompany,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Contact person',
-                          value: e.contactPerson,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Email',
-                          value: e.contactEmail,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Phone',
-                          value: e.contactPhone,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Equipment make / model',
-                          value: e.equipmentMakeModel,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: AppTokens.space5),
-                  Text(
-                    'Sample requirements',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  Wrap(
-                    spacing: AppTokens.space4,
-                    runSpacing: AppTokens.space4,
-                    children: [
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Type of sample',
-                          value: e.typeOfSample,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Sample count',
-                          value: '${e.sampleCount}',
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Operating conditions',
-                          value: e.operatingConditions,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Expected timeline',
-                          value: e.expectedTimeline.isEmpty
-                              ? null
-                              : e.expectedTimeline,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: FormReadOnlyField(
-                          label: 'Priority',
-                          value: e.samplePriority,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: AppTokens.space5),
-                  Text(
-                    'Requested tests',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  // Horizontal [SingleChildScrollView] inside a vertically unbounded
-                  // [Column] needs a bounded height on the cross-axis or layout blows up.
-                  SizedBox(
-                    height: ((e.requestedTests.length + 1) *
-                                kMinInteractiveDimension +
-                            24)
-                        .clamp(120.0, 520.0)
-                        .toDouble(),
-                    child: AppScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: AppScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: DataTable(
-                            columns: const [
-                              DataColumn(label: Text('Sel')),
-                              DataColumn(label: Text('Code')),
-                              DataColumn(label: Text('Test')),
-                              DataColumn(label: Text('Priority')),
-                              DataColumn(label: Text('Remarks')),
-                            ],
-                            rows: e.requestedTests
-                                .map(
-                                  (t) => DataRow(
-                                    cells: [
-                                      DataCell(
-                                        Text(t.selected ? 'Yes' : '—'),
-                                      ),
-                                      DataCell(Text(t.testCode)),
-                                      DataCell(Text(t.testName)),
-                                      DataCell(Text(t.priority)),
-                                      DataCell(Text(t.remarks)),
-                                    ],
-                                  ),
-                                )
-                                .toList(),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space5),
-                  Text(
-                    'Notes & attachments',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  SizedBox(
-                    width: 520,
-                    child: FormReadOnlyField(
-                      label: 'Internal notes',
-                      value: e.internalNotes,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  Text(
-                    'Attachments',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.captionSize,
-                      fontWeight: AppTokens.weightMedium,
-                      color: AppTokens.textMuted,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space2),
-                  if (e.attachmentNames.isEmpty)
-                    Text(
-                      '—',
-                      style: GoogleFonts.poppins(color: AppTokens.textMuted),
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: e.attachmentNames
-                          .map(
-                            (n) => Padding(
-                              padding: EdgeInsets.only(bottom: AppTokens.space1),
-                              child: Text(
-                                n,
-                                style: GoogleFonts.poppins(
-                                  color: AppTokens.primary700,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  SizedBox(height: AppTokens.space5),
-                  Text(
-                    'Activity timeline',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTokens.textBase,
-                      fontWeight: AppTokens.weightSemibold,
-                    ),
-                  ),
-                  SizedBox(height: AppTokens.space3),
-                  QuotationActivityTimeline(entries: e.activity),
-                ],
-              ),
-            ),
+    );
+  }
+}
+
+class _EnquiryViewInfoItem extends StatelessWidget {
+  const _EnquiryViewInfoItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: AppTokens.iconButtonIconSm, color: AppTokens.textMuted),
+        SizedBox(width: AppTokens.space1),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.captionSize,
+            color: AppTokens.textMuted,
           ),
         ),
       ],

@@ -74,7 +74,8 @@ class _LabManagerCertificationScreenState
         showCheckboxes: true,
         bulkRowId: (r) => r.id,
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Lab_Manager_Certification',
+        exportSourceRows: p.filteredItems,
         showTableHorizontalScrollbar: true,
         tableScrollableMinWidth: labManagerListingDataColumnsWidth + 480,
         searchHint:

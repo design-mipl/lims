@@ -7,18 +7,34 @@ import 'package:provider/provider.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
+import '../../../masters/customer_master/data/customer_model.dart';
+import '../../../masters/customer_master/state/customer_provider.dart';
+import '../../../masters/site_master/data/site_model.dart';
+import '../../../masters/site_master/state/site_provider.dart';
 import '../../sample_intake/data/sample_master_options.dart';
 import '../../sample_intake/ui/widgets/sample_attachment_cell.dart';
 import '../../shared/activity_timeline_models.dart';
 import '../data/enquiry_api.dart';
 import '../data/enquiry_model.dart';
 import '../state/enquiry_provider.dart';
+import 'widgets/enquiry_sample_test_cards.dart';
 
 /// Create or edit enquiry — [DetailTemplate] + section layout aligned with Sample Intake create receipt.
 class EnquiryFormPage extends StatefulWidget {
-  const EnquiryFormPage({super.key, this.enquiryId});
+  const EnquiryFormPage({
+    super.key,
+    this.enquiryId,
+    this.inlineEdit = false,
+    this.onInlineCancel,
+    this.onInlineSaved,
+  });
 
   final String? enquiryId;
+
+  /// When true, renders only the form body (used by [EnquiryDetailScreen] inline edit).
+  final bool inlineEdit;
+  final VoidCallback? onInlineCancel;
+  final VoidCallback? onInlineSaved;
 
   @override
   State<EnquiryFormPage> createState() => _EnquiryFormPageState();
@@ -26,8 +42,6 @@ class EnquiryFormPage extends StatefulWidget {
 
 class _EnquiryFormPageState extends State<EnquiryFormPage> {
   final _dateCtrl = TextEditingController();
-  final _customerCtrl = TextEditingController();
-  final _siteCtrl = TextEditingController();
   final _companyCtrl = TextEditingController();
   final _siteContactCtrl = TextEditingController();
   final _siteCompanyCtrl = TextEditingController();
@@ -35,10 +49,10 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _sampleCountCtrl = TextEditingController(text: '1');
-  final _equipCtrl = TextEditingController();
-  final _conditionsCtrl = TextEditingController();
   final _internalCtrl = TextEditingController();
 
+  String? _selectedCustomerId;
+  String? _selectedSiteId;
   String _source = 'Email';
   String _typeOfSampleKey = SampleMasterOptions.typeOfSample.first.value;
   List<EnquiryRequestedTestRow> _tests = [];
@@ -57,6 +71,16 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
   EnquiryProvider? _provider;
 
   static const List<String> _sources = ['Email', 'Portal', 'Phone', 'Walk-in'];
+
+  static const List<AppSelectItem<String>> _catalogTests = [
+    AppSelectItem(value: 'FTIR', label: 'FTIR Spectroscopy'),
+    AppSelectItem(value: 'ICP', label: 'ICP Metals'),
+    AppSelectItem(value: 'viscosity', label: 'Viscosity @ 40°C'),
+    AppSelectItem(value: 'tnb', label: 'TBN / TAN'),
+    AppSelectItem(value: 'particleCount', label: 'Particle Count ISO'),
+    AppSelectItem(value: 'water', label: 'Water / Karl Fischer'),
+    AppSelectItem(value: 'ferrography', label: 'Ferrography'),
+  ];
 
   static List<AppSelectItem<String>> _itemsFrom(List<String> values) =>
       values
@@ -108,7 +132,9 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
       final d = pr.detail;
       if (!mounted) return;
       if (d != null) {
-        _applyRecord(d);
+        final customers = context.read<CustomerProvider>().customers;
+        final sites = context.read<SiteProvider>().sites;
+        _applyRecord(d, customers: customers, sites: sites);
       }
     } else {
       final now = DateTime.now();
@@ -138,14 +164,16 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     });
   }
 
-  void _applyRecord(EnquiryRecord d) {
+  void _applyRecord(
+    EnquiryRecord d, {
+    List<CustomerModel>? customers,
+    List<SiteModel>? sites,
+  }) {
     _recordId = d.id;
     _enquiryNo = d.enquiryNo;
     _createdBy = d.createdBy;
     _dateCtrl.text =
         '${d.enquiryDate.year}-${d.enquiryDate.month.toString().padLeft(2, '0')}-${d.enquiryDate.day.toString().padLeft(2, '0')}';
-    _customerCtrl.text = d.customerName;
-    _siteCtrl.text = d.siteName;
     _companyCtrl.text = d.customerCompany;
     _siteContactCtrl.text = d.siteContactPerson;
     _siteCompanyCtrl.text = d.siteCompany;
@@ -155,19 +183,24 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     _typeOfSampleKey = _normalizeTypeKey(d.typeOfSample);
     _sampleCountCtrl.text = '${d.sampleCount}';
     _source = d.enquirySource;
-    _equipCtrl.text = d.equipmentMakeModel;
-    _conditionsCtrl.text = d.operatingConditions;
     _internalCtrl.text = d.internalNotes;
     _tests = List<EnquiryRequestedTestRow>.from(d.requestedTests);
     _attachments = List<String>.from(d.attachmentNames);
+
+    if (customers != null) {
+      _selectedCustomerId = _matchCustomerId(customers, d.customerName);
+      _applyCustomer(_customerById(customers, _selectedCustomerId));
+    }
+    if (sites != null) {
+      _selectedSiteId = _matchSiteId(sites, d.siteName, _selectedCustomerId);
+      _applySite(_siteById(sites, _selectedSiteId));
+    }
   }
 
   @override
   void dispose() {
     _provider?.removeListener(_onProviderError);
     _dateCtrl.dispose();
-    _customerCtrl.dispose();
-    _siteCtrl.dispose();
     _companyCtrl.dispose();
     _siteContactCtrl.dispose();
     _siteCompanyCtrl.dispose();
@@ -175,10 +208,238 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _sampleCountCtrl.dispose();
-    _equipCtrl.dispose();
-    _conditionsCtrl.dispose();
     _internalCtrl.dispose();
     super.dispose();
+  }
+
+  CustomerModel? _customerById(List<CustomerModel> list, String? id) {
+    if (id == null || id.isEmpty) return null;
+    try {
+      return list.firstWhere((e) => e.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SiteModel? _siteById(List<SiteModel> list, String? id) {
+    if (id == null || id.isEmpty) return null;
+    try {
+      return list.firstWhere((e) => e.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _matchCustomerId(List<CustomerModel> customers, String name) {
+    final n = name.trim().toLowerCase();
+    if (n.isEmpty) return null;
+    for (final c in customers) {
+      if (c.companyName.toLowerCase() == n) return c.id;
+      final d = c.displayName?.trim();
+      if (d != null && d.toLowerCase() == n) return c.id;
+    }
+    return null;
+  }
+
+  String? _matchSiteId(
+    List<SiteModel> sites,
+    String name,
+    String? customerId,
+  ) {
+    final n = name.trim().toLowerCase();
+    if (n.isEmpty) return null;
+    for (final s in sites) {
+      final label = (s.displayName ?? s.code).toLowerCase();
+      if (label == n) return s.id;
+      if ((s.companyName ?? '').toLowerCase() == n) return s.id;
+    }
+    if (customerId != null) {
+      for (final s in sites) {
+        if (s.companyId == customerId) return s.id;
+      }
+    }
+    return null;
+  }
+
+  ContactPersonModel? _primaryContact(CustomerModel c) {
+    if (c.contacts.isEmpty) return null;
+    for (final p in c.contacts) {
+      if ((p.mobile ?? '').trim().isNotEmpty) return p;
+    }
+    return c.contacts.first;
+  }
+
+  void _applyCustomer(CustomerModel? c) {
+    if (c == null) {
+      _companyCtrl.clear();
+      _contactCtrl.clear();
+      _emailCtrl.clear();
+      _phoneCtrl.clear();
+      return;
+    }
+    _companyCtrl.text = c.companyName;
+    final contact = _primaryContact(c);
+    _contactCtrl.text = contact?.name ?? '';
+    _emailCtrl.text = contact?.email ?? '';
+    _phoneCtrl.text = contact?.mobile ?? '';
+  }
+
+  void _applySite(SiteModel? s) {
+    if (s == null) {
+      _siteCompanyCtrl.clear();
+      _siteContactCtrl.clear();
+      return;
+    }
+    _siteCompanyCtrl.text = s.companyName ?? '';
+    _siteContactCtrl.text = s.typeOfContact ?? '';
+  }
+
+  String _customerDisplayName(CustomerModel c) {
+    final d = c.displayName?.trim();
+    if (d != null && d.isNotEmpty) return d;
+    return c.companyName;
+  }
+
+  String _siteDisplayName(SiteModel s) {
+    final d = s.displayName?.trim();
+    if (d != null && d.isNotEmpty) return d;
+    return s.code;
+  }
+
+  List<AppSelectItem<String>> _siteItemsFor(
+    List<SiteModel> sites,
+    String? customerId,
+    CustomerModel? customer,
+  ) {
+    final active = sites.where((s) => s.status == 'active').toList();
+    final filtered = customerId == null
+        ? active
+        : active.where((s) {
+            if (s.companyId == customerId) return true;
+            if (customer == null) return false;
+            final siteCo = (s.companyName ?? '').trim().toLowerCase();
+            return siteCo == customer.companyName.trim().toLowerCase();
+          }).toList();
+
+    return [
+      for (final s in filtered)
+        AppSelectItem<String>(value: s.id, label: _siteDisplayName(s)),
+    ];
+  }
+
+  Widget _sectionHeaderAction({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return AppButton(
+      label: label,
+      variant: AppButtonVariant.secondary,
+      size: AppButtonSize.sm,
+      onPressed: onPressed,
+    );
+  }
+
+  Future<void> _confirmRemoveSample(EnquiryRequestedTestRow row) async {
+    if (_tests.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'At least one sample is required.',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.error500,
+        ),
+      );
+      return;
+    }
+    final ok = await AppConfirmDialog.show(
+      context: context,
+      title: 'Remove sample?',
+      message: 'Are you sure you want to remove this sample?',
+      confirmLabel: 'Remove',
+      variant: AppConfirmDialogVariant.danger,
+    );
+    if (ok == true && mounted) {
+      setState(() {
+        _tests = _tests.where((t) => t.id != row.id).toList();
+        _sampleCountCtrl.text = '${_tests.length}';
+      });
+    }
+  }
+
+  Future<void> _showAddSampleDialog() async {
+    String? testKey = _catalogTests.first.value;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Add sample test',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.textBase,
+                  fontWeight: AppTokens.weightSemibold,
+                ),
+              ),
+              content: SizedBox(
+                width: 360,
+                child: AnchoredSearchableDropdownField<String>(
+                  label: 'Test',
+                  hint: 'Select test',
+                  value: testKey,
+                  items: _catalogTests,
+                  size: AppInputSize.md,
+                  overlayMinimalShadow: true,
+                  openOverlayWhenFocused: true,
+                  onChanged: (v) => setDialogState(() => testKey = v),
+                ),
+              ),
+              actions: [
+                AppButton(
+                  label: 'Cancel',
+                  variant: AppButtonVariant.tertiary,
+                  size: AppButtonSize.sm,
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+                AppButton(
+                  label: 'Add',
+                  variant: AppButtonVariant.primary,
+                  size: AppButtonSize.sm,
+                  onPressed: () {
+                    if (testKey == null || testKey!.isEmpty) return;
+                    final item = _catalogTests.firstWhere(
+                      (e) => e.value == testKey,
+                      orElse: () => AppSelectItem(
+                        value: testKey!,
+                        label: testKey!,
+                      ),
+                    );
+                    final id = 'rt-${DateTime.now().millisecondsSinceEpoch}';
+                    setState(() {
+                      _tests = [
+                        ..._tests,
+                        EnquiryRequestedTestRow(
+                          id: id,
+                          testCode: item.value,
+                          testName: item.label,
+                          selected: true,
+                        ),
+                      ];
+                      final count = int.tryParse(_sampleCountCtrl.text.trim());
+                      if (count == null || count < _tests.length) {
+                        _sampleCountCtrl.text = '${_tests.length}';
+                      }
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   DateTime? _parseDate() {
@@ -239,7 +500,7 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     final count = int.tryParse(_sampleCountCtrl.text.trim());
     setState(() {
       _customerError =
-          _customerCtrl.text.trim().isEmpty ? 'Customer is required' : null;
+          _selectedCustomerId == null ? 'Customer is required' : null;
       _sampleTypeError =
           _typeOfSampleKey.trim().isEmpty ? 'Sample type is required' : null;
       _countError =
@@ -252,15 +513,27 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
         _dateError == null;
   }
 
-  EnquiryRecord _buildRecord(String status, List<ActivityTimelineEntry> activity) {
+  EnquiryRecord _buildRecord(
+    String status,
+    List<ActivityTimelineEntry> activity,
+    List<CustomerModel> customers,
+    List<SiteModel> sites,
+  ) {
     final dt = _parseDate() ?? DateTime.now();
     final count = int.parse(_sampleCountCtrl.text.trim());
+    final customer = _customerById(customers, _selectedCustomerId);
+    final site = _siteById(sites, _selectedSiteId);
+    final customerName = customer != null
+        ? _customerDisplayName(customer)
+        : '';
+    final siteName = site != null ? _siteDisplayName(site) : '';
+
     return EnquiryRecord(
       id: _recordId!,
       enquiryNo: _enquiryNo ?? sl<EnquiryApi>().allocateEnquiryNo(),
       enquiryDate: dt,
-      customerName: _customerCtrl.text.trim(),
-      siteName: _siteCtrl.text.trim(),
+      customerName: customerName,
+      siteName: siteName,
       enquirySource: _source,
       typeOfSample: _typeOfSampleStoredLabel(),
       sampleCount: count,
@@ -272,8 +545,8 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
       contactPerson: _contactCtrl.text.trim(),
       contactEmail: _emailCtrl.text.trim(),
       contactPhone: _phoneCtrl.text.trim(),
-      equipmentMakeModel: _equipCtrl.text.trim(),
-      operatingConditions: _conditionsCtrl.text.trim(),
+      equipmentMakeModel: '',
+      operatingConditions: '',
       urgency: 'Normal',
       expectedTimeline: '',
       samplePriority: 'Normal',
@@ -288,6 +561,8 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
   Future<void> _save(String status) async {
     if (!_validate()) return;
     final pr = context.read<EnquiryProvider>();
+    final customers = context.read<CustomerProvider>().customers;
+    final sites = context.read<SiteProvider>().sites;
     final existing = pr.detail;
     List<ActivityTimelineEntry> activity;
     if (existing == null) {
@@ -312,19 +587,29 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
         ),
       ];
     }
-    final record = _buildRecord(status, activity);
+    final record = _buildRecord(status, activity, customers, sites);
     await pr.saveEnquiry(record);
     if (!mounted) return;
-    context.go('/transactions/enquiry');
+    if (widget.inlineEdit) {
+      widget.onInlineSaved?.call();
+    } else {
+      context.go('/transactions/enquiry');
+    }
   }
 
   void _onCancel() {
-    context.go('/transactions/enquiry');
+    if (widget.inlineEdit) {
+      widget.onInlineCancel?.call();
+    } else {
+      context.go('/transactions/enquiry');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.watch<EnquiryProvider>();
+    final customers = context.watch<CustomerProvider>().customers;
+    final sites = context.watch<SiteProvider>().sites;
 
     if (!_hydrated) {
       return const Material(
@@ -337,6 +622,19 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
         widget.enquiryId == null ? 'Create enquiry' : 'Edit enquiry';
     final refLabel = _enquiryNo ?? '';
     final enquiryRefLabel = refLabel.isEmpty ? '—' : refLabel;
+
+    final activeCustomers =
+        customers.where((e) => e.status == 'active').toList();
+    final customerItems = <AppSelectItem<String>>[
+      for (final c in activeCustomers)
+        AppSelectItem<String>(
+          value: c.id,
+          label: _customerDisplayName(c),
+        ),
+    ];
+    final selectedCustomer =
+        _customerById(activeCustomers, _selectedCustomerId);
+    final siteItems = _siteItemsFor(sites, _selectedCustomerId, selectedCustomer);
 
     final sectionEnquiryInformation = AppFormSection(
       title: 'Enquiry Information',
@@ -362,15 +660,30 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
 
     final sectionCustomerDetails = AppFormSection(
       title: 'Customer Details',
+      trailing: _sectionHeaderAction(
+        label: '+ Add Customer',
+        onPressed: () => context.push('/customers/create'),
+      ),
       children: [
-        AppInput(
+        AnchoredSearchableDropdownField<String>(
           label: 'Customer Name',
-          hint: 'Customer',
-          controller: _customerCtrl,
+          hint: 'Select customer',
+          value: _selectedCustomerId,
+          items: customerItems,
           isRequired: true,
           errorText: _customerError,
           size: AppInputSize.md,
-          onChanged: (_) => setState(() => _customerError = null),
+          overlayMinimalShadow: true,
+          openOverlayWhenFocused: true,
+          onChanged: (id) {
+            setState(() {
+              _selectedCustomerId = id;
+              _customerError = null;
+              _selectedSiteId = null;
+              _applyCustomer(_customerById(activeCustomers, id));
+              _applySite(null);
+            });
+          },
         ),
         AppInput(
           label: 'Customer Company',
@@ -404,11 +717,23 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     final sectionSiteDetails = AppFormSection(
       title: 'Site Details',
       children: [
-        AppInput(
+        AnchoredSearchableDropdownField<String>(
           label: 'Site Name',
-          hint: 'Site',
-          controller: _siteCtrl,
+          hint: _selectedCustomerId == null
+              ? 'Select customer first'
+              : 'Select site',
+          value: _selectedSiteId,
+          items: siteItems,
+          enabled: _selectedCustomerId != null,
           size: AppInputSize.md,
+          overlayMinimalShadow: true,
+          openOverlayWhenFocused: true,
+          onChanged: (id) {
+            setState(() {
+              _selectedSiteId = id;
+              _applySite(_siteById(sites, id));
+            });
+          },
         ),
         AppInput(
           label: 'Site Company',
@@ -422,17 +747,15 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
           controller: _siteContactCtrl,
           size: AppInputSize.md,
         ),
-        AppInput(
-          label: 'Equipment Make / Model',
-          hint: 'Equipment',
-          controller: _equipCtrl,
-          size: AppInputSize.md,
-        ),
       ],
     );
 
     final sectionSampleRequirement = AppFormSection(
       title: 'Sample Requirement Information',
+      trailing: _sectionHeaderAction(
+        label: '+ Add Samples',
+        onPressed: _showAddSampleDialog,
+      ),
       children: [
         AppSelect<String>(
           label: 'Type of Sample',
@@ -459,14 +782,14 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
           size: AppInputSize.md,
           onChanged: (_) => setState(() => _countError = null),
         ),
-        AppFormFullWidth(
-          child: AppInput(
-            label: 'Operating Conditions',
-            hint: 'Conditions',
-            controller: _conditionsCtrl,
-            size: AppInputSize.md,
+        if (_tests.isNotEmpty)
+          AppFormFullWidth(
+            child: EnquirySampleTestCards(
+              tests: _tests,
+              showDelete: true,
+              onDelete: _confirmRemoveSample,
+            ),
           ),
-        ),
         AppFormFullWidth(
           child: AppTextarea(
             label: 'Additional Remarks',
@@ -482,43 +805,83 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     final sectionAttachments = AppFormSection(
       title: 'Attachments',
       children: [
-        AppFormFullWidth(
-          child: SampleAttachmentCell(
-            filename: _attachments.isEmpty ? null : _attachments.first,
-            dense: false,
-            prefix: 'enquiry',
-            onPickMock: (name) => setState(() {
-              if (name == null) {
-                _attachments = [];
-              } else {
-                _attachments = [name];
-              }
-            }),
-          ),
+        SampleAttachmentCell(
+          filename: _attachments.isEmpty ? null : _attachments.first,
+          dense: false,
+          prefix: 'enquiry',
+          onPickMock: (name) => setState(() {
+            if (name == null) {
+              _attachments = [];
+            } else {
+              _attachments = [name];
+            }
+          }),
         ),
       ],
     );
 
     final overview = SingleChildScrollView(
       padding: EdgeInsets.all(AppTokens.space4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppFormPageLayout(
-            left: AppFormPageLayout.sectionsColumn([
-              sectionEnquiryInformation,
-              sectionSampleRequirement,
-            ]),
-            right: AppFormPageLayout.sectionsColumn([
-              sectionCustomerDetails,
-              sectionSiteDetails,
-            ]),
-          ),
-          SizedBox(height: AppTokens.space3),
+      child: AppFormPageLayout(
+        left: AppFormPageLayout.sectionsColumn([
+          sectionEnquiryInformation,
+          sectionSampleRequirement,
           sectionAttachments,
-        ],
+        ]),
+        right: AppFormPageLayout.sectionsColumn([
+          sectionCustomerDetails,
+          sectionSiteDetails,
+        ]),
       ),
     );
+
+    if (widget.inlineEdit) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: overview),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppTokens.cardBg,
+              border: Border(
+                top: BorderSide(color: AppTokens.borderDefault),
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(AppTokens.space4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AppButton(
+                    label: 'Cancel',
+                    variant: AppButtonVariant.tertiary,
+                    onPressed: p.isLoading ? null : _onCancel,
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  AppButton(
+                    label: 'Save draft',
+                    variant: AppButtonVariant.secondary,
+                    onPressed: p.isLoading
+                        ? null
+                        : () => _save(EnquiryStatus.pending),
+                    isLoading: p.isLoading,
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  AppButton(
+                    label: 'Submit',
+                    variant: AppButtonVariant.primary,
+                    onPressed: p.isLoading
+                        ? null
+                        : () => _save(EnquiryStatus.submitted),
+                    isLoading: p.isLoading,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Material(
       type: MaterialType.transparency,

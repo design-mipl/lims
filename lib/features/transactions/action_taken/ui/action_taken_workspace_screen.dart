@@ -162,12 +162,6 @@ class _ActionTakenWorkspaceScreenState extends State<ActionTakenWorkspaceScreen>
 
     final draft = p.workspaceDraft;
     final theme = Theme.of(context);
-    final cardSurface = theme.brightness == Brightness.dark
-        ? theme.cardColor
-        : AppTokens.cardBg;
-    final cardBorder = theme.brightness == Brightness.dark
-        ? AppTokens.neutral700
-        : AppTokens.borderDefault;
 
     final sectionTitleStyle = GoogleFonts.poppins(
       fontSize: AppTokens.sectionTitleSize,
@@ -177,19 +171,18 @@ class _ActionTakenWorkspaceScreenState extends State<ActionTakenWorkspaceScreen>
           : AppTokens.textPrimary,
     );
 
-    final workspaceCard = DecoratedBox(
+    final workspaceCard = Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: cardSurface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        color: AppTokens.white,
         border: Border.all(
-          color: cardBorder,
+          color: AppTokens.border,
           width: AppTokens.borderWidthSm,
         ),
-        boxShadow: AppTokens.shadowSm,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(AppTokens.space4),
-        child: Column(
+      padding: EdgeInsets.all(AppTokens.space4),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
@@ -233,9 +226,9 @@ class _ActionTakenWorkspaceScreenState extends State<ActionTakenWorkspaceScreen>
                     textAlignVertical: TextAlignVertical.center,
                   ),
                 ),
-                SizedBox(width: AppTokens.space4),
+                SizedBox(width: AppTokens.space3),
                 SizedBox(
-                  width: 148,
+                  width: 160,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
@@ -261,15 +254,10 @@ class _ActionTakenWorkspaceScreenState extends State<ActionTakenWorkspaceScreen>
             ),
           ],
         ),
-      ),
     );
 
     final body = SingleChildScrollView(
-      padding: EdgeInsets.only(
-        left: AppTokens.space4,
-        right: AppTokens.space4,
-        bottom: AppTokens.space4,
-      ),
+      padding: EdgeInsets.only(bottom: AppTokens.space4),
       child: workspaceCard,
     );
 
@@ -291,77 +279,74 @@ class _ActionTakenWorkspaceScreenState extends State<ActionTakenWorkspaceScreen>
         currentLabel: row.labId,
         tabController: null,
         plainTabPanel: true,
-        headerCard: Padding(
-          padding: EdgeInsets.symmetric(vertical: AppTokens.space1),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              AppAvatar(
-                name: row.labId,
-                size: AppAvatarSize.md,
-              ),
-              SizedBox(width: AppTokens.space2),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      flex: 2,
-                      child: Text(
-                        '${row.labId} · Workspace',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: AppTokens.bodySize,
-                          fontWeight: AppTokens.weightSemibold,
-                          color: AppTokens.textPrimary,
-                        ),
+        headerCard: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            AppAvatar(
+              name: row.labId,
+              size: AppAvatarSize.md,
+            ),
+            SizedBox(width: AppTokens.space2),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      '${row.labId} · Workspace',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.bodySize,
+                        fontWeight: AppTokens.weightSemibold,
+                        color: AppTokens.textPrimary,
                       ),
                     ),
-                    SizedBox(width: AppTokens.space2),
-                    Icon(
-                      LucideIcons.clipboardList,
-                      size: AppTokens.iconButtonIconSm,
-                      color: AppTokens.textMuted,
-                    ),
-                    SizedBox(width: AppTokens.space1),
-                    Flexible(
-                      flex: 2,
-                      child: Text(
-                        'Corrective action entry',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.poppins(
-                          fontSize: AppTokens.textSm,
-                          color: AppTokens.textMuted,
-                          fontWeight: AppTokens.weightRegular,
-                        ),
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  Icon(
+                    LucideIcons.clipboardList,
+                    size: AppTokens.iconButtonIconSm,
+                    color: AppTokens.textMuted,
+                  ),
+                  SizedBox(width: AppTokens.space1),
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      'Corrective action entry',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.textSm,
+                        color: AppTokens.textMuted,
+                        fontWeight: AppTokens.weightRegular,
                       ),
                     ),
-                    SizedBox(width: AppTokens.space3),
-                    Text('Company:', style: companyLabel),
-                    SizedBox(width: AppTokens.space1),
-                    Flexible(
-                      flex: 3,
-                      child: Text(
-                        row.companyName.isEmpty ? '—' : row.companyName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: companyValue,
-                      ),
+                  ),
+                  SizedBox(width: AppTokens.space3),
+                  Text('Company:', style: companyLabel),
+                  SizedBox(width: AppTokens.space1),
+                  Flexible(
+                    flex: 3,
+                    child: Text(
+                      row.companyName.isEmpty ? '—' : row.companyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: companyValue,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              SizedBox(width: AppTokens.space3),
-              AppButton(
-                label: 'Save',
-                variant: AppButtonVariant.primary,
-                size: AppButtonSize.md,
-                onPressed: () => _onSave(p),
-              ),
-            ],
-          ),
+            ),
+            SizedBox(width: AppTokens.space3),
+            AppButton(
+              label: 'Save',
+              variant: AppButtonVariant.primary,
+              size: AppButtonSize.md,
+              onPressed: () => _onSave(p),
+            ),
+          ],
         ),
         tabLabels: const ['Workspace'],
         tabViews: [

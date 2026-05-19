@@ -4,6 +4,9 @@ abstract final class LabCodeStatus {
 
   static const String pending = 'pending';
   static const String completed = 'completed';
+
+  /// Labels printed — hidden from active Lab ID queue.
+  static const String printed = 'printed';
 }
 
 class LabCodeModel {

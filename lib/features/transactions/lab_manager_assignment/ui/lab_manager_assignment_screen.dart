@@ -23,9 +23,9 @@ class LabManagerAssignmentScreen extends StatefulWidget {
 
 class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen> {
   final _labNoCtrl = TextEditingController();
-  final _fromCtrl = TextEditingController();
-  final _toCtrl = TextEditingController();
   LabManagerAssignmentProvider? _provider;
+
+  static const double _kFilterFieldMinWidth = 152.0;
 
   @override
   void initState() {
@@ -35,23 +35,18 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
       final p = context.read<LabManagerAssignmentProvider>();
       _provider = p;
       p.addListener(_onProvider);
+      _labNoCtrl.text = p.labNoQuery;
     });
   }
 
   void _onProvider() {
     final p = _provider;
     if (p == null || !mounted) return;
-    final fd = _formatDate(p.fromDate);
-    final td = _formatDate(p.toDate);
-    if (_fromCtrl.text != fd) {
-      _fromCtrl.text = fd;
-    }
-    if (_toCtrl.text != td) {
-      _toCtrl.text = td;
-    }
     if (p.labNoQuery != _labNoCtrl.text) {
       _labNoCtrl.text = p.labNoQuery;
-      _labNoCtrl.selection = TextSelection.collapsed(offset: _labNoCtrl.text.length);
+      _labNoCtrl.selection = TextSelection.collapsed(
+        offset: _labNoCtrl.text.length,
+      );
     }
   }
 
@@ -59,8 +54,6 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
   void dispose() {
     _provider?.removeListener(_onProvider);
     _labNoCtrl.dispose();
-    _fromCtrl.dispose();
-    _toCtrl.dispose();
     super.dispose();
   }
 
@@ -69,28 +62,6 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
     return '${d.day.toString().padLeft(2, '0')}/'
         '${d.month.toString().padLeft(2, '0')}/'
         '${d.year}';
-  }
-
-  Future<void> _pickDate(
-    BuildContext context, {
-    required bool isFrom,
-  }) async {
-    final p = context.read<LabManagerAssignmentProvider>();
-    final initial = isFrom ? p.fromDate : p.toDate;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null || !context.mounted) return;
-    if (isFrom) {
-      p.setFromDate(picked);
-      _fromCtrl.text = _formatDate(picked);
-    } else {
-      p.setToDate(picked);
-      _toCtrl.text = _formatDate(picked);
-    }
   }
 
   void _back(BuildContext context) {
@@ -321,100 +292,139 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
     return cols;
   }
 
-  Widget _filtersCard(BuildContext context, LabManagerAssignmentProvider p) {
-    final methodSelect = AppSelect<String?>(
-      label: 'Method',
-      hint: 'Select method',
-      isRequired: true,
-      isSearchable: false,
-      value: p.selectedMethodId,
-      items: [
-        const AppSelectItem<String?>(value: null, label: 'Select method'),
-        ...LabManagerAssignmentProvider.kMethods.map(
-          (m) => AppSelectItem<String?>(value: m.id, label: m.label),
+  Widget _filterLabel(String text) => Padding(
+        padding: EdgeInsets.only(bottom: AppTokens.space1),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.captionSize,
+            fontWeight: AppTokens.weightSemibold,
+            color: AppTokens.textSecondary,
+            decoration: TextDecoration.none,
+          ),
         ),
-      ],
-      onChanged: (v) => p.setSelectedMethod(v),
-    );
-    final userSelect = AppSelect<String?>(
-      label: 'Assign user',
-      hint: 'Select chemist',
-      value: p.assignUserId,
-      items: [
-        const AppSelectItem<String?>(value: null, label: 'Select chemist'),
-        ...LabManagerAssignmentProvider.kChemists.map(
-          (c) => AppSelectItem<String?>(value: c.id, label: c.name),
-        ),
-      ],
-      onChanged: p.setAssignUserId,
-    );
-    final fromField = AppInput(
-      label: 'From date',
-      hint: 'DD/MM/YYYY',
-      controller: _fromCtrl,
-      readOnly: true,
-      onTap: () => _pickDate(context, isFrom: true),
-      suffixIcon: const Icon(LucideIcons.calendar),
-    );
-    final toField = AppInput(
-      label: 'To date',
-      hint: 'DD/MM/YYYY',
-      controller: _toCtrl,
-      readOnly: true,
-      onTap: () => _pickDate(context, isFrom: false),
-      suffixIcon: const Icon(LucideIcons.calendar),
-    );
-    final labField = AppInput(
-      label: 'Lab No.',
-      hint: 'Filter by lab id',
-      controller: _labNoCtrl,
-      onChanged: p.setLabNoQuery,
-    );
+      );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTokens.cardBg,
-        borderRadius: BorderRadius.circular(AppTokens.cardRadius),
-        border: Border.all(
-          color: AppTokens.borderDefault,
-          width: AppTokens.borderWidthSm,
-        ),
+  Widget _filterColumn({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _filterLabel(label),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildFiltersBelowTabs(LabManagerAssignmentProvider p) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppTokens.space3,
+        AppTokens.space2,
+        AppTokens.space3,
+        AppTokens.space2,
       ),
-      child: Padding(
-        padding: EdgeInsets.all(AppTokens.space4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            LayoutBuilder(
-              builder: (context, c) {
-                const minField = 152.0;
-                const count = 5;
-                final rowMin = minField * count;
-                final w = math.max(c.maxWidth, rowMin);
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: w,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: methodSelect),
-                        SizedBox(width: AppTokens.space2),
-                        Expanded(child: userSelect),
-                        SizedBox(width: AppTokens.space2),
-                        Expanded(child: fromField),
-                        SizedBox(width: AppTokens.space2),
-                        Expanded(child: toField),
-                        SizedBox(width: AppTokens.space2),
-                        Expanded(child: labField),
-                      ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const count = 5;
+          final rowMin = _kFilterFieldMinWidth * count;
+          final w = math.max(constraints.maxWidth, rowMin);
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: w,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: _filterColumn(
+                      label: 'Method',
+                      child: AppSelect<String?>(
+                        hint: 'Select method',
+                        isSearchable: true,
+                        value: p.selectedMethodId,
+                        items: [
+                          const AppSelectItem<String?>(
+                            value: null,
+                            label: 'Select method',
+                          ),
+                          ...LabManagerAssignmentProvider.kMethods.map(
+                            (m) => AppSelectItem<String?>(
+                              value: m.id,
+                              label: m.label,
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => p.setSelectedMethod(v),
+                      ),
                     ),
                   ),
-                );
-              },
+                  SizedBox(width: AppTokens.space2),
+                  Expanded(
+                    child: _filterColumn(
+                      label: 'Assign user',
+                      child: AppSelect<String?>(
+                        hint: 'Select chemist',
+                        isSearchable: true,
+                        value: p.assignUserId,
+                        items: [
+                          const AppSelectItem<String?>(
+                            value: null,
+                            label: 'Select chemist',
+                          ),
+                          ...LabManagerAssignmentProvider.kChemists.map(
+                            (c) => AppSelectItem<String?>(
+                              value: c.id,
+                              label: c.name,
+                            ),
+                          ),
+                        ],
+                        onChanged: p.setAssignUserId,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  Expanded(
+                    child: _filterColumn(
+                      label: 'From Date',
+                      child: LabCodeLabIdDateField(
+                        hint: 'From Date',
+                        selectedDate: p.fromDate,
+                        onDateSelected: p.setFromDate,
+                        layout: LabCodeLabIdDateFieldLayout.formRow,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  Expanded(
+                    child: _filterColumn(
+                      label: 'To Date',
+                      child: LabCodeLabIdDateField(
+                        hint: 'To Date',
+                        selectedDate: p.toDate,
+                        onDateSelected: p.setToDate,
+                        layout: LabCodeLabIdDateFieldLayout.formRow,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: AppTokens.space2),
+                  Expanded(
+                    child: _filterColumn(
+                      label: 'Lab No.',
+                      child: AppInput(
+                        hint: 'Filter by lab id',
+                        controller: _labNoCtrl,
+                        onChanged: p.setLabNoQuery,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -452,50 +462,44 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
         fullWidthBody: true,
         onBack: () => _back(context),
         actions: null,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(width: double.infinity, child: _filtersCard(context, p)),
-            SizedBox(height: AppTokens.space3),
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: AppListingScreen<LabManagerAssignmentRow>(
-                key: ValueKey<int>(p.tableRevision),
-                title: 'Tests',
-                subtitle: 'Assignment listing',
-                showPageHeader: false,
-                showKpis: false,
-                showToolbar: false,
-                showBulkBar: true,
-                showSearch: false,
-                showColumnToggle: false,
-                showTableHorizontalScrollbar: true,
-                tableBodyFillsViewport: true,
-                tableHeaderHeight: kLabManagerAssignmentTableHeaderHeight,
-                listingShellPadding:
-                    const EdgeInsets.only(bottom: AppTokens.space4),
-                tableScrollableMinWidth: _tableMinWidth(),
-                columns: _buildColumns(p, rows),
-                rows: rows,
-                mobileCardBuilder: (r) => _MobileAssignmentCard(
-                  row: r,
-                  testColumns: kLabManagerAssignmentTestColumns,
-                  readOnly: p.isAssignedTab || p.isLoading,
-                  onToggleTest: p.toggleTestForRow,
-                ),
-                isLoading: p.isLoading,
-                emptyMessage: 'No records for current filters',
-                emptyWidget: emptyWidget,
-                tabs: [
-                  TabConfig(label: 'Pending', count: p.pendingCount),
-                  TabConfig(label: 'Assigned', count: p.assignedCount),
-                ],
-                initialTabIndex: p.assignmentTabIndex,
-                onTabChanged: p.setAssignmentTabIndex,
-                showCheckboxes: true,
-                bulkRowId: (r) => r.id,
-                bulkActions: [
+        body: SizedBox(
+          width: double.infinity,
+          child: AppListingScreen<LabManagerAssignmentRow>(
+            key: ValueKey<int>(p.tableRevision),
+            title: 'Tests',
+            subtitle: 'Assignment listing',
+            showPageHeader: false,
+            showKpis: false,
+            showToolbar: false,
+            showBulkBar: true,
+            showSearch: false,
+            showColumnToggle: false,
+            showTableHorizontalScrollbar: true,
+            tableBodyFillsViewport: true,
+            tableHeaderHeight: kLabManagerAssignmentTableHeaderHeight,
+            listingShellPadding: const EdgeInsets.only(bottom: AppTokens.space4),
+            tableScrollableMinWidth: _tableMinWidth(),
+            belowTabsBar: _buildFiltersBelowTabs(p),
+            columns: _buildColumns(p, rows),
+            rows: rows,
+            mobileCardBuilder: (r) => _MobileAssignmentCard(
+              row: r,
+              testColumns: kLabManagerAssignmentTestColumns,
+              readOnly: p.isAssignedTab || p.isLoading,
+              onToggleTest: p.toggleTestForRow,
+            ),
+            isLoading: p.isLoading,
+            emptyMessage: 'No records for current filters',
+            emptyWidget: emptyWidget,
+            tabs: [
+              TabConfig(label: 'Pending', count: p.pendingCount),
+              TabConfig(label: 'Assigned', count: p.assignedCount),
+            ],
+            initialTabIndex: p.assignmentTabIndex,
+            onTabChanged: p.setAssignmentTabIndex,
+            showCheckboxes: true,
+            bulkRowId: (r) => r.id,
+            bulkActions: [
                   BulkAction<LabManagerAssignmentRow>(
                     key: 'reset',
                     label: 'Reset',
@@ -572,12 +576,9 @@ class _LabManagerAssignmentScreenState extends State<LabManagerAssignmentScreen>
                     p.selectedMethodId == null ? 0 : p.filteredRows.length,
                 currentPage: p.effectiveCurrentPage,
                 pageSize: p.pageSize,
-                onPageChanged: p.setPage,
-                onPageSizeChanged: p.setPageSize,
-              ),
-            ),
-            ),
-          ],
+            onPageChanged: p.setPage,
+            onPageSizeChanged: p.setPageSize,
+          ),
         ),
       ),
     );

@@ -6,9 +6,10 @@ import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
+import '../../shared/print/lab_sample_label_data.dart';
+import '../../shared/print/lab_sample_label_print.dart';
 import '../data/lab_code_model.dart';
 import '../state/lab_code_provider.dart';
-
 class LabCodeScreen extends StatefulWidget {
   const LabCodeScreen({super.key});
 
@@ -18,8 +19,8 @@ class LabCodeScreen extends StatefulWidget {
 
 class _LabCodeScreenState extends State<LabCodeScreen> {
   LabCodeProvider? _provider;
+  final Set<String> _selectedLabIdRowIds = <String>{};
 
-  /// Uniform width for all Lab Code listing data columns (equal visual rhythm).
   static const double _kListingColWidth = 220;
 
   @override
@@ -106,11 +107,65 @@ class _LabCodeScreenState extends State<LabCodeScreen> {
     );
   }
 
-  void _primaryActionPlaceholder(BuildContext context) {
+  void _onLabIdSelectionChanged(LabCodeProvider p, Set<int> indices) {
+    final rows = p.pagedRows;
+    setState(() {
+      _selectedLabIdRowIds
+        ..clear()
+        ..addAll(
+          indices
+              .where((i) => i >= 0 && i < rows.length)
+              .map((i) => rows[i].id),
+        );
+    });
+  }
+
+  List<LabCodeModel> _selectedLabIdRows(LabCodeProvider p) {
+    final ids = _selectedLabIdRowIds;
+    if (ids.isEmpty) return const [];
+    return p.filteredItems.where((r) => ids.contains(r.id)).toList();
+  }
+
+  bool _canPrintLabels(LabCodeProvider p) {
+    if (_selectedLabIdRowIds.isEmpty) return false;
+    return _selectedLabIdRows(p).every(
+      (r) => r.labCode != null && r.labCode!.trim().isNotEmpty,
+    );
+  }
+
+  Future<void> _printLabels(BuildContext context, LabCodeProvider p) async {
+    final rows = _selectedLabIdRows(p);
+    if (rows.isEmpty) return;
+
+    final missingCode = rows.any(
+      (r) => r.labCode == null || r.labCode!.trim().isEmpty,
+    );
+    if (missingCode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Selected rows must have a lab code before printing labels.',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.error500,
+        ),
+      );
+      return;
+    }
+
+    final labels =
+        rows.map(LabSampleLabelData.fromLabCode).toList(growable: false);
+    final ok = await printLabSampleLabels(context, labels);
+    if (!ok || !context.mounted) return;
+
+    await p.printLabelsForRows(rows);
+    if (!context.mounted) return;
+
+    setState(_selectedLabIdRowIds.clear);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Create Lab Code — coming soon',
+          '${rows.length} label(s) sent to print. Records moved out of Lab ID queue.',
           style: GoogleFonts.poppins(
             fontSize: AppTokens.bodySize,
             color: AppTokens.white,
@@ -121,20 +176,25 @@ class _LabCodeScreenState extends State<LabCodeScreen> {
     );
   }
 
-  void _bulkPrintSnack(BuildContext context, List<LabCodeModel> rows, String kind) {
-    final n = rows.length;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$kind — $n row(s) (coming soon)',
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.bodySize,
-            color: AppTokens.white,
-          ),
+  List<Widget>? _labIdToolbarTrailing(
+    BuildContext context,
+    LabCodeProvider p,
+  ) {
+    if (!p.isLabIdTabSelected) return null;
+    return [
+      AppButton(
+        label: 'Print labels',
+        variant: AppButtonVariant.primary,
+        size: AppButtonSize.sm,
+        leadingIcon: Icon(
+          LucideIcons.tags,
+          size: AppTokens.iconButtonIconSm,
+          color: AppTokens.white,
         ),
-        backgroundColor: AppTokens.primary800,
+        onPressed:
+            !_canPrintLabels(p) ? null : () => _printLabels(context, p),
       ),
-    );
+    ];
   }
 
   @override
@@ -144,46 +204,38 @@ class _LabCodeScreenState extends State<LabCodeScreen> {
     return Material(
       type: MaterialType.transparency,
       child: AppListingScreen<LabCodeModel>(
+        key: ValueKey('lab-code-${p.listingResetKey}-${p.statusTabIndex}'),
         title: 'Lab Code',
         subtitle:
             'Stage after Sample Data Entry → Generate Lab Code; before Lab Manager Assignment.',
-        primaryActionLabel: 'Create Lab Code',
-        onPrimaryAction: () => _primaryActionPlaceholder(context),
         tableScrollableMinWidth: _kListingColWidth * 5,
         showTableHorizontalScrollbar: true,
         showCheckboxes: true,
         bulkRowId: (r) => r.id,
-        onBulkDelete: (ids) => p.bulkDeleteItems(ids),
-        bulkActions: [
-          BulkAction<LabCodeModel>(
-            key: 'print',
-            label: 'Reprint',
-            icon: Icon(LucideIcons.printer, size: AppTokens.iconButtonIconSm),
-            showOnlyWhenSelected: true,
-            onTap: (rows) => _bulkPrintSnack(context, rows, 'Reprint'),
-          ),
-          BulkAction<LabCodeModel>(
-            key: 'printLabels',
-            label: 'Print Label',
-            icon: Icon(LucideIcons.tags, size: AppTokens.iconButtonIconSm),
-            showOnlyWhenSelected: true,
-            onTap: (rows) => _bulkPrintSnack(context, rows, 'Print Label'),
-          ),
-        ],
+        onBulkDelete: p.isLabIdTabSelected ? null : (ids) => p.bulkDeleteItems(ids),
+        showBulkBar: !p.isLabIdTabSelected,
+        onRowSelectionChanged: p.isLabIdTabSelected
+            ? (indices) => _onLabIdSelectionChanged(p, indices)
+            : null,
+        toolbarTrailingActions: _labIdToolbarTrailing(context, p),
         showKpis: false,
-        showExport: false,
+        exportModuleName: 'Lab_Code',
+        exportSourceRows: p.filteredItems,
         tabs: [
           TabConfig(
-            label: 'Pending List',
+            label: 'Pending',
             count: p.countForStatus(LabCodeStatus.pending),
           ),
           TabConfig(
-            label: 'Lab Id',
+            label: 'Lab ID',
             count: p.countForStatus(LabCodeStatus.completed),
           ),
         ],
         initialTabIndex: p.statusTabIndex,
-        onTabChanged: p.setStatusFilterByTab,
+        onTabChanged: (index) {
+          setState(_selectedLabIdRowIds.clear);
+          p.setStatusFilterByTab(index);
+        },
         toolbarAfterSearch: p.isLabIdTabSelected
             ? [
                 LabCodeLabIdDateField(
@@ -197,8 +249,30 @@ class _LabCodeScreenState extends State<LabCodeScreen> {
                   selectedDate: p.labIdToDate,
                   onDateSelected: p.setLabIdToDate,
                 ),
+                SizedBox(width: AppTokens.space2),
+                Tooltip(
+                  message: 'Refresh',
+                  child: IconButton(
+                    onPressed: p.isLoading ? null : () => p.refresh(),
+                    icon: Icon(
+                      LucideIcons.refreshCw,
+                      size: AppTokens.iconButtonIconMd,
+                    ),
+                  ),
+                ),
               ]
-            : null,
+            : [
+                Tooltip(
+                  message: 'Refresh',
+                  child: IconButton(
+                    onPressed: p.isLoading ? null : () => p.refresh(),
+                    icon: Icon(
+                      LucideIcons.refreshCw,
+                      size: AppTokens.iconButtonIconMd,
+                    ),
+                  ),
+                ),
+              ],
         searchHint: 'Search Sample Id',
         onSearch: p.setSearchQuery,
         onRowTap: (row) => context.push(

@@ -28,6 +28,15 @@ class _SupervisorReviewWorkspaceScreenState
   final _recommendationCtrl = TextEditingController();
   String? _boundWorkspaceId;
   bool _problemUserEdited = false;
+  String _problemType = '';
+
+  static const List<AppSelectItem<String>> _problemTypeItems = [
+    AppSelectItem(value: 'Critical', label: 'Critical'),
+    AppSelectItem(value: 'Caution', label: 'Caution'),
+    AppSelectItem(value: 'Normal', label: 'Normal'),
+    AppSelectItem(value: 'Recheck', label: 'Recheck'),
+    AppSelectItem(value: 'Observation', label: 'Observation'),
+  ];
 
   DateTime? _reportDate;
   String _severityFilter = '';
@@ -39,6 +48,7 @@ class _SupervisorReviewWorkspaceScreenState
   static const double _wFresh = 136;
   static const double _wTyp = 104;
   static const double _wHi = 104;
+  static const double _wRet = 104;
   static const double _wRep = 104;
   static const double _wChem = 160;
   static const double _wHistMerged = 132;
@@ -57,6 +67,7 @@ class _SupervisorReviewWorkspaceScreenState
       _wFresh,
       _wTyp,
       _wHi,
+      _wRet,
       _wRep,
       _wChem,
     ];
@@ -80,6 +91,7 @@ class _SupervisorReviewWorkspaceScreenState
       'Fresh Fluid Value',
       'Typical',
       'Highlight',
+      'Retest',
       'Report',
       'Chemist',
       ...ws.historicalComparisonHeaders,
@@ -163,6 +175,7 @@ class _SupervisorReviewWorkspaceScreenState
     if (_boundWorkspaceId != ws.supervisorCommentsId) {
       _boundWorkspaceId = ws.supervisorCommentsId;
       _problemUserEdited = false;
+      _problemType = ws.problemType;
       _problemCtrl.text = ws.problem;
       _commentsCtrl.text = ws.comments;
       _recommendationCtrl.text = ws.recommendation;
@@ -262,6 +275,7 @@ class _SupervisorReviewWorkspaceScreenState
     if (ws == null) return;
     pr.updateReviewWorkspace(
       ws.copyWith(
+        problemType: _problemType,
         problem: _problemCtrl.text,
         comments: _commentsCtrl.text,
         recommendation: _recommendationCtrl.text,
@@ -322,6 +336,23 @@ class _SupervisorReviewWorkspaceScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Analysis', style: titleStyle),
+            SizedBox(height: AppTokens.space3),
+            AppSelect<String>(
+              label: 'Problem Type',
+              hint: 'Select problem type…',
+              value: _problemType.isEmpty ? null : _problemType,
+              items: _problemTypeItems,
+              isSearchable: true,
+              overlayMinimalShadow: true,
+              overlayWidthMatchesTrigger: true,
+              size: AppInputSize.md,
+              onChanged: (v) {
+                setState(() => _problemType = v ?? '');
+                final w = pr.reviewWorkspace;
+                if (w == null) return;
+                pr.updateReviewWorkspace(w.copyWith(problemType: v ?? ''));
+              },
+            ),
             SizedBox(height: AppTokens.space3),
             AppInput(
               label: 'Problem',

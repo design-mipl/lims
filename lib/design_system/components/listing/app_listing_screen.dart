@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
@@ -18,6 +19,7 @@ import '../primitives/app_input.dart';
 import '../primitives/app_select.dart';
 import 'bulk_action.dart';
 import 'filter_config.dart';
+import 'listing_excel_export.dart';
 import 'listing_bulk_print.dart';
 import 'listing_lab_date_field.dart';
 import 'listing_pagination_controls.dart';
@@ -72,7 +74,10 @@ const double _kListingBodyMinRows = 2.0;
 /// Horizontal scrollbar strip under the grid; bounded height keeps Scrollbar +
 /// track paint from expanding past a tight [Expanded] table viewport (avoids
 /// bottom overflow when embedded with other flex siblings).
-const double _kListingTableHScrollFooterHeight = 36.0;
+const double _kListingTableHScrollFooterHeight = 22.0;
+
+/// Compact horizontal thumb track inside the listing footer strip.
+const double _kListingTableHScrollThumbHeight = 6.0;
 
 EdgeInsets _listingTableCellPadding({required bool isHeader}) =>
     EdgeInsets.symmetric(horizontal: 12, vertical: isHeader ? 0 : 0);
@@ -214,6 +219,9 @@ class AppListingScreen<T> extends StatefulWidget {
     this.searchHint = 'Search...',
     this.onSearch,
     this.showExport = false,
+    this.exportModuleName,
+    this.exportSourceRows,
+    this.exportButtonLabel,
     this.showImport = false,
     this.showPrint = false,
     this.showColumnToggle = true,
@@ -266,6 +274,10 @@ class AppListingScreen<T> extends StatefulWidget {
     this.disableOuterVerticalScroll = false,
     this.actionsColumnWidth,
     this.scaleDataColumnsToFillViewport = true,
+    this.preTableActions,
+    this.belowTabsBar,
+    this.bulkBarBeforeToolbar = false,
+    this.columnToggleInToolbar = true,
   });
 
   /// When non-null, invoked after row checkbox selection changes (indices into
@@ -308,6 +320,17 @@ class AppListingScreen<T> extends StatefulWidget {
   final ValueChanged<String>? onSearch;
 
   final bool showExport;
+
+  /// When set (and [onExport] is null), enables built-in Excel export for the
+  /// current listing state. Use [exportSourceRows] for full filtered data.
+  final String? exportModuleName;
+
+  /// Tab/search-filtered rows for export. When null, export uses [rows] only.
+  final List<T>? exportSourceRows;
+
+  /// Toolbar export label; defaults to "Export" (matches master listings).
+  final String? exportButtonLabel;
+
   final bool showImport;
   final bool showPrint;
   final bool showColumnToggle;
@@ -462,6 +485,19 @@ class AppListingScreen<T> extends StatefulWidget {
   /// When true (default), fixed-width data columns scale up to fill extra viewport
   /// width. When false, they keep their declared widths (finance-style dense grids).
   final bool scaleDataColumnsToFillViewport;
+
+  /// Optional actions row immediately above the data table (e.g. Create Order).
+  final Widget? preTableActions;
+
+  /// Optional slot between tab strip and bulk bar (e.g. assignment filters).
+  final Widget? belowTabsBar;
+
+  /// When true, bulk bar (selection summary + bulk actions) renders after tabs
+  /// and before the search toolbar — Enquiry-style action row placement.
+  final bool bulkBarBeforeToolbar;
+
+  /// When false, [showColumnToggle] moves the Columns control into the bulk bar.
+  final bool columnToggleInToolbar;
 
   @override
   State<AppListingScreen<T>> createState() => _AppListingScreenState<T>();
@@ -1291,6 +1327,78 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     }
   }
 
+  List<T> _resolveExportRows() {
+    if (_selectedRows.isNotEmpty) {
+      return _selectedRows.map((i) => widget.rows[i]).toList();
+    }
+    final source = widget.exportSourceRows;
+    if (source != null) {
+      final entries = <(int, T)>[];
+      for (var i = 0; i < source.length; i++) {
+        if (_rowPassesColumnFilters(source[i])) {
+          entries.add((i, source[i]));
+        }
+      }
+      return _sortedRowEntries(entries).map((e) => e.$2).toList();
+    }
+    return _sortedRowEntries(_filteredRowEntries()).map((e) => e.$2).toList();
+  }
+
+  Future<void> _handleBuiltInExport() async {
+    final module = widget.exportModuleName;
+    if (module == null) return;
+    final columns = _visibleColumnDefs;
+    final rows = _resolveExportRows();
+    if (!mounted) return;
+    if (rows.isEmpty || columns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No data available to export.',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.neutral700,
+        ),
+      );
+      return;
+    }
+    await exportListingToExcel<T>(
+      moduleName: module,
+      columns: columns,
+      rows: rows,
+    );
+    if (!mounted) return;
+    final message = kIsWeb
+        ? 'Exported ${rows.length} row(s) to Excel'
+        : 'Copied ${rows.length} row(s) to clipboard — paste into Excel';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.bodySize,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  VoidCallback? get _effectiveExportHandler {
+    if (widget.onExport != null) return widget.onExport;
+    if (widget.exportModuleName != null) return _handleBuiltInExport;
+    return null;
+  }
+
+  String get _effectiveExportLabel {
+    if (widget.exportButtonLabel != null) {
+      return widget.exportButtonLabel!;
+    }
+    return 'Export';
+  }
+
   void _onFilterToolbarPressed() {
     if (widget.filterFields == null || widget.filterFields!.isEmpty) {
       return;
@@ -1348,61 +1456,10 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     final useTableFill = useDesktopTableFill;
     final useViewportFillRoot = useDesktopTableFill;
 
-    final cardColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: useTableFill ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        if (!widget.tabsBelowToolbar) ...[
-          if (widget.tabs != null && widget.tabs!.isNotEmpty)
-            ListingTabStrip(
-              tabs: widget.tabs!,
-              selected: _selectedTab,
-              onSelect: (i) {
-                setState(() {
-                  _selectedTab = i;
-                  _sortColumnKey = null;
-                  _sortDirection = null;
-                });
-                widget.onTabChanged?.call(i);
-              },
-            ),
-          if (widget.showToolbar)
-            _ToolbarRow<T>(
-              widget: widget,
-              searchController: _searchController,
-              onToggleFilters: _onFilterToolbarPressed,
-              onColumnPicker: _showColumnPicker,
-              columnsButtonLink: _columnsButtonLink,
-              showColumnsDot: showColumnsDot,
-            ),
-        ] else ...[
-          if (widget.showToolbar)
-            _ToolbarRow<T>(
-              widget: widget,
-              searchController: _searchController,
-              onToggleFilters: _onFilterToolbarPressed,
-              onColumnPicker: _showColumnPicker,
-              columnsButtonLink: _columnsButtonLink,
-              showColumnsDot: showColumnsDot,
-            ),
-          if (widget.tabs != null && widget.tabs!.isNotEmpty)
-            ListingTabStrip(
-              tabs: widget.tabs!,
-              selected: _selectedTab,
-              onSelect: (i) {
-                setState(() {
-                  _selectedTab = i;
-                  _sortColumnKey = null;
-                  _sortDirection = null;
-                });
-                widget.onTabChanged?.call(i);
-              },
-            ),
-        ],
-        if (widget.showBulkBar &&
-            (!widget.bulkBarVisibleOnlyWhenSelection ||
-                _selectedRows.isNotEmpty))
-          _BulkBar<T>(
+    final showBulkBarChrome = widget.showBulkBar &&
+        (!widget.bulkBarVisibleOnlyWhenSelection || _selectedRows.isNotEmpty);
+    final bulkBarChrome = showBulkBarChrome
+        ? _BulkBar<T>(
             selectedCount: _selectedRows.length,
             hasSelection: _selectedRows.isNotEmpty,
             bulkActions: widget.bulkActions,
@@ -1427,7 +1484,79 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                 widget.bulkPrimaryLabel != null && widget.onBulkPrimary != null
                 ? _runBulkPrimary
                 : null,
+            showColumnPicker: widget.showColumnToggle &&
+                !widget.columnToggleInToolbar,
+            onColumnPicker: _showColumnPicker,
+            showColumnsDot: showColumnsDot,
+          )
+        : null;
+
+    final toolbarChrome = widget.showToolbar
+        ? _ToolbarRow<T>(
+            widget: widget,
+            searchController: _searchController,
+            onToggleFilters: _onFilterToolbarPressed,
+            onColumnPicker: _showColumnPicker,
+            columnsButtonLink: _columnsButtonLink,
+            showColumnsDot: showColumnsDot,
+            onExport: _effectiveExportHandler,
+            exportLabel: _effectiveExportLabel,
+            showColumnToggle: widget.showColumnToggle &&
+                widget.columnToggleInToolbar,
+          )
+        : null;
+
+    final cardColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: useTableFill ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        if (!widget.tabsBelowToolbar) ...[
+          if (widget.tabs != null && widget.tabs!.isNotEmpty)
+            ListingTabStrip(
+              tabs: widget.tabs!,
+              selected: _selectedTab,
+              onSelect: (i) {
+                setState(() {
+                  _selectedTab = i;
+                  _sortColumnKey = null;
+                  _sortDirection = null;
+                });
+                widget.onTabChanged?.call(i);
+              },
+            ),
+          if (widget.bulkBarBeforeToolbar) ?bulkBarChrome,
+          ?toolbarChrome,
+        ] else ...[
+          ?toolbarChrome,
+          if (widget.tabs != null && widget.tabs!.isNotEmpty)
+            ListingTabStrip(
+              tabs: widget.tabs!,
+              selected: _selectedTab,
+              onSelect: (i) {
+                setState(() {
+                  _selectedTab = i;
+                  _sortColumnKey = null;
+                  _sortDirection = null;
+                });
+                widget.onTabChanged?.call(i);
+              },
+            ),
+          if (widget.bulkBarBeforeToolbar) ?bulkBarChrome,
+        ],
+        if (widget.belowTabsBar != null)
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppTokens.cardBg,
+              border: Border(
+                bottom: BorderSide(
+                  color: AppTokens.borderDefault,
+                  width: AppTokens.borderWidthSm,
+                ),
+              ),
+            ),
+            child: widget.belowTabsBar!,
           ),
+        if (!widget.bulkBarBeforeToolbar) ?bulkBarChrome,
         if (widget.activeFilters.isNotEmpty)
           _ActiveFilterChips(
             activeFilters: widget.activeFilters,
@@ -1438,6 +1567,19 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
               widget.onFiltersChanged?.call(next);
             },
             onClearAll: () => widget.onFiltersChanged?.call([]),
+          ),
+        if (widget.preTableActions != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space3,
+              AppTokens.space2,
+              AppTokens.space3,
+              AppTokens.space1,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: widget.preTableActions!,
+            ),
           ),
         if (useTableFill)
           Expanded(
@@ -1909,12 +2051,13 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                     child: AppScrollbar(
                       controller: _tableFooterHScroll!,
                       scrollDirection: Axis.horizontal,
+                      thickness: AppScrollMetrics.listingHorizontalThickness,
                       child: SingleChildScrollView(
                         controller: _tableFooterHScroll,
                         scrollDirection: Axis.horizontal,
                         child: SizedBox(
                           width: totalScrollWidth,
-                          height: AppTokens.space2,
+                          height: _kListingTableHScrollThumbHeight,
                         ),
                       ),
                     ),
@@ -2204,6 +2347,9 @@ class _ToolbarRow<T> extends StatelessWidget {
     required this.onColumnPicker,
     required this.columnsButtonLink,
     required this.showColumnsDot,
+    this.onExport,
+    required this.exportLabel,
+    this.showColumnToggle = true,
   });
 
   final AppListingScreen<T> widget;
@@ -2212,6 +2358,9 @@ class _ToolbarRow<T> extends StatelessWidget {
   final VoidCallback onColumnPicker;
   final LayerLink columnsButtonLink;
   final bool showColumnsDot;
+  final VoidCallback? onExport;
+  final String exportLabel;
+  final bool showColumnToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -2280,21 +2429,21 @@ class _ToolbarRow<T> extends StatelessWidget {
                   a,
                   SizedBox(width: AppTokens.listingToolbarActionsGap),
                 ],
-              if (widget.onExport != null) ...[
+              if (onExport != null) ...[
                 AppButton(
-                  label: 'Export',
+                  label: exportLabel,
                   leadingIcon: Icon(
                     LucideIcons.download,
                     size: AppTokens.iconButtonIconSm,
                     color: AppTokens.textPrimary,
                   ),
-                  onPressed: widget.onExport,
+                  onPressed: onExport,
                   variant: AppButtonVariant.secondary,
                   size: AppButtonSize.sm,
                 ),
                 SizedBox(width: AppTokens.listingToolbarActionsGap),
               ],
-              if (widget.showColumnToggle) ...[
+              if (widget.showColumnToggle && showColumnToggle) ...[
                 CompositedTransformTarget(
                   link: columnsButtonLink,
                   child: Stack(
@@ -2664,6 +2813,9 @@ class _BulkBar<T> extends StatelessWidget {
     this.onBulkDelete,
     this.bulkPrimaryLabel,
     this.onBulkPrimary,
+    this.showColumnPicker = false,
+    this.onColumnPicker,
+    this.showColumnsDot = false,
   });
 
   final int selectedCount;
@@ -2680,6 +2832,9 @@ class _BulkBar<T> extends StatelessWidget {
   final Future<void> Function()? onBulkDelete;
   final String? bulkPrimaryLabel;
   final Future<void> Function()? onBulkPrimary;
+  final bool showColumnPicker;
+  final VoidCallback? onColumnPicker;
+  final bool showColumnsDot;
 
   Widget _actionsRow() {
     return SingleChildScrollView(
@@ -2687,6 +2842,26 @@ class _BulkBar<T> extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (onBulkDelete != null) ...[
+            _BulkBarMiniAction(
+              label: 'Delete',
+              leading: const Icon(LucideIcons.trash2),
+              isDanger: true,
+              onPressed: () => onBulkDelete!(),
+            ),
+            SizedBox(width: AppTokens.space2),
+          ],
+          if (bulkActions != null)
+            for (final a in bulkActions!)
+              if (!a.showOnlyWhenSelected || hasSelection) ...[
+                _BulkBarMiniAction(
+                  label: a.label,
+                  leading: a.icon,
+                  isDanger: a.isDanger,
+                  onPressed: () => onBulk(a.onTap),
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
           if (onBulkExport != null) ...[
             _BulkBarMiniAction(
               label: 'Export',
@@ -2719,32 +2894,6 @@ class _BulkBar<T> extends StatelessWidget {
             ),
             SizedBox(width: AppTokens.space2),
           ],
-          if (onBulkDelete != null) ...[
-            Container(
-              width: AppTokens.borderWidthSm,
-              height: AppTokens.space4,
-              color: AppTokens.borderDefault,
-            ),
-            SizedBox(width: AppTokens.space2),
-            _BulkBarMiniAction(
-              label: 'Delete',
-              leading: const Icon(LucideIcons.trash2),
-              isDanger: true,
-              onPressed: () => onBulkDelete!(),
-            ),
-            SizedBox(width: AppTokens.space2),
-          ],
-          if (bulkActions != null)
-            for (final a in bulkActions!)
-              if (!a.showOnlyWhenSelected || hasSelection) ...[
-                _BulkBarMiniAction(
-                  label: a.label,
-                  leading: a.icon,
-                  isDanger: a.isDanger,
-                  onPressed: () => onBulk(a.onTap),
-                ),
-                SizedBox(width: AppTokens.space2),
-              ],
         ],
       ),
     );
@@ -2836,6 +2985,25 @@ class _BulkBar<T> extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   rightActions,
+                  if (showColumnPicker && onColumnPicker != null) ...[
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _BulkBarMiniAction(
+                          label: 'Columns',
+                          leading: const Icon(LucideIcons.columns),
+                          onPressed: onColumnPicker,
+                        ),
+                        if (showColumnsDot)
+                          const Positioned(
+                            right: -2,
+                            top: -2,
+                            child: _ToolbarAccentDot(),
+                          ),
+                      ],
+                    ),
+                    SizedBox(width: AppTokens.space2),
+                  ],
                   if (showBulkPrimary) ...[
                     SizedBox(width: AppTokens.space2),
                     AppButton(

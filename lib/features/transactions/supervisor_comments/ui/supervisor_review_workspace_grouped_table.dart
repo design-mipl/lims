@@ -27,7 +27,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
 
   final String emptyMessage;
 
-  static const int _histColStart = 14;
+  static const int _histColStart = 15;
   static const double _compactRowHeight = 44.0;
   static const double _compactHeaderHeight = 48.0;
 
@@ -57,7 +57,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
   bool _isCheckboxHeaderColumn(int index) {
     if (index < 0 || index >= columnLabels.length) return false;
     final k = columnLabels[index];
-    return k == 'Highlight' || k == 'Report';
+    return k == 'Highlight' || k == 'Retest' || k == 'Report';
   }
 
   bool _isHistoricalColumn(int index) => index >= _histColStart;
@@ -390,8 +390,17 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
       ),
       _checkboxCell(
         width: columnWidths[12],
-        value: r.includeInReport,
+        value: r.retestFlag,
         showRightDivider: n > 13,
+        rowTint: bg,
+        onChanged: (v) => provider.updateTestLine(
+          r.copyWith(retestFlag: v ?? false),
+        ),
+      ),
+      _checkboxCell(
+        width: columnWidths[13],
+        value: r.includeInReport,
+        showRightDivider: n > 14,
         rowTint: bg,
         onChanged: (v) => provider.updateTestLine(
           r.copyWith(includeInReport: v ?? false),
@@ -399,7 +408,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
       ),
       _textDataCell(
         _display(r.chemist),
-        width: columnWidths[13],
+        width: columnWidths[14],
         showRightDivider: n > _histColStart,
         rowTint: bg,
       ),
@@ -478,6 +487,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
         scrollDirection: Axis.vertical,
         child: AppScrollView(
           scrollDirection: Axis.horizontal,
+          scrollbarThickness: AppScrollMetrics.listingHorizontalThickness,
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(

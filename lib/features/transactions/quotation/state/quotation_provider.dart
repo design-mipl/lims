@@ -28,7 +28,7 @@ class QuotationProvider extends BaseProvider {
       case 1:
         return q.status == QuotationStatus.inReview;
       default:
-        return q.status == QuotationStatus.approved;
+        return false;
     }
   }
 

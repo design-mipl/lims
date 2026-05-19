@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
+import '../data/quotation_model.dart';
 import '../state/quotation_provider.dart';
 import 'widgets/quotation_activity_timeline.dart';
 
@@ -86,12 +87,17 @@ class _QuotationSalesReviewScreenState extends State<QuotationSalesReviewScreen>
         if (!context.mounted) return;
         context.go('/transactions/quotation/pending');
       },
-      primaryLabel: 'Approve',
+      primaryLabel: 'Save review',
       onPrimary: () async {
         final d = double.tryParse(_discountCtrl.text.trim());
-        await p.approveQuote(q.id, discountOverride: d);
+        final next = q.copyWith(
+          discountAmount: d ?? q.discountAmount,
+          discussionNotes: _discussionCtrl.text.trim(),
+        );
+        p.setActiveLocal(next);
+        await p.persistActive();
         if (!context.mounted) return;
-        context.go('/transactions/quotation/approved');
+        context.go('/transactions/quotation/pending');
       },
       isPrimaryLoading: p.isLoading,
       actions: [
@@ -114,17 +120,17 @@ class _QuotationSalesReviewScreenState extends State<QuotationSalesReviewScreen>
         ),
         SizedBox(width: AppTokens.space2),
         AppButton(
-          label: 'Convert to order',
+          label: 'Open orders',
           variant: AppButtonVariant.primary,
           size: AppButtonSize.md,
           onPressed: p.isLoading
               ? null
               : () async {
-                  await p.convertToOrder(q.id);
+                  if (q.status != QuotationStatus.inReview) {
+                    await p.sendToSalesReview(q.id);
+                  }
                   if (!context.mounted) return;
-                  await context.push(
-                    '/transactions/sample-intake/create?enquiryId=${q.enquiryId}&quotationId=${q.id}',
-                  );
+                  context.go('/transactions/order');
                 },
         ),
       ],

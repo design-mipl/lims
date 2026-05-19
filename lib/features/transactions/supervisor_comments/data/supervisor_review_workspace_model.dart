@@ -29,6 +29,7 @@ class SupervisorReviewTestLine {
     required this.freshFluidValue,
     required this.typical,
     required this.highlightFlag,
+    this.retestFlag = false,
     required this.previousValue,
     required this.trendDisplay,
     required this.historicalComparisonValues,
@@ -56,6 +57,8 @@ class SupervisorReviewTestLine {
   final String typical;
   /// Row-level highlight toggle (Highlight column).
   final bool highlightFlag;
+  /// Row-level retest toggle (Retest column).
+  final bool retestFlag;
   /// Used internally for trend / severity recompute (not shown as its own column).
   final String previousValue;
   /// e.g. "↑ Increased", "↓ Decreased", "→ Stable"
@@ -83,6 +86,7 @@ class SupervisorReviewTestLine {
     String? freshFluidValue,
     String? typical,
     bool? highlightFlag,
+    bool? retestFlag,
     String? previousValue,
     String? trendDisplay,
     List<String>? historicalComparisonValues,
@@ -106,6 +110,7 @@ class SupervisorReviewTestLine {
       freshFluidValue: freshFluidValue ?? this.freshFluidValue,
       typical: typical ?? this.typical,
       highlightFlag: highlightFlag ?? this.highlightFlag,
+      retestFlag: retestFlag ?? this.retestFlag,
       previousValue: previousValue ?? this.previousValue,
       trendDisplay: trendDisplay ?? this.trendDisplay,
       historicalComparisonValues:
@@ -127,6 +132,7 @@ class SupervisorReviewWorkspace {
     required this.assignedChemist,
     required this.historicalComparisonHeaders,
     required this.lines,
+    this.problemType = '',
     required this.problem,
     required this.comments,
     required this.recommendation,
@@ -142,6 +148,9 @@ class SupervisorReviewWorkspace {
   final List<String> historicalComparisonHeaders;
 
   final List<SupervisorReviewTestLine> lines;
+
+  /// Analysis classification (Problem Type dropdown).
+  final String problemType;
   final String problem;
   final String comments;
   final String recommendation;
@@ -151,6 +160,7 @@ class SupervisorReviewWorkspace {
     String? assignedChemist,
     List<String>? historicalComparisonHeaders,
     List<SupervisorReviewTestLine>? lines,
+    String? problemType,
     String? problem,
     String? comments,
     String? recommendation,
@@ -162,6 +172,7 @@ class SupervisorReviewWorkspace {
       historicalComparisonHeaders:
           historicalComparisonHeaders ?? this.historicalComparisonHeaders,
       lines: lines ?? this.lines,
+      problemType: problemType ?? this.problemType,
       problem: problem ?? this.problem,
       comments: comments ?? this.comments,
       recommendation: recommendation ?? this.recommendation,
