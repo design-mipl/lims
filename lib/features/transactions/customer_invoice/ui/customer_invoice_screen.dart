@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../shared/billing_listing_provider.dart';
+import '../../shared/billing_listing_scope.dart';
 import '../../shared/billing_listing_scaffold.dart';
 import '../data/customer_invoice_api.dart';
 
@@ -13,9 +13,11 @@ class CustomerInvoiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => BillingListingProvider(
+    return BillingListingScope(
+      createProvider: () => BillingListingProvider(
         fetchRows: () => sl<CustomerInvoiceApi>().fetchInvoices(),
+        onAttachDigitalSignature: sl<CustomerInvoiceApi>().attachDigitalSignature,
+        onPersistRow: sl<CustomerInvoiceApi>().replaceRow,
       ),
       child: BillingListingScaffold(
         title: 'Customer Invoice',
@@ -27,6 +29,7 @@ class CustomerInvoiceScreen extends StatelessWidget {
         selectionPlural: 'Invoices',
         showEditRowAction: true,
         enableGstEinvoiceWorkflow: true,
+        showGenerateCreditNoteRowAction: true,
         primaryActionLabel: 'Create Customer Invoice',
         onPrimaryAction: () =>
             context.push('/transactions/customer-invoice/create'),

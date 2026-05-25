@@ -916,30 +916,41 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
 
     final sectionCustomer = AppFormSection(
       title: 'Customer Details',
+      expandBody: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.max,
         children: [
-          AppInput(
-            label: 'Bill To',
-            hint: 'Tap to select customer',
-            controller: _billToCtrl,
-            readOnly: true,
-            enabled: !_readOnly,
-            size: AppInputSize.md,
-            onTap: _readOnly ? null : () => _openBillToDrawer(active),
-            suffixIcon: _readOnly
-                ? null
-                : Icon(
-                    LucideIcons.panelRightOpen,
-                    size: AppTokens.iconButtonIconSm,
-                  ),
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'GST No.',
-            controller: _gstNoCtrl,
-            readOnly: true,
-            size: AppInputSize.md,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppInput(
+                  label: 'Bill To',
+                  hint: 'Tap to select customer',
+                  controller: _billToCtrl,
+                  readOnly: true,
+                  enabled: !_readOnly,
+                  size: AppInputSize.md,
+                  onTap: _readOnly ? null : () => _openBillToDrawer(active),
+                  suffixIcon: _readOnly
+                      ? null
+                      : Icon(
+                          LucideIcons.panelRightOpen,
+                          size: AppTokens.iconButtonIconSm,
+                        ),
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AppInput(
+                  label: 'GST No.',
+                  controller: _gstNoCtrl,
+                  readOnly: true,
+                  size: AppInputSize.md,
+                ),
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           Row(
@@ -1013,6 +1024,7 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
             minLines: 4,
             maxLines: 8,
           ),
+          const Spacer(),
         ],
       ),
     );
@@ -1043,8 +1055,10 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
 
     final sectionRef = AppFormSection(
       title: 'Reference Details',
+      expandBody: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1128,16 +1142,18 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
             ],
           ),
           SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Supplier Ref',
-            controller: _supplierRefCtrl,
-            enabled: _fieldsEnabled,
-            size: AppInputSize.md,
-          ),
-          SizedBox(height: AppTokens.space3),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: AppInput(
+                  label: 'Supplier Ref',
+                  controller: _supplierRefCtrl,
+                  enabled: _fieldsEnabled,
+                  size: AppInputSize.md,
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
               Expanded(
                 child: AppInput(
                   label: 'Dispatch Document No.',
@@ -1146,7 +1162,12 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
                   size: AppInputSize.md,
                 ),
               ),
-              SizedBox(width: AppTokens.space3),
+            ],
+          ),
+          SizedBox(height: AppTokens.space3),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Expanded(
                 child: _formLabDateField(
                   label: 'Dispatch Date',
@@ -1156,17 +1177,20 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
                   onDateSelected: (d) => setState(() => _dispatchDate = d),
                 ),
               ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AppTextarea(
+                  label: 'Remarks / Narration',
+                  hint: 'Notes for customer / compliance…',
+                  controller: _remarksCtrl,
+                  enabled: _fieldsEnabled,
+                  minLines: 6,
+                  maxLines: 14,
+                ),
+              ),
             ],
           ),
-          SizedBox(height: AppTokens.space3),
-          AppTextarea(
-            label: 'Remarks / Narration',
-            hint: 'Notes for customer / compliance…',
-            controller: _remarksCtrl,
-            enabled: _fieldsEnabled,
-            minLines: 6,
-            maxLines: 14,
-          ),
+          const Spacer(),
         ],
       ),
     );
@@ -1373,14 +1397,6 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
       child: itemTable,
     );
 
-    final sectionFinancialBelowItems = Align(
-      alignment: Alignment.centerRight,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: sectionFinancial,
-      ),
-    );
-
     final formBody = SingleChildScrollView(
       padding: EdgeInsets.all(AppTokens.space4),
       child: Column(
@@ -1388,18 +1404,20 @@ class _CreateCustomerInvoicePageState extends State<CreateCustomerInvoicePage> {
         children: [
           sectionInvoice,
           SizedBox(height: AppTokens.space3),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: sectionCustomer),
-              SizedBox(width: AppTokens.space4),
-              Expanded(child: sectionRef),
-            ],
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: sectionCustomer),
+                SizedBox(width: AppTokens.space4),
+                Expanded(child: sectionRef),
+              ],
+            ),
           ),
           SizedBox(height: AppTokens.space3),
           sectionInvoiceItems,
           SizedBox(height: AppTokens.space3),
-          sectionFinancialBelowItems,
+          sectionFinancial,
         ],
       ),
     );

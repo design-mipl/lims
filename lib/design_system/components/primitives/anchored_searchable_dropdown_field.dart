@@ -24,6 +24,7 @@ class AnchoredSearchableDropdownField<T> extends StatelessWidget {
     this.focusNode,
     this.openOverlayWhenFocused = false,
     this.overlayMinimalShadow = false,
+    this.overlayWidthMatchesTrigger = false,
   });
 
   final String? label;
@@ -43,6 +44,9 @@ class AnchoredSearchableDropdownField<T> extends StatelessWidget {
   final bool openOverlayWhenFocused;
   final bool overlayMinimalShadow;
 
+  /// When true, overlay width equals the trigger field width (no 320px minimum).
+  final bool overlayWidthMatchesTrigger;
+
   @override
   Widget build(BuildContext context) {
     return AppSelect<T>(
@@ -60,6 +64,7 @@ class AnchoredSearchableDropdownField<T> extends StatelessWidget {
       focusNode: focusNode,
       openOverlayWhenFocused: openOverlayWhenFocused,
       overlayMinimalShadow: overlayMinimalShadow,
+      overlayWidthMatchesTrigger: overlayWidthMatchesTrigger,
     );
   }
 }

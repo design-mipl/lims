@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +20,6 @@ class OrderScreen extends StatefulWidget {
 
 class _OrderScreenState extends State<OrderScreen> {
   OrderProvider? _provider;
-  final Set<String> _selectedPendingQuoteIds = <String>{};
 
   static const double _kColWidth = 200;
   static const double _kColWidthSm = 140;
@@ -104,26 +104,6 @@ class _OrderScreenState extends State<OrderScreen> {
     return StatusChip(status: key, customLabel: approval);
   }
 
-  Future<void> _createOrdersFromSelection(
-    BuildContext context,
-    OrderProvider p,
-  ) async {
-    if (_selectedPendingQuoteIds.isEmpty) return;
-    final ids = _selectedPendingQuoteIds.toList(growable: false);
-    await p.createOrdersFromQuotations(ids);
-    if (!context.mounted) return;
-    setState(_selectedPendingQuoteIds.clear);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${ids.length} quotation(s) converted to order(s).',
-          style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
-        ),
-      ),
-    );
-    p.setTabByIndex(1);
-  }
-
   void _showStub(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -135,75 +115,7 @@ class _OrderScreenState extends State<OrderScreen> {
     );
   }
 
-  void _showOrderSummary(BuildContext context, OrderRecord row) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          row.orderNo,
-          style: GoogleFonts.poppins(fontWeight: AppTokens.weightSemibold),
-        ),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _summaryLine('Customer', row.customerName),
-              _summaryLine('Quote', row.quoteNo),
-              _summaryLine('Enquiry', row.enquiryNo),
-              _summaryLine('Status', row.status),
-              _summaryLine('Version', 'V${row.versionNo}'),
-              _summaryLine('Revised amount', _money(row.revisedAmount)),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryLine(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: AppTokens.space2),
-      child: RichText(
-        text: TextSpan(
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.tableCellSize,
-            color: AppTokens.textPrimary,
-          ),
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: AppTokens.weightSemibold),
-            ),
-            TextSpan(text: value),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _pendingToolbarTrailing(
-    BuildContext context,
-    OrderProvider p,
-  ) {
-    return [
-      AppButton(
-        label: 'Create order',
-        variant: AppButtonVariant.primary,
-        size: AppButtonSize.sm,
-        onPressed: _selectedPendingQuoteIds.isEmpty
-            ? null
-            : () => _createOrdersFromSelection(context, p),
-      ),
-    ];
-  }
+  void _openCreateOrder() => context.push('/transactions/order/create');
 
   List<RowAction<OrderRecord>> _confirmedRowActions(BuildContext context) {
     return [
@@ -211,7 +123,9 @@ class _OrderScreenState extends State<OrderScreen> {
         key: 'view',
         label: 'View order',
         icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
-        onTap: (row) => _showOrderSummary(context, row),
+        onTap: (row) => context.push(
+          '/transactions/order/create?quotationId=${row.quotationId}',
+        ),
       ),
       RowAction<OrderRecord>(
         key: 'versions',
@@ -255,22 +169,6 @@ class _OrderScreenState extends State<OrderScreen> {
     ];
   }
 
-  void _onPendingSelectionChanged(
-    OrderProvider p,
-    Set<int> indices,
-  ) {
-    final rows = p.pagedPending;
-    setState(() {
-      _selectedPendingQuoteIds
-        ..clear()
-        ..addAll(
-          indices
-              .where((i) => i >= 0 && i < rows.length)
-              .map((i) => rows[i].id),
-        );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = context.watch<OrderProvider>();
@@ -289,12 +187,10 @@ class _OrderScreenState extends State<OrderScreen> {
         title: 'Order',
         subtitle:
             'Convert quotations in sales review into confirmed orders with version tracking.',
-        showCheckboxes: true,
-        bulkRowId: (r) => r.id,
+        primaryActionLabel: 'Create order',
+        onPrimaryAction: _openCreateOrder,
+        showCheckboxes: false,
         showBulkBar: false,
-        onRowSelectionChanged: (indices) =>
-            _onPendingSelectionChanged(p, indices),
-        toolbarTrailingActions: _pendingToolbarTrailing(context, p),
         showKpis: false,
         exportModuleName: 'Order_Pending',
         exportSourceRows: p.filteredPending,
@@ -324,10 +220,7 @@ class _OrderScreenState extends State<OrderScreen> {
           ),
         ],
         initialTabIndex: p.tabIndex,
-        onTabChanged: (i) {
-          if (i != 0) setState(_selectedPendingQuoteIds.clear);
-          p.setTabByIndex(i);
-        },
+        onTabChanged: (i) => p.setTabByIndex(i),
         searchHint: 'Search quote no., enquiry, customer, site…',
         onSearch: p.setSearchQuery,
         columns: [
@@ -456,6 +349,8 @@ class _OrderScreenState extends State<OrderScreen> {
         title: 'Order',
         subtitle:
             'Convert quotations in sales review into confirmed orders with version tracking.',
+        primaryActionLabel: 'Create order',
+        onPrimaryAction: _openCreateOrder,
         showCheckboxes: false,
         showKpis: false,
         exportModuleName: 'Order_Confirmed',
@@ -480,10 +375,7 @@ class _OrderScreenState extends State<OrderScreen> {
           TabConfig(label: 'Confirmed orders', count: p.confirmedCount),
         ],
         initialTabIndex: p.tabIndex,
-        onTabChanged: (i) {
-          if (i != 0) setState(_selectedPendingQuoteIds.clear);
-          p.setTabByIndex(i);
-        },
+        onTabChanged: (i) => p.setTabByIndex(i),
         searchHint: 'Search order no., customer, status…',
         onSearch: p.setSearchQuery,
         columns: [

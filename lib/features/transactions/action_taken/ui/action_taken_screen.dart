@@ -324,6 +324,8 @@ class _ActionTakenScreenState extends State<ActionTakenScreen> {
         showTableHorizontalScrollbar: true,
         showActionsColumnLeadingBorder: true,
         tableBodyFillsViewport: true,
+        tableBodyVerticalScrollbarThickness:
+            AppScrollMetrics.listingHorizontalThickness,
         tableScrollableMinWidth: _kColW * _kCols + AppTokens.space4,
         rowBackgroundColor: _rowTint,
         onRowTap: (r) => _openWorkspace(context, r),

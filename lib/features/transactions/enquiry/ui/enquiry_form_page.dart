@@ -12,12 +12,11 @@ import '../../../masters/customer_master/state/customer_provider.dart';
 import '../../../masters/site_master/data/site_model.dart';
 import '../../../masters/site_master/state/site_provider.dart';
 import '../../sample_intake/data/sample_master_options.dart';
-import '../../sample_intake/ui/widgets/sample_attachment_cell.dart';
 import '../../shared/activity_timeline_models.dart';
 import '../data/enquiry_api.dart';
 import '../data/enquiry_model.dart';
 import '../state/enquiry_provider.dart';
-import 'widgets/enquiry_sample_test_cards.dart';
+import 'widgets/enquiry_sample_requirements_table.dart';
 
 /// Create or edit enquiry — [DetailTemplate] + section layout aligned with Sample Intake create receipt.
 class EnquiryFormPage extends StatefulWidget {
@@ -41,7 +40,8 @@ class EnquiryFormPage extends StatefulWidget {
 }
 
 class _EnquiryFormPageState extends State<EnquiryFormPage> {
-  final _dateCtrl = TextEditingController();
+  DateTime? _enquiryDate;
+  DateTime? _expectedTimelineDraft;
   final _companyCtrl = TextEditingController();
   final _siteContactCtrl = TextEditingController();
   final _siteCompanyCtrl = TextEditingController();
@@ -49,13 +49,14 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _sampleCountCtrl = TextEditingController(text: '1');
-  final _internalCtrl = TextEditingController();
+  final _sampleRemarksCtrl = TextEditingController();
 
   String? _selectedCustomerId;
   String? _selectedSiteId;
   String _source = 'Email';
   String _typeOfSampleKey = SampleMasterOptions.typeOfSample.first.value;
-  List<EnquiryRequestedTestRow> _tests = [];
+  String _samplePriority = 'Normal';
+  List<EnquirySampleRequirementRow> _sampleRequirements = [];
   List<String> _attachments = [];
 
   String? _recordId;
@@ -72,14 +73,10 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
 
   static const List<String> _sources = ['Email', 'Portal', 'Phone', 'Walk-in'];
 
-  static const List<AppSelectItem<String>> _catalogTests = [
-    AppSelectItem(value: 'FTIR', label: 'FTIR Spectroscopy'),
-    AppSelectItem(value: 'ICP', label: 'ICP Metals'),
-    AppSelectItem(value: 'viscosity', label: 'Viscosity @ 40°C'),
-    AppSelectItem(value: 'tnb', label: 'TBN / TAN'),
-    AppSelectItem(value: 'particleCount', label: 'Particle Count ISO'),
-    AppSelectItem(value: 'water', label: 'Water / Karl Fischer'),
-    AppSelectItem(value: 'ferrography', label: 'Ferrography'),
+  static const List<AppSelectItem<String>> _priorityItems = [
+    AppSelectItem(value: 'Normal', label: 'Normal'),
+    AppSelectItem(value: 'Critical', label: 'Critical'),
+    AppSelectItem(value: 'Urgent', label: 'Urgent'),
   ];
 
   static List<AppSelectItem<String>> _itemsFrom(List<String> values) =>
@@ -108,13 +105,66 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     return _typeOfSampleKey;
   }
 
-  static String _normalizeTypeKey(String stored) {
+  static String _formatYmd(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  void _resetSampleDraftFields() {
+    _typeOfSampleKey = SampleMasterOptions.typeOfSample.first.value;
+    _sampleCountCtrl.text = '1';
+    _expectedTimelineDraft = null;
+    _samplePriority = 'Normal';
+    _sampleRemarksCtrl.clear();
+    _sampleTypeError = null;
+    _countError = null;
+    _dateError = null;
+  }
+
+  bool _validateSampleDraft() {
+    final count = int.tryParse(_sampleCountCtrl.text.trim());
+    setState(() {
+      _sampleTypeError =
+          _typeOfSampleKey.trim().isEmpty ? 'Sample type is required' : null;
+      _countError =
+          count == null || count < 1 ? 'Enter a valid sample count' : null;
+    });
+    return _sampleTypeError == null && _countError == null;
+  }
+
+  void _addSampleRequirement() {
+    if (!_validateSampleDraft()) return;
+    final count = int.parse(_sampleCountCtrl.text.trim());
+    final id = 'sr-${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _sampleRequirements = [
+        ..._sampleRequirements,
+        EnquirySampleRequirementRow(
+          id: id,
+          typeOfSample: _typeOfSampleStoredLabel(),
+          sampleCount: count,
+          expectedTimeline: _expectedTimelineDraft == null
+              ? ''
+              : _formatYmd(_expectedTimelineDraft!),
+          priority: _samplePriority,
+          remarks: _sampleRemarksCtrl.text.trim(),
+        ),
+      ];
+      _resetSampleDraftFields();
+    });
+  }
+
+  void _removeSampleRequirement(int index) {
+    setState(() {
+      final next = List<EnquirySampleRequirementRow>.from(_sampleRequirements)
+        ..removeAt(index);
+      _sampleRequirements = next;
+    });
+  }
+
+  static String _normalizeSamplePriority(String stored) {
+    const allowed = {'Normal', 'Critical', 'Urgent'};
     final t = stored.trim();
-    if (t.isEmpty) return SampleMasterOptions.typeOfSample.first.value;
-    for (final i in SampleMasterOptions.typeOfSample) {
-      if (i.value == t || i.label == t) return i.value;
-    }
-    return t;
+    if (allowed.contains(t)) return t;
+    return 'Normal';
   }
 
   @override
@@ -137,11 +187,10 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
         _applyRecord(d, customers: customers, sites: sites);
       }
     } else {
-      final now = DateTime.now();
-      _dateCtrl.text =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      _tests = [];
+      _enquiryDate = DateTime.now();
+      _sampleRequirements = [];
       _attachments = [];
+      _resetSampleDraftFields();
       _recordId = 'enq-${DateTime.now().millisecondsSinceEpoch}';
       _enquiryNo = sl<EnquiryApi>().allocateEnquiryNo();
     }
@@ -172,19 +221,29 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     _recordId = d.id;
     _enquiryNo = d.enquiryNo;
     _createdBy = d.createdBy;
-    _dateCtrl.text =
-        '${d.enquiryDate.year}-${d.enquiryDate.month.toString().padLeft(2, '0')}-${d.enquiryDate.day.toString().padLeft(2, '0')}';
+    _enquiryDate = d.enquiryDate;
     _companyCtrl.text = d.customerCompany;
     _siteContactCtrl.text = d.siteContactPerson;
     _siteCompanyCtrl.text = d.siteCompany;
     _contactCtrl.text = d.contactPerson;
     _emailCtrl.text = d.contactEmail;
     _phoneCtrl.text = d.contactPhone;
-    _typeOfSampleKey = _normalizeTypeKey(d.typeOfSample);
-    _sampleCountCtrl.text = '${d.sampleCount}';
     _source = d.enquirySource;
-    _internalCtrl.text = d.internalNotes;
-    _tests = List<EnquiryRequestedTestRow>.from(d.requestedTests);
+    _sampleRequirements = List<EnquirySampleRequirementRow>.from(
+      d.sampleRequirements,
+    );
+    if (_sampleRequirements.isEmpty && d.typeOfSample.trim().isNotEmpty) {
+      _sampleRequirements = [
+        EnquirySampleRequirementRow(
+          id: 'sr-legacy-${d.id}',
+          typeOfSample: d.typeOfSample,
+          sampleCount: d.sampleCount,
+          expectedTimeline: d.expectedTimeline,
+          priority: _normalizeSamplePriority(d.samplePriority),
+        ),
+      ];
+    }
+    _resetSampleDraftFields();
     _attachments = List<String>.from(d.attachmentNames);
 
     if (customers != null) {
@@ -200,7 +259,6 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
   @override
   void dispose() {
     _provider?.removeListener(_onProviderError);
-    _dateCtrl.dispose();
     _companyCtrl.dispose();
     _siteContactCtrl.dispose();
     _siteCompanyCtrl.dispose();
@@ -208,7 +266,7 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _sampleCountCtrl.dispose();
-    _internalCtrl.dispose();
+    _sampleRemarksCtrl.dispose();
     super.dispose();
   }
 
@@ -339,178 +397,57 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     );
   }
 
-  Future<void> _confirmRemoveSample(EnquiryRequestedTestRow row) async {
-    if (_tests.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'At least one sample is required.',
-            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
-          ),
-          backgroundColor: AppTokens.error500,
-        ),
-      );
-      return;
-    }
-    final ok = await AppConfirmDialog.show(
-      context: context,
-      title: 'Remove sample?',
-      message: 'Are you sure you want to remove this sample?',
-      confirmLabel: 'Remove',
-      variant: AppConfirmDialogVariant.danger,
-    );
-    if (ok == true && mounted) {
-      setState(() {
-        _tests = _tests.where((t) => t.id != row.id).toList();
-        _sampleCountCtrl.text = '${_tests.length}';
-      });
-    }
-  }
-
-  Future<void> _showAddSampleDialog() async {
-    String? testKey = _catalogTests.first.value;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                'Add sample test',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.textBase,
-                  fontWeight: AppTokens.weightSemibold,
-                ),
-              ),
-              content: SizedBox(
-                width: 360,
-                child: AnchoredSearchableDropdownField<String>(
-                  label: 'Test',
-                  hint: 'Select test',
-                  value: testKey,
-                  items: _catalogTests,
-                  size: AppInputSize.md,
-                  overlayMinimalShadow: true,
-                  openOverlayWhenFocused: true,
-                  onChanged: (v) => setDialogState(() => testKey = v),
-                ),
-              ),
-              actions: [
-                AppButton(
-                  label: 'Cancel',
-                  variant: AppButtonVariant.tertiary,
-                  size: AppButtonSize.sm,
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-                AppButton(
-                  label: 'Add',
-                  variant: AppButtonVariant.primary,
-                  size: AppButtonSize.sm,
-                  onPressed: () {
-                    if (testKey == null || testKey!.isEmpty) return;
-                    final item = _catalogTests.firstWhere(
-                      (e) => e.value == testKey,
-                      orElse: () => AppSelectItem(
-                        value: testKey!,
-                        label: testKey!,
-                      ),
-                    );
-                    final id = 'rt-${DateTime.now().millisecondsSinceEpoch}';
-                    setState(() {
-                      _tests = [
-                        ..._tests,
-                        EnquiryRequestedTestRow(
-                          id: id,
-                          testCode: item.value,
-                          testName: item.label,
-                          selected: true,
-                        ),
-                      ];
-                      final count = int.tryParse(_sampleCountCtrl.text.trim());
-                      if (count == null || count < _tests.length) {
-                        _sampleCountCtrl.text = '${_tests.length}';
-                      }
-                    });
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  DateTime? _parseDate() {
-    final parts = _dateCtrl.text.trim().split('-');
-    if (parts.length != 3) return null;
-    final y = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
-    if (y == null || m == null || day == null) return null;
-    try {
-      return DateTime(y, m, day);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _pickDate(TextEditingController c) async {
-    final now = DateTime.now();
-    final parsed = DateTime.tryParse(c.text.trim());
-    final current = parsed ?? now;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && mounted) {
-      setState(() {
-        c.text =
-            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-        if (c == _dateCtrl) {
-          _dateError = null;
-        }
-      });
-    }
-  }
-
-  Widget _datePickerField({
+  Widget _formLabDateField({
     required String label,
-    required TextEditingController controller,
-    String? hint,
+    required String hint,
+    required DateTime? value,
+    required ValueChanged<DateTime> onDateSelected,
     String? errorText,
+    bool enabled = true,
   }) {
-    return AppInput(
-      label: label,
-      hint: hint ?? 'YYYY-MM-DD',
-      controller: controller,
-      readOnly: true,
-      errorText: errorText,
-      size: AppInputSize.md,
-      onTap: () => _pickDate(controller),
-      suffixIcon: Icon(LucideIcons.calendar, size: AppTokens.iconButtonIconSm),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.fieldLabelSize,
+            fontWeight: AppTokens.fieldLabelWeight,
+            color: AppTokens.labelColor,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        SizedBox(height: AppTokens.space1),
+        LabCodeLabIdDateField(
+          layout: LabCodeLabIdDateFieldLayout.formRow,
+          hint: hint,
+          selectedDate: value,
+          onDateSelected: onDateSelected,
+          enabled: enabled,
+        ),
+        if (errorText != null && errorText.isNotEmpty) ...[
+          SizedBox(height: AppTokens.space1),
+          Text(
+            errorText,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.captionSize,
+              fontWeight: AppTokens.captionWeight,
+              color: AppTokens.error500,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   bool _validate() {
-    final dt = _parseDate();
-    final count = int.tryParse(_sampleCountCtrl.text.trim());
     setState(() {
       _customerError =
           _selectedCustomerId == null ? 'Customer is required' : null;
-      _sampleTypeError =
-          _typeOfSampleKey.trim().isEmpty ? 'Sample type is required' : null;
-      _countError =
-          count == null || count < 1 ? 'Enter a valid sample count' : null;
-      _dateError = dt == null ? 'Use YYYY-MM-DD' : null;
+      _dateError = _enquiryDate == null ? 'Enquiry date is required' : null;
     });
-    return _customerError == null &&
-        _sampleTypeError == null &&
-        _countError == null &&
-        _dateError == null;
+    return _customerError == null && _dateError == null;
   }
 
   EnquiryRecord _buildRecord(
@@ -519,8 +456,14 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     List<CustomerModel> customers,
     List<SiteModel> sites,
   ) {
-    final dt = _parseDate() ?? DateTime.now();
-    final count = int.parse(_sampleCountCtrl.text.trim());
+    final dt = _enquiryDate ?? DateTime.now();
+    final totalSamples = _sampleRequirements.fold<int>(
+      0,
+      (sum, r) => sum + r.sampleCount,
+    );
+    final primary = _sampleRequirements.isNotEmpty
+        ? _sampleRequirements.first
+        : null;
     final customer = _customerById(customers, _selectedCustomerId);
     final site = _siteById(sites, _selectedSiteId);
     final customerName = customer != null
@@ -535,8 +478,8 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
       customerName: customerName,
       siteName: siteName,
       enquirySource: _source,
-      typeOfSample: _typeOfSampleStoredLabel(),
-      sampleCount: count,
+      typeOfSample: primary?.typeOfSample ?? '',
+      sampleCount: totalSamples > 0 ? totalSamples : 1,
       status: status,
       createdBy: _createdBy,
       customerCompany: _companyCtrl.text.trim(),
@@ -548,11 +491,14 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
       equipmentMakeModel: '',
       operatingConditions: '',
       urgency: 'Normal',
-      expectedTimeline: '',
-      samplePriority: 'Normal',
-      internalNotes: _internalCtrl.text.trim(),
+      expectedTimeline: primary?.expectedTimeline ?? '',
+      samplePriority: primary?.priority ?? 'Normal',
+      internalNotes: '',
       attachmentNames: List<String>.from(_attachments),
-      requestedTests: List<EnquiryRequestedTestRow>.from(_tests),
+      sampleRequirements: List<EnquirySampleRequirementRow>.from(
+        _sampleRequirements,
+      ),
+      requestedTests: const [],
       activity: activity,
       quotationId: context.read<EnquiryProvider>().detail?.quotationId,
     );
@@ -639,11 +585,15 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     final sectionEnquiryInformation = AppFormSection(
       title: 'Enquiry Information',
       children: [
-        _datePickerField(
+        _formLabDateField(
           label: 'Enquiry Date',
-          controller: _dateCtrl,
-          hint: 'YYYY-MM-DD',
+          hint: 'Select date',
+          value: _enquiryDate,
           errorText: _dateError,
+          onDateSelected: (d) => setState(() {
+            _enquiryDate = d;
+            _dateError = null;
+          }),
         ),
         AppSelect<String>(
           label: 'Enquiry Source',
@@ -674,6 +624,7 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
           errorText: _customerError,
           size: AppInputSize.md,
           overlayMinimalShadow: true,
+          overlayWidthMatchesTrigger: true,
           openOverlayWhenFocused: true,
           onChanged: (id) {
             setState(() {
@@ -727,6 +678,7 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
           enabled: _selectedCustomerId != null,
           size: AppInputSize.md,
           overlayMinimalShadow: true,
+          overlayWidthMatchesTrigger: true,
           openOverlayWhenFocused: true,
           onChanged: (id) {
             setState(() {
@@ -753,85 +705,146 @@ class _EnquiryFormPageState extends State<EnquiryFormPage> {
     final sectionSampleRequirement = AppFormSection(
       title: 'Sample Requirement Information',
       trailing: _sectionHeaderAction(
-        label: '+ Add Samples',
-        onPressed: _showAddSampleDialog,
+        label: '+ Add Test',
+        onPressed: _addSampleRequirement,
       ),
-      children: [
-        AppSelect<String>(
-          label: 'Type of Sample',
-          hint: 'Select type',
-          isRequired: true,
-          errorText: _sampleTypeError,
-          value: _typeOfSampleKey,
-          items: _typeOfSampleItems,
-          size: AppInputSize.md,
-          overlayMinimalShadow: true,
-          overlayWidthMatchesTrigger: true,
-          onChanged: (v) => setState(() {
-            _typeOfSampleKey = v ?? _typeOfSampleKey;
-            _sampleTypeError = null;
-          }),
-        ),
-        AppInput(
-          label: 'Sample Count',
-          hint: 'Count',
-          controller: _sampleCountCtrl,
-          keyboardType: TextInputType.number,
-          isRequired: true,
-          errorText: _countError,
-          size: AppInputSize.md,
-          onChanged: (_) => setState(() => _countError = null),
-        ),
-        if (_tests.isNotEmpty)
-          AppFormFullWidth(
-            child: EnquirySampleTestCards(
-              tests: _tests,
-              showDelete: true,
-              onDelete: _confirmRemoveSample,
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppSelect<String>(
+                  label: 'Type of Sample',
+                  hint: 'Select type',
+                  isRequired: true,
+                  errorText: _sampleTypeError,
+                  value: _typeOfSampleKey,
+                  items: _typeOfSampleItems,
+                  size: AppInputSize.md,
+                  overlayMinimalShadow: true,
+                  overlayWidthMatchesTrigger: true,
+                  onChanged: (v) => setState(() {
+                    _typeOfSampleKey = v ?? _typeOfSampleKey;
+                    _sampleTypeError = null;
+                  }),
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AppInput(
+                  label: 'Sample Count',
+                  hint: 'Count',
+                  controller: _sampleCountCtrl,
+                  keyboardType: TextInputType.number,
+                  isRequired: true,
+                  errorText: _countError,
+                  size: AppInputSize.md,
+                  onChanged: (_) => setState(() => _countError = null),
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: _formLabDateField(
+                  label: 'Expected Timeline',
+                  hint: 'Select date',
+                  value: _expectedTimelineDraft,
+                  onDateSelected: (d) =>
+                      setState(() => _expectedTimelineDraft = d),
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AnchoredSearchableDropdownField<String>(
+                  label: 'Priority',
+                  hint: 'Select priority',
+                  value: _samplePriority,
+                  items: _priorityItems,
+                  size: AppInputSize.md,
+                  overlayMinimalShadow: true,
+                  openOverlayWhenFocused: true,
+                  onChanged: (v) =>
+                      setState(() => _samplePriority = v ?? _samplePriority),
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AppInput(
+                  label: 'Remarks',
+                  hint: 'Remarks for this sample type',
+                  controller: _sampleRemarksCtrl,
+                  size: AppInputSize.md,
+                ),
+              ),
+            ],
           ),
-        AppFormFullWidth(
-          child: AppTextarea(
-            label: 'Additional Remarks',
-            hint: 'Notes…',
-            controller: _internalCtrl,
-            minLines: 3,
-            maxLines: 6,
+          SizedBox(height: AppTokens.space3),
+          EnquirySampleRequirementsTable(
+            rows: _sampleRequirements,
+            showDelete: true,
+            onDelete: _removeSampleRequirement,
           ),
-        ),
-      ],
+        ],
+      ),
     );
 
-    final sectionAttachments = AppFormSection(
-      title: 'Attachments',
+    final attachFileControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SampleAttachmentCell(
-          filename: _attachments.isEmpty ? null : _attachments.first,
-          dense: false,
-          prefix: 'enquiry',
-          onPickMock: (name) => setState(() {
-            if (name == null) {
-              _attachments = [];
-            } else {
-              _attachments = [name];
-            }
+        AppButton(
+          label: 'Attach File',
+          variant: AppButtonVariant.primary,
+          size: AppButtonSize.md,
+          icon: LucideIcons.paperclip,
+          onPressed: () => setState(() {
+            _attachments = [
+              'enquiry-${DateTime.now().millisecondsSinceEpoch}.bin',
+            ];
           }),
         ),
+        if (_attachments.isNotEmpty) ...[
+          SizedBox(height: AppTokens.space2),
+          Text(
+            _attachments.first,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.poppins(
+              fontSize: AppTokens.tableCellSize,
+              color: AppTokens.primary600,
+              decoration: TextDecoration.underline,
+              fontWeight: AppTokens.weightMedium,
+            ),
+          ),
+        ],
       ],
     );
 
     final overview = SingleChildScrollView(
       padding: EdgeInsets.all(AppTokens.space4),
-      child: AppFormPageLayout(
-        left: AppFormPageLayout.sectionsColumn([
-          sectionEnquiryInformation,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppFormPageLayout.sectionsColumn([
+                  sectionEnquiryInformation,
+                  sectionSiteDetails,
+                ]),
+              ),
+              SizedBox(width: AppTokens.space4),
+              Expanded(child: sectionCustomerDetails),
+            ],
+          ),
+          SizedBox(height: AppTokens.space3),
           sectionSampleRequirement,
-          sectionAttachments,
-        ]),
-        right: AppFormPageLayout.sectionsColumn([
-          sectionCustomerDetails,
-          sectionSiteDetails,
-        ]),
+          SizedBox(height: AppTokens.space3),
+          attachFileControl,
+        ],
       ),
     );
 

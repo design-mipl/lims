@@ -14,7 +14,7 @@ import '../../shared/form_read_only_field.dart';
 import '../data/enquiry_model.dart';
 import '../state/enquiry_provider.dart';
 import 'enquiry_form_page.dart';
-import 'widgets/enquiry_requested_tests_table.dart';
+import 'widgets/enquiry_sample_requirements_table.dart';
 
 /// Enquiry view with inline edit — layout aligned with Sample Intake view.
 class EnquiryDetailScreen extends StatefulWidget {
@@ -162,6 +162,24 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
     );
   }
 
+  List<EnquirySampleRequirementRow> _sampleRequirementRowsForView(
+    EnquiryRecord e,
+  ) {
+    if (e.sampleRequirements.isNotEmpty) {
+      return e.sampleRequirements;
+    }
+    if (e.typeOfSample.trim().isEmpty) return const [];
+    return [
+      EnquirySampleRequirementRow(
+        id: 'sr-view-${e.id}',
+        typeOfSample: e.typeOfSample,
+        sampleCount: e.sampleCount,
+        expectedTimeline: e.expectedTimeline,
+        priority: e.samplePriority,
+      ),
+    ];
+  }
+
   Widget _buildReadOnlyOverview(EnquiryRecord e) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(AppTokens.space4),
@@ -191,37 +209,9 @@ class _EnquiryDetailScreenState extends State<EnquiryDetailScreen> {
           AppFormSection(
             title: 'Sample Requirement Information',
             children: [
-              FormReadOnlyField(
-                label: 'Type of Sample',
-                value: e.typeOfSample,
-              ),
-              FormReadOnlyField(
-                label: 'Sample Count',
-                value: '${e.sampleCount}',
-              ),
-              FormReadOnlyField(
-                label: 'Expected Timeline',
-                value: e.expectedTimeline.isEmpty ? null : e.expectedTimeline,
-              ),
-              FormReadOnlyField(
-                label: 'Priority',
-                value: e.samplePriority,
-              ),
               AppFormFullWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Requested Tests',
-                      style: GoogleFonts.poppins(
-                        fontSize: AppTokens.fieldLabelSize,
-                        fontWeight: AppTokens.fieldLabelWeight,
-                        color: AppTokens.labelColor,
-                      ),
-                    ),
-                    SizedBox(height: AppTokens.space2),
-                    EnquiryRequestedTestsTable(tests: e.requestedTests),
-                  ],
+                child: EnquirySampleRequirementsTable(
+                  rows: _sampleRequirementRowsForView(e),
                 ),
               ),
             ],

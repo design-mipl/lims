@@ -10,6 +10,10 @@ import '../credit_note/data/create_credit_note_prefill.dart';
 import 'billing_document_row.dart';
 import 'billing_invoice_audit_dialog.dart';
 import 'billing_listing_provider.dart';
+import 'billing_gst_verification_dialog.dart';
+import 'billing_gst_verification_result.dart';
+import 'billing_listing_row_cells.dart';
+import 'billing_row_action_state.dart';
 
 /// Shared listing UI for [CustomerInvoiceScreen] and [CreditNoteScreen].
 class BillingListingScaffold extends StatefulWidget {
@@ -25,6 +29,7 @@ class BillingListingScaffold extends StatefulWidget {
     this.onPrimaryAction,
     this.showEditRowAction = true,
     this.enableGstEinvoiceWorkflow = false,
+    this.showGenerateCreditNoteRowAction = false,
   });
 
   final String title;
@@ -41,13 +46,16 @@ class BillingListingScaffold extends StatefulWidget {
   /// Customer Invoice: GST / eInvoice toolbar + column icons + verification flow.
   final bool enableGstEinvoiceWorkflow;
 
+  /// Customer Invoice only: row action to open Create Credit Note prefill.
+  final bool showGenerateCreditNoteRowAction;
+
   /// e.g. `/transactions/customer-invoice` → detail at `…/:id/view`.
   final String detailPathPrefix;
 
-  /// Bulk-bar label: “1 Invoice Selected” / “1 Credit Note Selected”.
+  /// Used in bulk narration action label (e.g. “Update Invoice Narration”).
   final String selectionSingular;
 
-  /// Bulk-bar label plural: “N Invoices Selected”.
+  /// Used in bulk action snackbars (e.g. “N Invoices”).
   final String selectionPlural;
 
   @override
@@ -58,8 +66,12 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
   // Tiered widths: small | medium | large — fixed so viewport scaling does not
   // stretch some columns more than others ([scaleDataColumnsToFillViewport]=false).
   /// eInvoice column — wider when GST workflow shows 3 action icons.
+  static const double _wEinvGst = 132.0;
+  static const double _wEinvLegacy = 84.0;
   double get _wEinv =>
-      widget.enableGstEinvoiceWorkflow ? 132.0 : 84.0;
+      widget.enableGstEinvoiceWorkflow ? _wEinvGst : _wEinvLegacy;
+  /// Digital signature icon column (GST workflow).
+  static const double _wDigitalSignature = 56.0;
   /// Medium — Doc Date
   static const double _wDate = 128;
   /// Large — Invoice No.
@@ -76,7 +88,11 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
   /// Small — Actions gutter; fits “ACTIONS” + ⋮ without truncation
   static const double _actionsColumnWidth = 96;
 
-  List<BillingDocumentListingRow> _selectedRows = [];
+  /// Cached column defs — cell widgets use [context.select] for localized updates.
+  List<TableColumn<BillingDocumentListingRow>>? _columnsCache;
+
+  /// Stable bulk actions — avoids rebuilding [AppListingScreen] on checkbox toggles.
+  late List<BulkAction<BillingDocumentListingRow>> _bulkActions;
 
   /// Prevents duplicate row-action navigation while a handler runs.
   bool _rowActionBusy = false;
@@ -84,6 +100,7 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
   @override
   void initState() {
     super.initState();
+    _bulkActions = _createBulkActions();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<BillingListingProvider>().load();
@@ -91,6 +108,7 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
   }
 
   double get _scrollMinWidth =>
+      (widget.enableGstEinvoiceWorkflow ? _wDigitalSignature : 0) +
       _wEinv +
       _wDate +
       _wDocNo +
@@ -111,14 +129,28 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          msg,
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.bodySize,
-            color: AppTokens.white,
-          ),
+        content: Row(
+          children: [
+            Icon(
+              error ? LucideIcons.circleX : LucideIcons.info,
+              size: AppTokens.iconButtonIconSm,
+              color: AppTokens.white,
+            ),
+            SizedBox(width: AppTokens.space2),
+            Expanded(
+              child: Text(
+                msg,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.bodySize,
+                  color: AppTokens.white,
+                ),
+              ),
+            ),
+          ],
         ),
         backgroundColor: error ? AppTokens.error500 : AppTokens.primary800,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -142,7 +174,7 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
   }
 
   Future<void> _onGenerateCreditNote(BillingDocumentListingRow row) async {
-    if (!widget.enableGstEinvoiceWorkflow) return;
+    if (!widget.showGenerateCreditNoteRowAction) return;
     if (_rowActionBusy) return;
     setState(() => _rowActionBusy = true);
     try {
@@ -179,404 +211,19 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
     );
   }
 
-  Widget _eInvoiceCellLegacy(BillingDocumentListingRow r) {
-    return Tooltip(
-      message: r.eInvoiceActive ? 'eInvoice active' : 'eInvoice off',
-      child: Icon(
-        r.eInvoiceActive ? LucideIcons.badgeCheck : LucideIcons.circleDashed,
-        size: AppTokens.iconButtonIconSm,
-        color: r.eInvoiceActive ? AppTokens.primary800 : AppTokens.textMuted,
-      ),
-    );
-  }
-
-  Widget _eInvoiceCellGst(BillingDocumentListingRow r) {
-    if (!r.gstVerified) {
-      return Center(
-        child: Tooltip(
-          message: 'Invoice — GST verification pending',
-          child: Icon(
-            LucideIcons.fileText,
-            size: AppTokens.iconButtonIconSm,
-            color: AppTokens.textMuted,
+  List<TableColumn<BillingDocumentListingRow>> _columns() {
+    return _columnsCache ??= [
+      if (widget.enableGstEinvoiceWorkflow)
+        TableColumn<BillingDocumentListingRow>(
+          key: 'digitalSignature',
+          label: '',
+          width: _wDigitalSignature,
+          sortable: false,
+          cellBuilder: (r) => BillingDigitalSignatureCell(
+            rowId: r.id,
+            enabled: widget.enableGstEinvoiceWorkflow,
           ),
         ),
-      );
-    }
-    const gap = 12.0;
-    Widget iconBtn({
-      required IconData icon,
-      required String tooltip,
-      required VoidCallback onTap,
-      Color? color,
-    }) {
-      return Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTokens.inputRadius),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Icon(
-              icon,
-              size: AppTokens.iconButtonIconSm,
-              color: color ?? AppTokens.textPrimary,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Center(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          iconBtn(
-            icon: LucideIcons.fileText,
-            tooltip: 'GST-approved invoice PDF',
-            color: AppTokens.success500,
-            onTap: () => _snack(
-              'GST-approved invoice PDF — ${r.documentNo} (coming soon)',
-            ),
-          ),
-          const SizedBox(width: gap),
-          iconBtn(
-            icon: Icons.qr_code_2_rounded,
-            tooltip: 'IRN & QR code',
-            onTap: () => _showGstQrIrnDialog(r),
-          ),
-          const SizedBox(width: gap),
-          iconBtn(
-            icon: LucideIcons.fileDown,
-            tooltip: 'Download GST invoice PDF',
-            onTap: () => _snack(
-              'Download GST invoice PDF — ${r.documentNo} (coming soon)',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _eInvoiceCell(BillingDocumentListingRow r) {
-    if (widget.enableGstEinvoiceWorkflow) {
-      return _eInvoiceCellGst(r);
-    }
-    return _eInvoiceCellLegacy(r);
-  }
-
-  void _showGstQrIrnDialog(BillingDocumentListingRow r) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'IRN & QR',
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.textMd,
-            fontWeight: AppTokens.weightSemibold,
-            color: AppTokens.textPrimary,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'IRN Number',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.captionSize,
-                  fontWeight: AppTokens.weightMedium,
-                  color: AppTokens.textSecondary,
-                ),
-              ),
-              SizedBox(height: AppTokens.space1),
-              SelectableText(
-                r.irnNumber ?? '—',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.bodySize,
-                  color: AppTokens.textPrimary,
-                ),
-              ),
-              SizedBox(height: AppTokens.space3),
-              Text(
-                'GST verification response',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.captionSize,
-                  fontWeight: AppTokens.weightMedium,
-                  color: AppTokens.textSecondary,
-                ),
-              ),
-              SizedBox(height: AppTokens.space1),
-              SelectableText(
-                r.gstVerificationResponse ?? '—',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.captionSize,
-                  color: AppTokens.textPrimary,
-                ),
-              ),
-              SizedBox(height: AppTokens.space3),
-              Center(
-                child: Icon(
-                  Icons.qr_code_2_rounded,
-                  size: 112,
-                  color: AppTokens.textPrimary,
-                ),
-              ),
-              SizedBox(height: AppTokens.space1),
-              Text(
-                'QR preview (mock — embeds in UltraLabs template after verification)',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.captionSize,
-                  color: AppTokens.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Close',
-              style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _onDirectToGst(List<BillingDocumentListingRow> rows) async {
-    if (!widget.enableGstEinvoiceWorkflow) return;
-    if (rows.isEmpty) {
-      _snack('Select at least one invoice using checkboxes.', error: true);
-      return;
-    }
-
-    final provider = context.read<BillingListingProvider>();
-
-    BuildContext? progressDialogContext;
-    showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        progressDialogContext = dialogContext;
-        return AlertDialog(
-          content: Row(
-            children: [
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: AppTokens.space3),
-              Expanded(
-                child: Text(
-                  'GST / eInvoice verification in progress…',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTokens.bodySize,
-                    color: AppTokens.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    await Future<void>.delayed(Duration.zero);
-
-    void dismissProgressDialog() {
-      final ctx = progressDialogContext;
-      if (ctx != null && ctx.mounted) {
-        Navigator.of(ctx).pop();
-      } else if (mounted) {
-        final nav = Navigator.of(context, rootNavigator: true);
-        if (nav.canPop()) {
-          nav.pop();
-        }
-      }
-    }
-
-    var ok = false;
-    var hadException = false;
-    try {
-      ok = await provider.verifyGstForRows(rows);
-    } catch (_) {
-      ok = false;
-      hadException = true;
-    } finally {
-      dismissProgressDialog();
-    }
-
-    if (!mounted) return;
-
-    if (hadException) {
-      _snack('GST verification failed.', error: true);
-      return;
-    }
-
-    if (!ok) {
-      _snack('GST verification could not complete.', error: true);
-      return;
-    }
-
-    final pr = provider;
-    final ids = rows.map((e) => e.id).toSet();
-    setState(() {
-      _selectedRows = pr.items.where((e) => ids.contains(e.id)).toList();
-    });
-
-    await showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          'GST verification',
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.textMd,
-            fontWeight: AppTokens.weightSemibold,
-            color: AppTokens.textPrimary,
-          ),
-        ),
-        content: Text(
-          rows.length == 1
-              ? 'Invoice successfully verified by GST'
-              : '${rows.length} invoices successfully verified by GST',
-          style: GoogleFonts.poppins(
-            fontSize: AppTokens.bodySize,
-            color: AppTokens.textPrimary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(
-              'OK',
-              style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dueDaysCell(BillingDocumentListingRow r) {
-    final overdue = r.dueDays < 0;
-    final label = overdue ? 'Overdue ${r.dueDays.abs()}d' : '${r.dueDays}d';
-    return _cell(
-      label,
-      weight: overdue ? AppTokens.weightSemibold : AppTokens.weightRegular,
-      color: overdue ? AppTokens.accent500 : null,
-    );
-  }
-
-  Widget _toolbarIcon({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback? onPressed,
-  }) {
-    return AppIconButton(
-      tooltip: tooltip,
-      variant: AppIconButtonVariant.outlined,
-      size: AppIconButtonSize.sm,
-      icon: Icon(icon),
-      onPressed: onPressed,
-    );
-  }
-
-  List<BulkAction<BillingDocumentListingRow>> _bulkWorkflowActions(int count) {
-    final docWord = widget.selectionSingular;
-    return [
-      BulkAction<BillingDocumentListingRow>(
-        key: 'bulk_print',
-        label: 'Print',
-        icon: Icon(LucideIcons.printer, size: AppTokens.iconButtonIconSm),
-        showOnlyWhenSelected: false,
-        onTap: (rows) => _snack(
-          'Print — ${rows.length} ${widget.selectionPlural} (coming soon)',
-        ),
-      ),
-      BulkAction<BillingDocumentListingRow>(
-        key: 'bulk_irn',
-        label: 'Import from IRNGenByMe',
-        icon: Icon(LucideIcons.fileInput, size: AppTokens.iconButtonIconSm),
-        showOnlyWhenSelected: false,
-        onTap: (rows) => _snack(
-          'Import from IRNGenByMe — ${rows.length} row(s) (coming soon)',
-        ),
-      ),
-      BulkAction<BillingDocumentListingRow>(
-        key: 'bulk_gst',
-        label: 'Direct to GST',
-        icon: Icon(
-          widget.enableGstEinvoiceWorkflow
-              ? LucideIcons.wifi
-              : LucideIcons.landmark,
-          size: AppTokens.iconButtonIconSm,
-        ),
-        showOnlyWhenSelected: widget.enableGstEinvoiceWorkflow,
-        onTap: (rows) {
-          if (widget.enableGstEinvoiceWorkflow) {
-            _onDirectToGst(rows);
-          } else {
-            _snack('Direct to GST — ${rows.length} row(s) (coming soon)');
-          }
-        },
-      ),
-      BulkAction<BillingDocumentListingRow>(
-        key: 'bulk_email',
-        label: 'Email Customer',
-        icon: Icon(LucideIcons.mail, size: AppTokens.iconButtonIconSm),
-        showOnlyWhenSelected: false,
-        onTap: (rows) =>
-            _snack('Email Customer — ${rows.length} row(s) (coming soon)'),
-      ),
-      if (count == 1)
-        BulkAction<BillingDocumentListingRow>(
-          key: 'bulk_narration_single',
-          label: 'Update $docWord Narration',
-          icon: Icon(LucideIcons.filePenLine, size: AppTokens.iconButtonIconSm),
-          showOnlyWhenSelected: false,
-          onTap: (rows) => _snack(
-            'Update narration — ${rows.first.documentNo} (coming soon)',
-          ),
-        ),
-      BulkAction<BillingDocumentListingRow>(
-        key: 'bulk_excel',
-        label: 'Export to Excel',
-        icon: Icon(
-          LucideIcons.fileSpreadsheet,
-          size: AppTokens.iconButtonIconSm,
-        ),
-        showOnlyWhenSelected: false,
-        onTap: (rows) =>
-            _snack('Export to Excel — ${rows.length} row(s) (coming soon)'),
-      ),
-      if (count > 1)
-        BulkAction<BillingDocumentListingRow>(
-          key: 'bulk_narration_multi',
-          label: 'Bulk Update Narration',
-          icon: Icon(LucideIcons.alignLeft, size: AppTokens.iconButtonIconSm),
-          showOnlyWhenSelected: false,
-          onTap: (rows) => _snack(
-            'Bulk update narration — ${rows.length} row(s) (coming soon)',
-          ),
-        ),
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.watch<BillingListingProvider>();
-    final n = _selectedRows.length;
-
-    final columns = <TableColumn<BillingDocumentListingRow>>[
       TableColumn<BillingDocumentListingRow>(
         key: 'eInvoice',
         label: 'eInvoice',
@@ -585,7 +232,13 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
         sortValue: (r) => widget.enableGstEinvoiceWorkflow
             ? (r.gstVerified ? 2 : (r.eInvoiceActive ? 1 : 0))
             : (r.eInvoiceActive ? 1 : 0),
-        cellBuilder: _eInvoiceCell,
+        cellBuilder: (r) => BillingEInvoiceCell(
+          rowId: r.id,
+          enableGstWorkflow: widget.enableGstEinvoiceWorkflow,
+          selectionSingular: widget.selectionSingular,
+          onSnack: _snack,
+          onShowQr: _showGstQrIrnDialog,
+        ),
       ),
       TableColumn<BillingDocumentListingRow>(
         key: 'docDate',
@@ -677,167 +330,479 @@ class _BillingListingScaffoldState extends State<BillingListingScaffold> {
         sortValue: (r) => r.statusLabel.toLowerCase(),
         filter: const AppColumnFilter(type: AppColumnFilterType.text),
         filterTextValue: (r) => r.statusLabel,
-        cellBuilder: (r) =>
-            _cell(r.statusLabel, weight: AppTokens.weightMedium),
+        cellBuilder: (r) => BillingStatusCell(rowId: r.id),
       ),
     ];
+  }
 
-    return Material(
-      type: MaterialType.transparency,
-      child: AppListingScreen<BillingDocumentListingRow>(
-        title: widget.title,
-        subtitle: widget.subtitle,
-        primaryActionLabel: widget.primaryActionLabel,
-        onPrimaryAction: widget.onPrimaryAction,
-        showKpis: false,
-        exportModuleName: widget.title.replaceAll(' ', '_'),
-        exportSourceRows: p.filteredItems,
-        showImport: false,
-        showPrint: false,
-        showColumnToggle: false,
-        showBulkBar: true,
-        bulkBarVisibleOnlyWhenSelection: true,
-        bulkSelectionSummary: (c) => c == 1
-            ? '1 ${widget.selectionSingular} Selected'
-            : '$c ${widget.selectionPlural} Selected',
-        actionsColumnWidth: _actionsColumnWidth,
-        scaleDataColumnsToFillViewport: false,
-        showCheckboxes: true,
-        bulkRowId: (r) => r.id,
-        bulkActions: n == 0 ? [] : _bulkWorkflowActions(n),
-        tableScrollableMinWidth: _scrollMinWidth,
-        showTableHorizontalScrollbar: true,
-        tableBodyFillsViewport: true,
-        showActionsColumnLeadingBorder: false,
-        searchHint: widget.searchHint,
-        onSearch: p.setSearchQuery,
-        toolbarAfterSearch: [
-          SizedBox(width: AppTokens.space2),
-          _toolbarIcon(
-            icon: LucideIcons.refreshCw,
-            tooltip: 'Reload latest records',
-            onPressed: p.isLoading ? null : () => p.load(),
+  void _showGstQrIrnDialog(BillingDocumentListingRow r) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'IRN & QR',
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.textMd,
+            fontWeight: AppTokens.weightSemibold,
+            color: AppTokens.textPrimary,
           ),
-          SizedBox(width: AppTokens.space2),
-          LabCodeLabIdDateField(
-            hint: 'From Date',
-            selectedDate: p.fromDate,
-            onDateSelected: p.setFromDate,
-          ),
-          SizedBox(width: AppTokens.space2),
-          LabCodeLabIdDateField(
-            hint: 'To Date',
-            selectedDate: p.toDate,
-            onDateSelected: p.setToDate,
-          ),
-          if (widget.enableGstEinvoiceWorkflow) ...[
-            SizedBox(width: AppTokens.space2),
-            _toolbarIcon(
-              icon: LucideIcons.wifi,
-              tooltip: 'Direct to GST',
-              onPressed: p.isLoading || p.gstVerificationInProgress
-                  ? null
-                  : () => _onDirectToGst(_selectedRows),
-            ),
-          ],
-        ],
-        columns: columns,
-        rows: p.pagedRows,
-        onRowSelectionChanged: (indices) {
-          final rows = p.pagedRows;
-          setState(() {
-            _selectedRows = indices
-                .map((i) => i < rows.length ? rows[i] : null)
-                .whereType<BillingDocumentListingRow>()
-                .toList();
-          });
-        },
-        rowActions: [
-          RowAction<BillingDocumentListingRow>(
-            key: 'view',
-            label: 'View',
-            icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
-            onTap: _openDetail,
-          ),
-          if (widget.showEditRowAction)
-            RowAction<BillingDocumentListingRow>(
-              key: 'edit',
-              label: 'Edit',
-              icon: Icon(
-                LucideIcons.pencilLine,
-                size: AppTokens.iconButtonIconMd,
-              ),
-              onTap: _openEdit,
-            ),
-          RowAction<BillingDocumentListingRow>(
-            key: 'pdf',
-            label: 'Download PDF',
-            icon: Icon(LucideIcons.fileDown, size: AppTokens.iconButtonIconMd),
-            onTap: (row) =>
-                _snack('Download PDF — ${row.documentNo} (coming soon)'),
-          ),
-          RowAction<BillingDocumentListingRow>(
-            key: 'audit',
-            label: 'Audit History',
-            icon: Icon(LucideIcons.history, size: AppTokens.iconButtonIconMd),
-            isEnabled: (_) => !_rowActionBusy,
-            onTap: _onAuditHistory,
-          ),
-          if (widget.enableGstEinvoiceWorkflow)
-            RowAction<BillingDocumentListingRow>(
-              key: 'gen_cn',
-              label: 'Generate Credit Note',
-              icon: Icon(
-                LucideIcons.banknote,
-                size: AppTokens.iconButtonIconMd,
-              ),
-              isEnabled: (_) => !_rowActionBusy,
-              onTap: _onGenerateCreditNote,
-            ),
-        ],
-        mobileCardBuilder: (r) => Padding(
-          padding: EdgeInsets.all(AppTokens.space2),
+        ),
+        content: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              InkWell(
-                onTap: () => _openDetail(r),
-                child: Text(
-                  r.documentNo,
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTokens.tableCellSize,
-                    fontWeight: AppTokens.weightSemibold,
-                    color: AppTokens.primary800,
-                  ),
-                ),
-              ),
-              SizedBox(height: AppTokens.space1),
               Text(
-                r.customer,
+                'IRN Number',
                 style: GoogleFonts.poppins(
                   fontSize: AppTokens.captionSize,
-                  color: AppTokens.textMuted,
+                  fontWeight: AppTokens.weightMedium,
+                  color: AppTokens.textSecondary,
                 ),
               ),
               SizedBox(height: AppTokens.space1),
+              SelectableText(
+                r.irnNumber ?? '—',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.bodySize,
+                  color: AppTokens.textPrimary,
+                ),
+              ),
+              SizedBox(height: AppTokens.space3),
               Text(
-                'Outstanding ${_formatAmt(r.outstanding)} · ${r.statusLabel}',
+                'GST verification response',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  fontWeight: AppTokens.weightMedium,
+                  color: AppTokens.textSecondary,
+                ),
+              ),
+              SizedBox(height: AppTokens.space1),
+              SelectableText(
+                r.gstVerificationResponse ?? '—',
                 style: GoogleFonts.poppins(
                   fontSize: AppTokens.captionSize,
                   color: AppTokens.textPrimary,
                 ),
               ),
+              SizedBox(height: AppTokens.space3),
+              Center(
+                child: Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 112,
+                  color: AppTokens.textPrimary,
+                ),
+              ),
+              SizedBox(height: AppTokens.space1),
+              Text(
+                'QR preview (mock — embeds in UltraLabs template after verification)',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  color: AppTokens.textMuted,
+                ),
+              ),
             ],
           ),
         ),
-        isLoading: p.isLoading,
-        totalCount: p.totalFilteredCount,
-        currentPage: p.effectiveCurrentPage,
-        pageSize: p.pageSize,
-        onPageChanged: p.setPage,
-        onPageSizeChanged: p.setPageSize,
-        emptyMessage: 'No records match the current filters',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Close',
+              style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Future<void> _onDirectToGst(List<BillingDocumentListingRow> rows) async {
+    if (!widget.enableGstEinvoiceWorkflow) return;
+    if (rows.isEmpty) {
+      _snack(
+        'Select at least one ${widget.selectionSingular.toLowerCase()} using checkboxes.',
+        error: true,
+      );
+      return;
+    }
+
+    final provider = context.read<BillingListingProvider>();
+    if (provider.gstVerificationInProgress) return;
+
+    final result = await provider.verifyGstForRows(rows);
+    if (!mounted) return;
+
+    await _presentGstVerificationOutcome(rows, result);
+  }
+
+  Future<void> _presentGstVerificationOutcome(
+    List<BillingDocumentListingRow> rows,
+    BillingGstVerificationResult result,
+  ) async {
+    if (!mounted) return;
+
+    final isCreditNote = widget.selectionSingular == 'Credit Note';
+    final successMessage = isCreditNote
+        ? 'Credit Note successfully verified with GST portal.'
+        : 'Invoice successfully verified with GST portal.';
+
+    if (result.success) {
+      final items = result.verifiedItems;
+      await BillingGstVerificationDialog.showSuccess(
+        context,
+        title: 'GST Verification Successful',
+        subtitle: 'GST verification completed successfully.',
+        successMessage: successMessage,
+        onViewStatus: () {
+          if (items.isEmpty) return;
+          final provider = context.read<BillingListingProvider>();
+          final row = provider.rowById(items.first.documentId);
+          if (row != null && row.gstVerified) {
+            _showGstQrIrnDialog(row);
+          }
+        },
+      );
+      return;
+    }
+
+    await BillingGstVerificationDialog.showFailure(
+      context,
+      title: 'GST Verification Failed',
+      subtitle: 'Unable to complete GST verification.',
+      errorMessage: result.errorMessage ??
+          'The GST portal did not accept the request. Please try again.',
+      onRetry: () => _onDirectToGst(rows),
+    );
+  }
+
+  Widget _dueDaysCell(BillingDocumentListingRow r) {
+    final overdue = r.dueDays < 0;
+    final label = overdue ? 'Overdue ${r.dueDays.abs()}d' : '${r.dueDays}d';
+    return _cell(
+      label,
+      weight: overdue ? AppTokens.weightSemibold : AppTokens.weightRegular,
+      color: overdue ? AppTokens.accent500 : null,
+    );
+  }
+
+  Widget _toolbarIcon({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return AppIconButton(
+      tooltip: tooltip,
+      variant: AppIconButtonVariant.outlined,
+      size: AppIconButtonSize.sm,
+      icon: Icon(icon),
+      onPressed: onPressed,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant BillingListingScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectionSingular != widget.selectionSingular ||
+        oldWidget.enableGstEinvoiceWorkflow != widget.enableGstEinvoiceWorkflow) {
+      _bulkActions = _createBulkActions();
+    }
+  }
+
+  List<BulkAction<BillingDocumentListingRow>> _createBulkActions() {
+    final docWord = widget.selectionSingular;
+    const iconSize = AppTokens.bulkActionIconSize;
+    return [
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_print',
+        label: 'Print',
+        icon: Icon(LucideIcons.printer, size: iconSize),
+        onTap: (rows) => _snack(
+          'Print — ${rows.length} ${widget.selectionPlural} (coming soon)',
+        ),
+      ),
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_gst',
+        label: 'Direct to GST',
+        icon: Icon(LucideIcons.landmark, size: iconSize),
+        onTap: (rows) {
+          if (!mounted) return;
+          if (context.read<BillingRowActionState>().gstVerificationInProgress) {
+            return;
+          }
+          if (widget.enableGstEinvoiceWorkflow) {
+            _onDirectToGst(rows);
+          } else {
+            _snack('Direct to GST — ${rows.length} row(s) (coming soon)');
+          }
+        },
+      ),
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_email',
+        label: 'Email Customer',
+        icon: Icon(LucideIcons.mail, size: iconSize),
+        onTap: (rows) =>
+            _snack('Email Customer — ${rows.length} row(s) (coming soon)'),
+      ),
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_export',
+        label: 'Export',
+        icon: Icon(LucideIcons.download, size: iconSize),
+        onTap: (rows) =>
+            _snack('Export — ${rows.length} row(s) (coming soon)'),
+      ),
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_narration',
+        label: 'Update $docWord Narration',
+        icon: Icon(LucideIcons.filePenLine, size: iconSize),
+        onTap: (rows) => _snack(
+          rows.length == 1
+              ? 'Update narration — ${rows.first.documentNo} (coming soon)'
+              : 'Update narration — ${rows.length} row(s) (coming soon)',
+        ),
+      ),
+      BulkAction<BillingDocumentListingRow>(
+        key: 'bulk_irn',
+        label: 'Import from IRNGenByMe',
+        icon: Icon(LucideIcons.fileInput, size: iconSize),
+        onTap: (rows) => _snack(
+          'Import from IRNGenByMe — ${rows.length} row(s) (coming soon)',
+        ),
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Selector<BillingListingProvider, _BillingTableSnapshot>(
+        selector: (_, p) => _BillingTableSnapshot.from(p),
+        builder: (context, snapshot, _) {
+          final p = context.read<BillingListingProvider>();
+
+          return AppListingScreen<BillingDocumentListingRow>(
+            key: ValueKey('billing-listing-${widget.title}'),
+            title: widget.title,
+            subtitle: widget.subtitle,
+            primaryActionLabel: widget.primaryActionLabel,
+            onPrimaryAction: widget.onPrimaryAction,
+            showKpis: false,
+            exportModuleName: widget.title.replaceAll(' ', '_'),
+            exportSourceRows: snapshot.filteredItems,
+            showImport: false,
+            showPrint: false,
+            showColumnToggle: false,
+            showBulkBar: true,
+            // Sample Intake: bar always visible; buttons greyed until selection.
+            bulkBarVisibleOnlyWhenSelection: false,
+            actionsColumnWidth: _actionsColumnWidth,
+            scaleDataColumnsToFillViewport: false,
+            showCheckboxes: true,
+            bulkRowId: (r) => r.id,
+            bulkActions: _bulkActions,
+            tableScrollableMinWidth: _scrollMinWidth,
+            showTableHorizontalScrollbar: true,
+            tableBodyFillsViewport: true,
+            showActionsColumnLeadingBorder: false,
+            searchHint: widget.searchHint,
+            onSearch: p.setSearchQuery,
+            toolbarAfterSearch: [
+              SizedBox(width: AppTokens.space2),
+              _toolbarIcon(
+                icon: LucideIcons.refreshCw,
+                tooltip: 'Reload latest records',
+                onPressed: snapshot.isLoading ? null : () => p.load(),
+              ),
+              SizedBox(width: AppTokens.space2),
+              LabCodeLabIdDateField(
+                hint: 'From Date',
+                selectedDate: snapshot.fromDate,
+                onDateSelected: p.setFromDate,
+              ),
+              SizedBox(width: AppTokens.space2),
+              LabCodeLabIdDateField(
+                hint: 'To Date',
+                selectedDate: snapshot.toDate,
+                onDateSelected: p.setToDate,
+              ),
+            ],
+            columns: _columns(),
+            rows: snapshot.pagedRows,
+            rowActions: [
+              RowAction<BillingDocumentListingRow>(
+                key: 'view',
+                label: 'View',
+                icon: Icon(LucideIcons.eye, size: AppTokens.iconButtonIconMd),
+                onTap: _openDetail,
+                isEnabled: (row) =>
+                    !context.read<BillingRowActionState>().isGstVerifying(row.id) &&
+                    !context.read<BillingRowActionState>().isSignatureBusy(row.id),
+              ),
+              if (widget.showEditRowAction)
+                RowAction<BillingDocumentListingRow>(
+                  key: 'edit',
+                  label: 'Edit',
+                  icon: Icon(
+                    LucideIcons.pencilLine,
+                    size: AppTokens.iconButtonIconMd,
+                  ),
+                  onTap: _openEdit,
+                  isEnabled: (row) =>
+                      !context.read<BillingRowActionState>().isGstVerifying(row.id) &&
+                      !context.read<BillingRowActionState>().isSignatureBusy(row.id),
+                ),
+              RowAction<BillingDocumentListingRow>(
+                key: 'pdf',
+                label: 'Download PDF',
+                icon: Icon(LucideIcons.fileDown, size: AppTokens.iconButtonIconMd),
+                onTap: (row) =>
+                    _snack('Download PDF — ${row.documentNo} (coming soon)'),
+              ),
+              RowAction<BillingDocumentListingRow>(
+                key: 'audit',
+                label: 'Audit History',
+                icon: Icon(LucideIcons.history, size: AppTokens.iconButtonIconMd),
+                isEnabled: (row) =>
+                    !_rowActionBusy &&
+                    !context.read<BillingRowActionState>().isGstVerifying(row.id) &&
+                    !context.read<BillingRowActionState>().isSignatureBusy(row.id),
+                onTap: _onAuditHistory,
+              ),
+              if (widget.showGenerateCreditNoteRowAction)
+                RowAction<BillingDocumentListingRow>(
+                  key: 'gen_cn',
+                  label: 'Generate Credit Note',
+                  icon: Icon(
+                    LucideIcons.banknote,
+                    size: AppTokens.iconButtonIconMd,
+                  ),
+                  isEnabled: (row) =>
+                      !_rowActionBusy &&
+                      !context.read<BillingRowActionState>().isGstVerifying(row.id) &&
+                      !context.read<BillingRowActionState>().isSignatureBusy(row.id),
+                  onTap: _onGenerateCreditNote,
+                ),
+            ],
+            mobileCardBuilder: (r) => Padding(
+              padding: EdgeInsets.all(AppTokens.space2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InkWell(
+                    onTap: () => _openDetail(r),
+                    child: Text(
+                      r.documentNo,
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.tableCellSize,
+                        fontWeight: AppTokens.weightSemibold,
+                        color: AppTokens.primary800,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: AppTokens.space1),
+                  Text(
+                    r.customer,
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.captionSize,
+                      color: AppTokens.textMuted,
+                    ),
+                  ),
+                  SizedBox(height: AppTokens.space1),
+                  Text(
+                    'Outstanding ${_formatAmt(r.outstanding)} · ${r.statusLabel}',
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTokens.captionSize,
+                      color: AppTokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            isLoading: snapshot.isLoading,
+            totalCount: snapshot.totalCount,
+            currentPage: snapshot.currentPage,
+            pageSize: snapshot.pageSize,
+            onPageChanged: p.setPage,
+            onPageSizeChanged: p.setPageSize,
+            emptyMessage: 'No records match the current filters',
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Listing data slice for [Selector] — avoids rebuilds during row-only loading.
+class _BillingTableSnapshot {
+  const _BillingTableSnapshot({
+    required this.pagedRows,
+    required this.filteredItems,
+    required this.isLoading,
+    required this.fromDate,
+    required this.toDate,
+    required this.currentPage,
+    required this.pageSize,
+    required this.totalCount,
+    required this.rowSignature,
+  });
+
+  factory _BillingTableSnapshot.from(BillingListingProvider p) {
+    final rows = p.pagedRows;
+    return _BillingTableSnapshot(
+      pagedRows: rows,
+      filteredItems: p.filteredItems,
+      isLoading: p.isLoading,
+      fromDate: p.fromDate,
+      toDate: p.toDate,
+      currentPage: p.effectiveCurrentPage,
+      pageSize: p.pageSize,
+      totalCount: p.totalFilteredCount,
+      rowSignature: _rowSignature(rows),
+    );
+  }
+
+  final List<BillingDocumentListingRow> pagedRows;
+  final List<BillingDocumentListingRow> filteredItems;
+  final bool isLoading;
+  final DateTime? fromDate;
+  final DateTime? toDate;
+  final int currentPage;
+  final int pageSize;
+  final int totalCount;
+  final String rowSignature;
+
+  /// Excludes icon-column flags so GST/signature updates rebuild only row cells.
+  static String _rowSignature(List<BillingDocumentListingRow> rows) {
+    return rows
+        .map(
+          (r) =>
+              '${r.id}|${r.documentNo}|${r.statusLabel}|${r.total}|${r.amountReceived}|${r.outstanding}',
+        )
+        .join(';');
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _BillingTableSnapshot &&
+        rowSignature == other.rowSignature &&
+        isLoading == other.isLoading &&
+        fromDate == other.fromDate &&
+        toDate == other.toDate &&
+        currentPage == other.currentPage &&
+        pageSize == other.pageSize &&
+        totalCount == other.totalCount;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        rowSignature,
+        isLoading,
+        fromDate,
+        toDate,
+        currentPage,
+        pageSize,
+        totalCount,
+      );
 }

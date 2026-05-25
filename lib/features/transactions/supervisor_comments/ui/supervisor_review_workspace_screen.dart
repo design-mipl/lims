@@ -41,17 +41,17 @@ class _SupervisorReviewWorkspaceScreenState
   DateTime? _reportDate;
   String _severityFilter = '';
 
-  static const double _wSev = 96;
-  static const double _wName = 224;
-  static const double _wVal = 104;
-  static const double _wLim = 112;
-  static const double _wFresh = 136;
-  static const double _wTyp = 104;
-  static const double _wHi = 104;
-  static const double _wRet = 104;
-  static const double _wRep = 104;
-  static const double _wChem = 160;
-  static const double _wHistMerged = 132;
+  static const double _wSev = 88;
+  static const double _wName = 188;
+  static const double _wVal = 92;
+  static const double _wLim = 96;
+  static const double _wFresh = 116;
+  static const double _wTyp = 92;
+  static const double _wHi = 92;
+  static const double _wRet = 92;
+  static const double _wRep = 92;
+  static const double _wChem = 136;
+  static const double _wHistMerged = 118;
 
   List<double> _columnWidths(SupervisorReviewWorkspace ws) {
     final widths = <double>[
@@ -337,21 +337,27 @@ class _SupervisorReviewWorkspaceScreenState
           children: [
             Text('Analysis', style: titleStyle),
             SizedBox(height: AppTokens.space3),
-            AppSelect<String>(
-              label: 'Problem Type',
-              hint: 'Select problem type…',
-              value: _problemType.isEmpty ? null : _problemType,
-              items: _problemTypeItems,
-              isSearchable: true,
-              overlayMinimalShadow: true,
-              overlayWidthMatchesTrigger: true,
-              size: AppInputSize.md,
-              onChanged: (v) {
-                setState(() => _problemType = v ?? '');
-                final w = pr.reviewWorkspace;
-                if (w == null) return;
-                pr.updateReviewWorkspace(w.copyWith(problemType: v ?? ''));
-              },
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 200,
+                child: AppSelect<String>(
+                  label: 'Problem Type',
+                  hint: 'Select problem type…',
+                  value: _problemType.isEmpty ? null : _problemType,
+                  items: _problemTypeItems,
+                  isSearchable: true,
+                  overlayMinimalShadow: true,
+                  overlayWidthMatchesTrigger: true,
+                  size: AppInputSize.md,
+                  onChanged: (v) {
+                    setState(() => _problemType = v ?? '');
+                    final w = pr.reviewWorkspace;
+                    if (w == null) return;
+                    pr.updateReviewWorkspace(w.copyWith(problemType: v ?? ''));
+                  },
+                ),
+              ),
             ),
             SizedBox(height: AppTokens.space3),
             AppInput(
@@ -523,47 +529,50 @@ class _SupervisorReviewWorkspaceScreenState
     );
 
     final horizontalInset = AppTokens.space5;
+    final tableSectionHeight = (MediaQuery.sizeOf(context).height * 0.58)
+        .clamp(420.0, 640.0)
+        .toDouble();
 
-    final pageBody = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalInset,
-            0,
-            horizontalInset,
-            AppTokens.space2,
-          ),
-          child: toolbarRow,
-        ),
-        Expanded(
-          child: Padding(
+    final pageBody = SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
             padding: EdgeInsets.fromLTRB(
               horizontalInset,
               0,
               horizontalInset,
               AppTokens.space3,
             ),
-            child: SupervisorReviewWorkspaceGroupedTable(
-              columnWidths: _columnWidths(ws),
-              columnLabels: _columnLabels(ws),
-              rows: tableRows,
-              provider: pr,
-              rowBackgroundColor: _severityRowBackground,
-              emptyMessage: 'No test parameters',
+            child: toolbarRow,
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalInset),
+            child: SizedBox(
+              height: tableSectionHeight,
+              child: SupervisorReviewWorkspaceGroupedTable(
+                columnWidths: _columnWidths(ws),
+                columnLabels: _columnLabels(ws),
+                rows: tableRows,
+                provider: pr,
+                rowBackgroundColor: _severityRowBackground,
+                emptyMessage: 'No test parameters',
+              ),
             ),
           ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalInset,
-            0,
-            horizontalInset,
-            AppTokens.space4,
+          SizedBox(height: AppTokens.space3),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalInset,
+              0,
+              horizontalInset,
+              AppTokens.space4,
+            ),
+            child: _analysisFields(context, pr),
           ),
-          child: _analysisFields(context, pr),
-        ),
-      ],
+        ],
+      ),
     );
 
     return Material(

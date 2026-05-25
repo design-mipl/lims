@@ -52,7 +52,9 @@ import '../../features/transactions/enquiry/state/enquiry_provider.dart';
 import '../../features/transactions/enquiry/ui/enquiry_detail_screen.dart';
 import '../../features/transactions/enquiry/ui/enquiry_form_page.dart';
 import '../../features/transactions/enquiry/ui/enquiry_screen.dart';
+import '../../features/transactions/order/state/create_order_provider.dart';
 import '../../features/transactions/order/state/order_provider.dart';
+import '../../features/transactions/order/ui/create_order_page.dart';
 import '../../features/transactions/order/ui/order_screen.dart';
 import '../../features/transactions/quotation/state/quotation_provider.dart';
 import '../../features/transactions/quotation/ui/quotation_history_screen.dart';
@@ -215,6 +217,20 @@ final GoRouter appRouter = GoRouter(
             create: (_) => sl<OrderProvider>(),
             child: const OrderScreen(),
           ),
+        ),
+        GoRoute(
+          path: '/transactions/order/create',
+          builder: (context, state) {
+            final formId = state.uri.queryParameters['formId'];
+            final quotationId = state.uri.queryParameters['quotationId'];
+            return ChangeNotifierProvider(
+              create: (_) => sl<CreateOrderProvider>(),
+              child: CreateOrderPage(
+                formId: formId,
+                initialQuotationId: quotationId,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: '/transactions/quotation/:quoteId/workspace',

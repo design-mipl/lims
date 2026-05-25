@@ -6,6 +6,25 @@ abstract final class EnquiryStatus {
   static const String converted = 'converted';
 }
 
+/// One sample requirement line added from the enquiry create/edit form.
+class EnquirySampleRequirementRow {
+  const EnquirySampleRequirementRow({
+    required this.id,
+    required this.typeOfSample,
+    required this.sampleCount,
+    required this.expectedTimeline,
+    required this.priority,
+    this.remarks = '',
+  });
+
+  final String id;
+  final String typeOfSample;
+  final int sampleCount;
+  final String expectedTimeline;
+  final String priority;
+  final String remarks;
+}
+
 class EnquiryRequestedTestRow {
   const EnquiryRequestedTestRow({
     required this.id,
@@ -68,6 +87,7 @@ class EnquiryRecord {
     this.internalNotes = '',
     this.attachmentNames = const [],
     this.requestedTests = const [],
+    this.sampleRequirements = const [],
     this.activity = const [],
     this.quotationId,
   });
@@ -98,12 +118,19 @@ class EnquiryRecord {
   final String internalNotes;
   final List<String> attachmentNames;
   final List<EnquiryRequestedTestRow> requestedTests;
+  final List<EnquirySampleRequirementRow> sampleRequirements;
   final List<ActivityTimelineEntry> activity;
   final String? quotationId;
 
   static const Object _sentinel = Object();
 
   String get requestedTestsSummary {
+    if (sampleRequirements.isNotEmpty) {
+      return sampleRequirements
+          .map((r) => r.typeOfSample)
+          .take(3)
+          .join(', ');
+    }
     final sel =
         requestedTests.where((t) => t.selected).map((t) => t.testCode).toList();
     if (sel.isEmpty) {
@@ -137,6 +164,7 @@ class EnquiryRecord {
     String? internalNotes,
     List<String>? attachmentNames,
     List<EnquiryRequestedTestRow>? requestedTests,
+    List<EnquirySampleRequirementRow>? sampleRequirements,
     List<ActivityTimelineEntry>? activity,
     Object? quotationId = _sentinel,
   }) {
@@ -165,6 +193,7 @@ class EnquiryRecord {
       internalNotes: internalNotes ?? this.internalNotes,
       attachmentNames: attachmentNames ?? this.attachmentNames,
       requestedTests: requestedTests ?? this.requestedTests,
+      sampleRequirements: sampleRequirements ?? this.sampleRequirements,
       activity: activity ?? this.activity,
       quotationId: quotationId == _sentinel
           ? this.quotationId

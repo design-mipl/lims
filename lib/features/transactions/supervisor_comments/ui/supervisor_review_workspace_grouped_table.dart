@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 
 import '../../../../design_system/components/components.dart';
 import '../../../../design_system/tokens.dart';
@@ -7,7 +8,10 @@ import '../data/supervisor_review_workspace_model.dart';
 import '../state/supervisor_comments_provider.dart';
 
 /// Method-grouped parameter grid for Supervisor Review workspace (LMV popup pattern).
-class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
+///
+/// Column headers stay pinned while the body scrolls vertically; horizontal
+/// scroll is linked between header and body (same rhythm as listing tables).
+class SupervisorReviewWorkspaceGroupedTable extends StatefulWidget {
   const SupervisorReviewWorkspaceGroupedTable({
     super.key,
     required this.columnWidths,
@@ -27,12 +31,40 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
 
   final String emptyMessage;
 
+  @override
+  State<SupervisorReviewWorkspaceGroupedTable> createState() =>
+      _SupervisorReviewWorkspaceGroupedTableState();
+}
+
+class _SupervisorReviewWorkspaceGroupedTableState
+    extends State<SupervisorReviewWorkspaceGroupedTable> {
   static const int _histColStart = 15;
-  static const double _compactRowHeight = 44.0;
-  static const double _compactHeaderHeight = 48.0;
+  static const double _compactRowHeight = 40.0;
+  static const double _compactHeaderHeight = 42.0;
+
+  final LinkedScrollControllerGroup _hScrollGroup = LinkedScrollControllerGroup();
+  late final ScrollController _headerHScroll;
+  late final ScrollController _bodyHScroll;
+  late final ScrollController _bodyVScroll;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerHScroll = _hScrollGroup.addAndGet();
+    _bodyHScroll = _hScrollGroup.addAndGet();
+    _bodyVScroll = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _headerHScroll.dispose();
+    _bodyHScroll.dispose();
+    _bodyVScroll.dispose();
+    super.dispose();
+  }
 
   double get _tableWidth =>
-      columnWidths.fold<double>(0, (a, w) => a + w);
+      widget.columnWidths.fold<double>(0, (a, w) => a + w);
 
   BorderSide get _gridLine => BorderSide(
         color: AppTokens.borderLight,
@@ -55,8 +87,8 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
   }
 
   bool _isCheckboxHeaderColumn(int index) {
-    if (index < 0 || index >= columnLabels.length) return false;
-    final k = columnLabels[index];
+    if (index < 0 || index >= widget.columnLabels.length) return false;
+    final k = widget.columnLabels[index];
     return k == 'Highlight' || k == 'Retest' || k == 'Report';
   }
 
@@ -119,14 +151,14 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < columnLabels.length; i++)
+          for (var i = 0; i < widget.columnLabels.length; i++)
             SizedBox(
-              width: columnWidths[i],
+              width: widget.columnWidths[i],
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: AppTokens.surfaceSubtle,
                   border: Border(
-                    right: i < columnLabels.length - 1
+                    right: i < widget.columnLabels.length - 1
                         ? _gridLine
                         : BorderSide.none,
                     bottom: _gridLine,
@@ -141,7 +173,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
                     alignment: _isCheckboxHeaderColumn(i)
                         ? Alignment.center
                         : Alignment.centerLeft,
-                    child: _headerLabel(i, columnLabels[i], hdrStyle),
+                    child: _headerLabel(i, widget.columnLabels[i], hdrStyle),
                   ),
                 ),
               ),
@@ -299,7 +331,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
               value: value,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
-              onChanged: provider.isLoading ? null : onChanged,
+              onChanged: widget.provider.isLoading ? null : onChanged,
             ),
           ),
         ),
@@ -308,107 +340,107 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
   }
 
   Widget _dataRow(BuildContext context, SupervisorReviewTestLine r) {
-    final bg = rowBackgroundColor(r);
-    final n = columnWidths.length;
-    assert(columnLabels.length == n);
+    final bg = widget.rowBackgroundColor(r);
+    final n = widget.columnWidths.length;
+    assert(widget.columnLabels.length == n);
 
     final cells = <Widget>[
       _severityCell(
         r,
-        width: columnWidths[0],
+        width: widget.columnWidths[0],
         showRightDivider: n > 1,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.parameterName),
-        width: columnWidths[1],
+        width: widget.columnWidths[1],
         showRightDivider: n > 2,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.currentValue),
-        width: columnWidths[2],
+        width: widget.columnWidths[2],
         showRightDivider: n > 3,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.minLimit),
-        width: columnWidths[3],
+        width: widget.columnWidths[3],
         showRightDivider: n > 4,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.maxLimit),
-        width: columnWidths[4],
+        width: widget.columnWidths[4],
         showRightDivider: n > 5,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.customerMin),
-        width: columnWidths[5],
+        width: widget.columnWidths[5],
         showRightDivider: n > 6,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.customerMax),
-        width: columnWidths[6],
+        width: widget.columnWidths[6],
         showRightDivider: n > 7,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.fluidMin),
-        width: columnWidths[7],
+        width: widget.columnWidths[7],
         showRightDivider: n > 8,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.fluidMax),
-        width: columnWidths[8],
+        width: widget.columnWidths[8],
         showRightDivider: n > 9,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.freshFluidValue),
-        width: columnWidths[9],
+        width: widget.columnWidths[9],
         showRightDivider: n > 10,
         rowTint: bg,
       ),
       _textDataCell(
         _display(r.typical),
-        width: columnWidths[10],
+        width: widget.columnWidths[10],
         showRightDivider: n > 11,
         rowTint: bg,
       ),
       _checkboxCell(
-        width: columnWidths[11],
+        width: widget.columnWidths[11],
         value: r.highlightFlag,
         showRightDivider: n > 12,
         rowTint: bg,
-        onChanged: (v) => provider.updateTestLine(
+        onChanged: (v) => widget.provider.updateTestLine(
           r.copyWith(highlightFlag: v ?? false),
         ),
       ),
       _checkboxCell(
-        width: columnWidths[12],
+        width: widget.columnWidths[12],
         value: r.retestFlag,
         showRightDivider: n > 13,
         rowTint: bg,
-        onChanged: (v) => provider.updateTestLine(
+        onChanged: (v) => widget.provider.updateTestLine(
           r.copyWith(retestFlag: v ?? false),
         ),
       ),
       _checkboxCell(
-        width: columnWidths[13],
+        width: widget.columnWidths[13],
         value: r.includeInReport,
         showRightDivider: n > 14,
         rowTint: bg,
-        onChanged: (v) => provider.updateTestLine(
+        onChanged: (v) => widget.provider.updateTestLine(
           r.copyWith(includeInReport: v ?? false),
         ),
       ),
       _textDataCell(
         _display(r.chemist),
-        width: columnWidths[14],
+        width: widget.columnWidths[14],
         showRightDivider: n > _histColStart,
         rowTint: bg,
       ),
@@ -422,7 +454,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
       cells.add(
         _textDataCell(
           _display(val),
-          width: columnWidths[i],
+          width: widget.columnWidths[i],
           showRightDivider: i < n - 1,
           rowTint: bg,
         ),
@@ -435,14 +467,10 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final bodyChildren = <Widget>[
-      _headerRow(context),
-    ];
-
-    if (rows.isEmpty) {
-      bodyChildren.add(
+  List<Widget> _bodyScrollChildren(BuildContext context) {
+    final out = <Widget>[];
+    if (widget.rows.isEmpty) {
+      out.add(
         SizedBox(
           width: _tableWidth,
           child: Padding(
@@ -453,7 +481,7 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                emptyMessage,
+                widget.emptyMessage,
                 style: GoogleFonts.poppins(
                   fontSize: AppTokens.bodySize,
                   color: AppTokens.textMuted,
@@ -464,41 +492,67 @@ class SupervisorReviewWorkspaceGroupedTable extends StatelessWidget {
           ),
         ),
       );
-    } else {
-      String? prevMethod;
-      for (final line in rows) {
-        final m = _normalizedMethod(line);
-        if (m != prevMethod) {
-          bodyChildren.add(_methodBand(context, m));
-          prevMethod = m;
-        }
-        bodyChildren.add(_dataRow(context, line));
-      }
+      return out;
     }
 
-    final tableColumn = Column(
+    String? prevMethod;
+    for (final line in widget.rows) {
+      final m = _normalizedMethod(line);
+      if (m != prevMethod) {
+        out.add(_methodBand(context, m));
+        prevMethod = m;
+      }
+      out.add(_dataRow(context, line));
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bodyColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: bodyChildren,
+      children: _bodyScrollChildren(context),
     );
 
     return ClipRect(
-      child: AppScrollView(
-        scrollDirection: Axis.vertical,
-        child: AppScrollView(
-          scrollDirection: Axis.horizontal,
-          scrollbarThickness: AppScrollMetrics.listingHorizontalThickness,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                left: _gridLine,
-                top: _gridLine,
-                right: _gridLine,
-                bottom: _gridLine,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            left: _gridLine,
+            top: _gridLine,
+            right: _gridLine,
+            bottom: _gridLine,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppScrollView(
+              scrollDirection: Axis.horizontal,
+              controller: _headerHScroll,
+              showScrollbar: false,
+              scrollbarThickness: AppScrollMetrics.listingHorizontalThickness,
+              physics: const ClampingScrollPhysics(),
+              child: _headerRow(context),
+            ),
+            Expanded(
+              child: AppScrollView(
+                scrollDirection: Axis.vertical,
+                controller: _bodyVScroll,
+                scrollbarThickness: AppScrollMetrics.thickness,
+                physics: const ClampingScrollPhysics(),
+                child: AppScrollView(
+                  scrollDirection: Axis.horizontal,
+                  controller: _bodyHScroll,
+                  scrollbarThickness: AppScrollMetrics.listingHorizontalThickness,
+                  enableShiftWheel: true,
+                  physics: const ClampingScrollPhysics(),
+                  child: bodyColumn,
+                ),
               ),
             ),
-            child: tableColumn,
-          ),
+          ],
         ),
       ),
     );

@@ -40,6 +40,7 @@ import '../../features/transactions/nabl_no/state/nabl_no_provider.dart';
 import '../../features/transactions/supervisor_comments/data/supervisor_comments_api.dart';
 import '../../features/transactions/supervisor_comments/state/supervisor_comments_provider.dart';
 import '../../features/transactions/order/data/order_api.dart';
+import '../../features/transactions/order/state/create_order_provider.dart';
 import '../../features/transactions/order/state/order_provider.dart';
 import '../../features/transactions/quotation/data/quotation_api.dart';
 import '../../features/transactions/quotation/state/quotation_provider.dart';
@@ -86,7 +87,12 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<QuotationApi>(
       () => QuotationApi(enquiryApi: sl<EnquiryApi>()));
   sl.registerLazySingleton<OrderApi>(
-      () => OrderApi(quotationApi: sl<QuotationApi>()));
+    () => OrderApi(
+      quotationApi: sl<QuotationApi>(),
+      enquiryApi: sl<EnquiryApi>(),
+    ),
+  );
+  sl.registerFactory<CreateOrderProvider>(() => CreateOrderProvider());
   sl.registerLazySingleton<LabManagerCertificationApi>(
       () => LabManagerCertificationApi());
   sl.registerLazySingleton<SampleIntakeApi>(() => SampleIntakeApi());

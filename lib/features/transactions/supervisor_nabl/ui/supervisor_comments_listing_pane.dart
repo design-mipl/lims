@@ -30,8 +30,8 @@ class _SupervisorCommentsListingPaneState
 
   static const double _kCol = 160;
 
-  /// Slightly below [AppTokens.tableRowHeight] — more rows per viewport.
-  static const double _kListingRowHeight = 48.0;
+  /// Compact row height — more rows visible in the listing viewport.
+  static const double _kListingRowHeight = 42.0;
 
   @override
   void initState() {
@@ -315,7 +315,7 @@ class _SupervisorCommentsListingPaneState
         showTableHorizontalScrollbar: true,
         tableBodyFillsViewport: true,
         tableRowHeight: _kListingRowHeight,
-        tableHeaderHeight: 40,
+        tableHeaderHeight: 38,
         tableScrollableMinWidth: _kCol * columns.length + 480,
         tabs: [
           TabConfig(label: 'Pending', count: p.pendingCount),

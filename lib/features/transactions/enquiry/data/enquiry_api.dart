@@ -134,11 +134,14 @@ class EnquiryApi {
       required String createdBy,
       String? quotationId,
       List<EnquiryRequestedTestRow>? tests,
+      List<EnquirySampleRequirementRow>? sampleRequirements,
       List<ActivityTimelineEntry>? act,
     }) {
       final eta = now.add(const Duration(days: 21));
       final etaStr =
           '${eta.year}-${eta.month.toString().padLeft(2, '0')}-${eta.day.toString().padLeft(2, '0')}';
+      final priority =
+          status == EnquiryStatus.submitted ? 'Critical' : 'Normal';
       return EnquiryRecord(
         id: id,
         enquiryNo: no,
@@ -160,10 +163,19 @@ class EnquiryApi {
         operatingConditions: 'Continuous duty',
         urgency: 'Normal',
         expectedTimeline: etaStr,
-        samplePriority:
-            status == EnquiryStatus.submitted ? 'High' : 'Normal',
+        samplePriority: priority,
         internalNotes: 'Standard lubricant suite.',
         attachmentNames: const ['site-photo-1.jpg'],
+        sampleRequirements: sampleRequirements ??
+            [
+              EnquirySampleRequirementRow(
+                id: 'sr-$id',
+                typeOfSample: sampleType,
+                sampleCount: samples,
+                expectedTimeline: etaStr,
+                priority: priority,
+              ),
+            ],
         requestedTests: tests ??
             [
               t('rt-1', 'FTIR', 'FTIR Spectroscopy'),

@@ -665,21 +665,30 @@ class _CreateCreditNotePageState extends State<CreateCreditNotePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppInput(
-            label: 'Bill To',
-            hint: 'Tap to select customer',
-            controller: _billToCtrl,
-            readOnly: true,
-            enabled: true,
-            size: AppInputSize.md,
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'GST No.',
-            controller: _gstNoCtrl,
-            readOnly: true,
-            enabled: true,
-            size: AppInputSize.md,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: AppInput(
+                  label: 'Bill To',
+                  hint: 'Tap to select customer',
+                  controller: _billToCtrl,
+                  readOnly: true,
+                  enabled: true,
+                  size: AppInputSize.md,
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: AppInput(
+                  label: 'GST No.',
+                  controller: _gstNoCtrl,
+                  readOnly: true,
+                  enabled: true,
+                  size: AppInputSize.md,
+                ),
+              ),
+            ],
           ),
           SizedBox(height: AppTokens.space3),
           Row(
@@ -889,16 +898,18 @@ class _CreateCreditNotePageState extends State<CreateCreditNotePage> {
             ],
           ),
           SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Supplier Ref',
-            controller: _supplierRefCtrl,
-            enabled: true,
-            size: AppInputSize.md,
-          ),
-          SizedBox(height: AppTokens.space3),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: AppInput(
+                  label: 'Supplier Ref',
+                  controller: _supplierRefCtrl,
+                  enabled: true,
+                  size: AppInputSize.md,
+                ),
+              ),
+              SizedBox(width: AppTokens.space3),
               Expanded(
                 child: AppInput(
                   label: 'Dispatch Document No.',
@@ -907,17 +918,15 @@ class _CreateCreditNotePageState extends State<CreateCreditNotePage> {
                   size: AppInputSize.md,
                 ),
               ),
-              SizedBox(width: AppTokens.space3),
-              Expanded(
-                child: _formLabDateField(
-                  label: 'Dispatch Date',
-                  hint: 'Select date',
-                  value: p.dispatchDate,
-                  enabled: true,
-                  onDateSelected: p.setDispatchDate,
-                ),
-              ),
             ],
+          ),
+          SizedBox(height: AppTokens.space3),
+          _formLabDateField(
+            label: 'Dispatch Date',
+            hint: 'Select date',
+            value: p.dispatchDate,
+            enabled: true,
+            onDateSelected: p.setDispatchDate,
           ),
           SizedBox(height: AppTokens.space3),
           Row(
@@ -1121,9 +1130,9 @@ class _CreateCreditNotePageState extends State<CreateCreditNotePage> {
             ],
           ),
           SizedBox(height: AppTokens.space3),
-          sectionFinancial,
-          SizedBox(height: AppTokens.space3),
           sectionItems,
+          SizedBox(height: AppTokens.space3),
+          sectionFinancial,
         ],
       ),
     );

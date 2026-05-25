@@ -87,8 +87,13 @@ bool _isListingCenterPillColumn(String key) => key == 'status';
 /// Test-matrix checkbox columns (Lab Manager Assignment).
 bool _isListingCenterCheckboxColumn(String key) => key.startsWith('test_');
 
+bool _isListingIconColumn(String key) =>
+    key == 'digitalSignature' || key == 'eInvoice';
+
 bool _isListingCenterContentColumn(String key) =>
-    _isListingCenterPillColumn(key) || _isListingCenterCheckboxColumn(key);
+    _isListingCenterPillColumn(key) ||
+    _isListingCenterCheckboxColumn(key) ||
+    _isListingIconColumn(key);
 
 Alignment _alignmentForTableColumn<T>(TableColumn<T> col) {
   if (_isListingCenterContentColumn(col.key)) {
@@ -261,6 +266,7 @@ class AppListingScreen<T> extends StatefulWidget {
     this.paginationFooterHeight,
     this.tableBodyFillsViewport = false,
     this.tableBodyVerticalScrollController,
+    this.tableBodyVerticalScrollbarThickness,
     this.listingShellPadding,
     this.showExpandColumn = false,
     this.isRowExpanded,
@@ -425,6 +431,9 @@ class AppListingScreen<T> extends StatefulWidget {
   /// Optional vertical scroll controller for the table body when [tableBodyFillsViewport] is true.
   /// If null, an internal controller is created and disposed by this widget.
   final ScrollController? tableBodyVerticalScrollController;
+
+  /// Optional thickness override for the vertical table body scrollbar.
+  final double? tableBodyVerticalScrollbarThickness;
 
   /// Padding around the listing card (tabs, table, pagination) inside the page shell.
   ///
@@ -2102,6 +2111,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                   height: listViewportH,
                   child: AppScrollbar(
                     controller: vScroll!,
+                    thickness: widget.tableBodyVerticalScrollbarThickness,
                     child: listCore,
                   ),
                 ),
@@ -2119,6 +2129,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
               Expanded(
                 child: AppScrollbar(
                   controller: vScroll!,
+                  thickness: widget.tableBodyVerticalScrollbarThickness,
                   child: listCore,
                 ),
               ),

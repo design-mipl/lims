@@ -9,6 +9,7 @@ import '../../../../design_system/tokens.dart';
 import '../data/sample_intake_model.dart';
 import '../state/sample_intake_provider.dart';
 import 'widgets/quick_receipt_entry_modal.dart';
+import 'widgets/receipt_tracking_create_drawer.dart';
 
 /// Sample Intake hub — operational queue + completed history ([ListingTabStrip]).
 class SampleIntakeHubScreen extends StatefulWidget {
@@ -95,11 +96,8 @@ class _SampleIntakeHubScreenState extends State<SampleIntakeHubScreen> {
     await context.read<SampleIntakeProvider>().deleteReceipt(row.id);
   }
 
-  Future<void> _openQuickReceipt(BuildContext context) async {
-    await QuickReceiptEntryModal.show(context);
-    if (context.mounted) {
-      await context.read<SampleIntakeProvider>().refresh();
-    }
+  Future<void> _openReceiptTrackingCreate(BuildContext context) async {
+    await ReceiptTrackingCreateDrawer.show(context);
   }
 
   Future<void> _openCreateSamples(BuildContext context) async {
@@ -154,12 +152,21 @@ class _SampleIntakeHubScreenState extends State<SampleIntakeHubScreen> {
                     ],
                   ),
                 ),
-                AppButton(
-                  label: 'Create Sample Receipt',
-                  variant: AppButtonVariant.primary,
-                  size: AppButtonSize.md,
-                  onPressed: () => _openCreateSamples(context),
-                ),
+                if (p.hubTab != SampleIntakeHubTab.completedReceipt)
+                  AppButton(
+                    label: p.hubTab == SampleIntakeHubTab.receiptTracking
+                        ? 'Create'
+                        : 'Create Sample Receipt',
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.md,
+                    onPressed: () {
+                      if (p.hubTab == SampleIntakeHubTab.receiptTracking) {
+                        _openReceiptTrackingCreate(context);
+                      } else {
+                        _openCreateSamples(context);
+                      }
+                    },
+                  ),
               ],
             ),
           ),
@@ -205,14 +212,21 @@ class _SampleIntakeHubScreenState extends State<SampleIntakeHubScreen> {
       showPageHeader: false,
       title: '',
       subtitle: '',
-      extraActions: [
-        AppButton(
-          label: 'Quick receipt',
-          variant: AppButtonVariant.secondary,
-          size: AppButtonSize.md,
-          onPressed: () => _openQuickReceipt(context),
-        ),
-      ],
+      extraActions: p.hubTab == SampleIntakeHubTab.sampleReceipt
+          ? [
+              AppButton(
+                label: 'Quick receipt',
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.md,
+                onPressed: () async {
+                  await QuickReceiptEntryModal.show(context);
+                  if (context.mounted) {
+                    await context.read<SampleIntakeProvider>().refresh();
+                  }
+                },
+              ),
+            ]
+          : const [],
       showCheckboxes: true,
       bulkRowId: (r) => r.id,
       onBulkDelete: (ids) => p.bulkDeleteReceipts(ids),

@@ -1,14 +1,24 @@
 import 'package:flutter/foundation.dart';
 
 import 'billing_document_row.dart';
+import 'billing_gst_verification_result.dart';
+import 'billing_row_action_state.dart';
 
 /// Filters, sorts (via [AppListingScreen]), paginates listing rows for billing modules.
 class BillingListingProvider extends ChangeNotifier {
   BillingListingProvider({
     required Future<List<BillingDocumentListingRow>> Function() fetchRows,
-  }) : _fetchRows = fetchRows;
+    void Function(String id, String fileName)? onAttachDigitalSignature,
+    void Function(BillingDocumentListingRow row)? onPersistRow,
+  })  : _fetchRows = fetchRows,
+        _onAttachDigitalSignature = onAttachDigitalSignature,
+        _onPersistRow = onPersistRow;
 
   final Future<List<BillingDocumentListingRow>> Function() _fetchRows;
+  final void Function(String id, String fileName)? _onAttachDigitalSignature;
+  final void Function(BillingDocumentListingRow row)? _onPersistRow;
+
+  final BillingRowActionState rowActions = BillingRowActionState();
 
   List<BillingDocumentListingRow> _items = [];
   String _searchQuery = '';
@@ -17,16 +27,22 @@ class BillingListingProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _pageSize = 10;
   bool _isLoading = false;
-  bool _gstVerificationInProgress = false;
 
   List<BillingDocumentListingRow> get items => List.unmodifiable(_items);
   bool get isLoading => _isLoading;
-  bool get gstVerificationInProgress => _gstVerificationInProgress;
+  bool get gstVerificationInProgress => rowActions.gstVerificationInProgress;
   String get searchQuery => _searchQuery;
   DateTime? get fromDate => _fromDate;
   DateTime? get toDate => _toDate;
   int get currentPage => _currentPage;
   int get pageSize => _pageSize;
+
+  BillingDocumentListingRow? rowById(String id) {
+    for (final row in _items) {
+      if (row.id == id) return row;
+    }
+    return null;
+  }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -83,7 +99,8 @@ class BillingListingProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      _items = await _fetchRows();
+      // APIs may return unmodifiable snapshots — keep a mutable working copy.
+      _items = List<BillingDocumentListingRow>.from(await _fetchRows());
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -120,36 +137,128 @@ class BillingListingProvider extends ChangeNotifier {
   }
 
   /// GST / eInvoice verification for selected rows (mock delay + IRN/QR/response).
-  /// Returns false if [rows] is empty or another run is in progress.
-  Future<bool> verifyGstForRows(List<BillingDocumentListingRow> rows) async {
-    if (rows.isEmpty || _gstVerificationInProgress) return false;
-    _gstVerificationInProgress = true;
-    notifyListeners();
+  Future<BillingGstVerificationResult> verifyGstForRows(
+    List<BillingDocumentListingRow> rows,
+  ) async {
+    if (rows.isEmpty) {
+      return BillingGstVerificationResult.failure(
+        'Select at least one document to verify.',
+      );
+    }
+    if (rowActions.gstVerificationInProgress) {
+      return BillingGstVerificationResult.failure(
+        'GST verification is already in progress.',
+      );
+    }
+
+    final ids = rows.map((e) => e.id).toList();
+    rowActions.startGstVerify(ids);
+
     try {
       await Future<void>.delayed(const Duration(milliseconds: 900));
+
+      // Mock API rejection when document no. contains FAIL (for QA).
+      BillingDocumentListingRow? failRow;
+      for (final r in rows) {
+        if (r.documentNo.toUpperCase().contains('FAIL')) {
+          failRow = r;
+          break;
+        }
+      }
+      if (failRow != null) {
+        return BillingGstVerificationResult.failure(
+          'GST portal rejected ${failRow.documentNo}: '
+          'Invalid GSTIN or document already cancelled (Error EINV-402).',
+        );
+      }
+
       final stamp = DateTime.now().millisecondsSinceEpoch;
+      final verified = <BillingGstVerifiedItem>[];
+      final verifiedAt = DateTime.now();
+      final nextItems = List<BillingDocumentListingRow>.from(_items);
+
       for (var i = 0; i < rows.length; i++) {
         final row = rows[i];
-        final idx = _items.indexWhere((e) => e.id == row.id);
+        final idx = nextItems.indexWhere((e) => e.id == row.id);
         if (idx < 0) continue;
-        final existing = _items[idx];
+        final existing = nextItems[idx];
         final irn =
             'IRN${stamp.toString()}${i.toString().padLeft(2, '0')}';
         final qrPayload = '$irn|${existing.documentNo}|GSTINMOCK';
         final response =
             '{"AckNo":"ACK$stamp","Status":"ACT","Irn":"$irn","SignedQRCode":"$qrPayload"}';
-        _items[idx] = existing.copyWith(
+        final updated = existing.copyWith(
           gstVerified: true,
+          eInvoiceActive: true,
           irnNumber: irn,
           qrCodeData: qrPayload,
           gstVerificationResponse: response,
-          ceoSignatureOnTemplate: true,
+          statusLabel: 'GST Verified',
+          ceoSignatureOnTemplate: existing.digitalSignatureAttached,
+        );
+        nextItems[idx] = updated;
+        _onPersistRow?.call(updated);
+        verified.add(
+          BillingGstVerifiedItem(
+            documentId: updated.id,
+            documentNo: updated.documentNo,
+            gstRefNo: irn,
+          ),
         );
       }
-      return true;
-    } finally {
-      _gstVerificationInProgress = false;
+
+      if (verified.isEmpty) {
+        return BillingGstVerificationResult.failure(
+          'No matching documents found to verify.',
+        );
+      }
+
+      _items = nextItems;
       notifyListeners();
+      return BillingGstVerificationResult.success(
+        items: verified,
+        timestamp: verifiedAt,
+      );
+    } catch (e) {
+      return BillingGstVerificationResult.failure(
+        e is Exception ? e.toString().replaceFirst('Exception: ', '') : '$e',
+      );
+    } finally {
+      rowActions.endGstVerify();
     }
+  }
+
+  /// Persist signature on one row (mock upload). Caller owns row-level loading UI.
+  Future<bool> attachDigitalSignature(
+    BillingDocumentListingRow row, {
+    required String fileName,
+  }) async {
+    try {
+      // Mock upload latency — never block the UI isolate with sync I/O here.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final nextItems = List<BillingDocumentListingRow>.from(_items);
+      final idx = nextItems.indexWhere((e) => e.id == row.id);
+      if (idx < 0) return false;
+
+      final updated = nextItems[idx].copyWith(
+        digitalSignatureAttached: true,
+        digitalSignatureFileName: fileName,
+      );
+      nextItems[idx] = updated;
+      _items = nextItems;
+      await Future<void>.delayed(Duration.zero);
+      _onAttachDigitalSignature?.call(row.id, fileName);
+      _onPersistRow?.call(updated);
+      notifyListeners();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  @override
+  void dispose() {
+    rowActions.dispose();
+    super.dispose();
   }
 }

@@ -46,7 +46,7 @@ class _QuoteLine {
 }
 
 class _CreateQuotationPageState extends State<CreateQuotationPage> {
-  final _docDateCtrl = TextEditingController();
+  DateTime? _docDate;
   final _docNoCtrl = TextEditingController();
   final _quotationSeriesCtrl = TextEditingController();
   final _narrationCtrl = TextEditingController();
@@ -97,9 +97,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   static const double _tableHeaderHeight = 44;
   static const double _tableRowHeight = 44;
 
-  /// Matches [AppTextarea] inner field font size (private there).
-  static const double _textareaFieldFontSize = 12.0;
-
   static double get _minTableTotalWidth =>
       _twPlus +
       _twSr +
@@ -121,7 +118,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _docDateCtrl.text = _formatYmd(now);
+    _docDate = now;
     _docNoCtrl.text =
         'DOC-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${math.Random().nextInt(900) + 100}';
     _quotationSeriesCtrl.text =
@@ -140,7 +137,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   void dispose() {
     _discountRateCtrl.removeListener(_onDiscountOrFreightChanged);
     _freightCtrl.removeListener(_onDiscountOrFreightChanged);
-    _docDateCtrl.dispose();
     _docNoCtrl.dispose();
     _quotationSeriesCtrl.dispose();
     _narrationCtrl.dispose();
@@ -164,9 +160,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     }
     super.dispose();
   }
-
-  static String _formatYmd(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   double _parseMoney(String s) => double.tryParse(s.trim()) ?? 0;
 
@@ -236,32 +229,33 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     });
   }
 
-  Future<void> _pickDate(TextEditingController c) async {
-    final parsed = DateTime.tryParse(c.text.trim());
-    final initial = parsed ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && mounted) {
-      setState(() => c.text = _formatYmd(picked));
-    }
-  }
-
-  Widget _dateField({
+  Widget _formLabDateField({
     required String label,
-    required TextEditingController controller,
+    required String hint,
+    required DateTime? value,
+    required ValueChanged<DateTime> onDateSelected,
   }) {
-    return AppInput(
-      label: label,
-      hint: 'YYYY-MM-DD',
-      controller: controller,
-      readOnly: true,
-      size: AppInputSize.md,
-      onTap: () => _pickDate(controller),
-      suffixIcon: Icon(LucideIcons.calendar, size: AppTokens.iconButtonIconSm),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.fieldLabelSize,
+            fontWeight: AppTokens.fieldLabelWeight,
+            color: AppTokens.labelColor,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        SizedBox(height: AppTokens.space1),
+        LabCodeLabIdDateField(
+          layout: LabCodeLabIdDateFieldLayout.formRow,
+          hint: hint,
+          selectedDate: value,
+          onDateSelected: onDateSelected,
+        ),
+      ],
     );
   }
 
@@ -669,69 +663,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
-  /// Narration fills remaining vertical space beside Customer Details (wide layout).
-  Widget _narrationStretchCard(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final surface = isDark ? theme.cardColor : AppTokens.cardBg;
-    final borderColor =
-        isDark ? AppTokens.neutral700 : AppTokens.borderDefault;
-    final titleColor =
-        isDark ? theme.colorScheme.onSurface : AppTokens.textPrimary;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(
-          color: borderColor,
-          width: AppTokens.borderWidthSm,
-        ),
-        boxShadow: AppTokens.shadowSm,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.space4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Narration',
-              style: GoogleFonts.poppins(
-                fontSize: AppTokens.sectionTitleSize,
-                fontWeight: AppTokens.sectionTitleWeight,
-                color: titleColor,
-              ),
-            ),
-            SizedBox(height: AppTokens.space3),
-            Expanded(
-              child: TextFormField(
-                controller: _narrationCtrl,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                style: appFormFieldValueTextStyle(
-                  fontSize: _textareaFieldFontSize,
-                  color: AppTokens.textPrimary,
-                ),
-                cursorColor: AppTokens.borderFocus,
-                decoration: buildAppFormFieldDecoration(
-                  enabled: true,
-                  hasError: false,
-                  hintText: 'Narration…',
-                  hintStyle: appFormFieldValueTextStyle(
-                    fontSize: _textareaFieldFontSize,
-                    color: AppTokens.hintColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _onCancel() => context.go('/transactions/quotation/pending');
 
   void _saveDraft() {
@@ -778,114 +709,84 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     final sampleMasterItems =
         List<AppSelectItem<String>>.from(SampleMasterOptions.typeOfSample);
 
-    final basicLeft = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final sectionBasic = AppFormSection(
+      title: 'Quotation Basic Details',
       children: [
-        _dateField(label: 'Doc. Date', controller: _docDateCtrl),
-        SizedBox(height: AppTokens.space3),
+        _formLabDateField(
+          label: 'Doc. Date',
+          hint: 'Select date',
+          value: _docDate,
+          onDateSelected: (d) => setState(() => _docDate = d),
+        ),
         AppInput(
           label: 'Quotation No. / Series No.',
           hint: 'Series',
           controller: _quotationSeriesCtrl,
           size: AppInputSize.md,
         ),
+        AppInput(
+          label: 'Doc. No.',
+          controller: _docNoCtrl,
+          size: AppInputSize.md,
+        ),
       ],
-    );
-
-    final basicRight = AppInput(
-      label: 'Doc. No.',
-      controller: _docNoCtrl,
-      size: AppInputSize.md,
-    );
-
-    final sectionBasic = AppFormSection(
-      title: 'Quotation Basic Details',
-      child: LayoutBuilder(
-        builder: (context, c) {
-          if (c.maxWidth < 640) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                basicLeft,
-                SizedBox(height: AppTokens.space3),
-                basicRight,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: basicLeft),
-              SizedBox(width: AppTokens.space4),
-              Expanded(child: basicRight),
-            ],
-          );
-        },
-      ),
     );
 
     final sectionCustomer = AppFormSection(
       title: 'Customer Details',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AnchoredSearchableDropdownField<String>(
-            label: 'Customer',
-            hint: 'Select customer',
-            value: _customerId,
-            items: customerItems,
-            size: AppInputSize.md,
-            overlayMinimalShadow: true,
-            onChanged: (id) => setState(() {
-              _customerId = id;
-              _applyCustomer(_customerById(active, id));
-            }),
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppTextarea(
-            label: 'Address',
-            hint: 'Street, building…',
-            controller: _addressCtrl,
-            minLines: 4,
-            maxLines: 6,
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Address Line 2 (optional)',
-            hint: 'City, PIN, etc.',
-            controller: _addressLine2Ctrl,
-            size: AppInputSize.md,
-          ),
-          SizedBox(height: AppTokens.space3),
-          AnchoredSearchableDropdownField<String>(
-            label: 'State',
-            hint: 'Select state',
-            value: _stateKey,
-            items: _stateItemsFor(_stateKey),
-            size: AppInputSize.md,
-            overlayMinimalShadow: true,
-            onChanged: (v) => setState(() => _stateKey = v),
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Mobile',
-            controller: _mobileCtrl,
-            keyboardType: TextInputType.phone,
-            size: AppInputSize.md,
-          ),
-          SizedBox(height: AppTokens.space3),
-          AppInput(
-            label: 'Email',
-            controller: _emailCtrl,
-            keyboardType: TextInputType.emailAddress,
-            size: AppInputSize.md,
-          ),
-        ],
-      ),
+      children: [
+        AnchoredSearchableDropdownField<String>(
+          label: 'Customer',
+          hint: 'Select customer',
+          value: _customerId,
+          items: customerItems,
+          size: AppInputSize.md,
+          overlayMinimalShadow: true,
+          overlayWidthMatchesTrigger: true,
+          onChanged: (id) => setState(() {
+            _customerId = id;
+            _applyCustomer(_customerById(active, id));
+          }),
+        ),
+        AppInput(
+          label: 'Address',
+          hint: 'Street, building…',
+          controller: _addressCtrl,
+          size: AppInputSize.md,
+        ),
+        AppInput(
+          label: 'Address Line 2 (optional)',
+          hint: 'City, PIN, etc.',
+          controller: _addressLine2Ctrl,
+          size: AppInputSize.md,
+        ),
+        AnchoredSearchableDropdownField<String>(
+          label: 'State',
+          hint: 'Select state',
+          value: _stateKey,
+          items: _stateItemsFor(_stateKey),
+          size: AppInputSize.md,
+          overlayMinimalShadow: true,
+          overlayWidthMatchesTrigger: true,
+          onChanged: (v) => setState(() => _stateKey = v),
+        ),
+        AppInput(
+          label: 'Mobile',
+          controller: _mobileCtrl,
+          keyboardType: TextInputType.phone,
+          size: AppInputSize.md,
+        ),
+        AppInput(
+          label: 'Email',
+          controller: _emailCtrl,
+          keyboardType: TextInputType.emailAddress,
+          size: AppInputSize.md,
+        ),
+      ],
     );
 
-    final pricingChild = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final sectionPricing = AppFormSection(
+      title: 'Pricing Summary',
       children: [
         AppInput(
           label: 'Total',
@@ -893,7 +794,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           readOnly: true,
           size: AppInputSize.md,
         ),
-        SizedBox(height: AppTokens.space3),
         AppInput(
           label: 'Discount Rate',
           hint: '%',
@@ -901,21 +801,18 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           size: AppInputSize.md,
         ),
-        SizedBox(height: AppTokens.space3),
         AppInput(
           label: 'Discount Amount',
           controller: _discountAmountCtrl,
           readOnly: true,
           size: AppInputSize.md,
         ),
-        SizedBox(height: AppTokens.space3),
         AppInput(
           label: 'Freight',
           controller: _freightCtrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           size: AppInputSize.md,
         ),
-        SizedBox(height: AppTokens.space3),
         AnchoredSearchableDropdownField<String>(
           label: 'GST Rate',
           hint: 'GST %',
@@ -923,19 +820,18 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           items: _itemsFrom(_gstPresets),
           size: AppInputSize.md,
           overlayMinimalShadow: true,
+          overlayWidthMatchesTrigger: true,
           onChanged: (v) => setState(() {
             _gstRateKey = v ?? _gstRateKey;
             _updatePricing();
           }),
         ),
-        SizedBox(height: AppTokens.space3),
         AppInput(
           label: 'GST Amount',
           controller: _gstAmountCtrl,
           readOnly: true,
           size: AppInputSize.md,
         ),
-        SizedBox(height: AppTokens.space3),
         AppInput(
           label: 'Grand Total',
           controller: _grandTotalCtrl,
@@ -945,18 +841,13 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       ],
     );
 
-    final sectionPricing = AppFormSection(
-      title: 'Pricing Summary',
-      child: pricingChild,
-    );
-
-    final sectionNarrationMobile = AppFormSection(
+    final sectionNarration = AppFormSection(
       title: 'Narration',
       child: AppTextarea(
         hint: 'Narration…',
         controller: _narrationCtrl,
-        minLines: 8,
-        maxLines: 14,
+        minLines: 3,
+        maxLines: 5,
       ),
     );
 
@@ -975,6 +866,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                 items: sampleMasterItems,
                 size: AppInputSize.md,
                 overlayMinimalShadow: true,
+                overlayWidthMatchesTrigger: true,
                 onChanged: (v) => setState(() => _entrySampleKey.value = v),
               );
               return width != null ? SizedBox(width: width, child: dd) : dd;
@@ -988,6 +880,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                 items: QuotationFormOptions.tests,
                 size: AppInputSize.md,
                 overlayMinimalShadow: true,
+                overlayWidthMatchesTrigger: true,
                 onChanged: (v) => setState(() => _entryTestKey.value = v),
               );
               return width != null ? SizedBox(width: width, child: dd) : dd;
@@ -1074,40 +967,23 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           children: [
             _tightStack([sectionBasic, sectionCustomer]),
             SizedBox(height: AppTokens.space3),
-            _tightStack([sectionPricing, sectionNarrationMobile]),
+            _tightStack([sectionPricing, sectionNarration]),
           ],
         );
       }
-      return Table(
-        columnWidths: const {
-          0: FlexColumnWidth(1),
-          1: FlexColumnWidth(1),
-        },
-        defaultVerticalAlignment: TableCellVerticalAlignment.top,
-        children: [
-          TableRow(
-            children: [
-              TableCell(
-                verticalAlignment: TableCellVerticalAlignment.top,
-                child: Padding(
-                  padding: EdgeInsets.only(right: AppTokens.space4),
-                  child: _tightStack([sectionBasic, sectionCustomer]),
-                ),
-              ),
-              TableCell(
-                verticalAlignment: TableCellVerticalAlignment.fill,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    sectionPricing,
-                    SizedBox(height: AppTokens.space2),
-                    Expanded(child: _narrationStretchCard(context)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _tightStack([sectionBasic, sectionCustomer]),
+            ),
+            SizedBox(width: AppTokens.space4),
+            Expanded(
+              child: _tightStack([sectionPricing, sectionNarration]),
+            ),
+          ],
+        ),
       );
     }
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../core/di/service_locator.dart';
 import '../../shared/billing_listing_provider.dart';
+import '../../shared/billing_listing_scope.dart';
 import '../../shared/billing_listing_scaffold.dart';
 import '../data/credit_note_api.dart';
 
@@ -13,9 +13,11 @@ class CreditNoteScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => BillingListingProvider(
+    return BillingListingScope(
+      createProvider: () => BillingListingProvider(
         fetchRows: () => sl<CreditNoteApi>().fetchCreditNotes(),
+        onAttachDigitalSignature: sl<CreditNoteApi>().attachDigitalSignature,
+        onPersistRow: sl<CreditNoteApi>().replaceRow,
       ),
       child: BillingListingScaffold(
         title: 'Credit Note',
@@ -27,6 +29,8 @@ class CreditNoteScreen extends StatelessWidget {
         selectionPlural: 'Credit Notes',
         primaryActionLabel: 'Create Credit Note',
         onPrimaryAction: () => context.push('/transactions/credit-note/create'),
+        showEditRowAction: true,
+        enableGstEinvoiceWorkflow: true,
       ),
     );
   }

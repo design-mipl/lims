@@ -1,9 +1,10 @@
 /// Shared row model for Customer Invoice and Credit Note listings.
 ///
 /// GST / eInvoice fields ([gstVerified], [irnNumber], [qrCodeData],
-/// [gstVerificationResponse]) are populated after **Direct to GST** verification
-/// (Customer Invoice workflow). [ceoSignatureOnTemplate] flags CEO signature on
-/// the UltraLabs PDF/template (mock until backend wiring).
+/// [gstVerificationResponse]) are populated after **Direct to GST** verification.
+/// [digitalSignatureAttached] / [digitalSignatureFileName] track row-wise CEO
+/// digital signature upload before GST. [ceoSignatureOnTemplate] flags signature on
+/// the UltraLabs PDF/template after GST verification when a signature is attached.
 class BillingDocumentListingRow {
   const BillingDocumentListingRow({
     required this.id,
@@ -19,6 +20,8 @@ class BillingDocumentListingRow {
     this.irnNumber,
     this.qrCodeData,
     this.gstVerificationResponse,
+    this.digitalSignatureAttached = false,
+    this.digitalSignatureFileName,
     this.ceoSignatureOnTemplate = false,
   });
 
@@ -44,6 +47,12 @@ class BillingDocumentListingRow {
   /// Raw or JSON summary of GST verification response (mock).
   final String? gstVerificationResponse;
 
+  /// True when a digital signature file is attached for this document row.
+  final bool digitalSignatureAttached;
+
+  /// Mock filename for the attached digital signature (persisted in mock API).
+  final String? digitalSignatureFileName;
+
   /// When true, generated PDF includes CEO signature block (template flag).
   final bool ceoSignatureOnTemplate;
 
@@ -62,6 +71,8 @@ class BillingDocumentListingRow {
     String? irnNumber,
     String? qrCodeData,
     String? gstVerificationResponse,
+    bool? digitalSignatureAttached,
+    String? digitalSignatureFileName,
     bool? ceoSignatureOnTemplate,
   }) {
     return BillingDocumentListingRow(
@@ -79,6 +90,10 @@ class BillingDocumentListingRow {
       qrCodeData: qrCodeData ?? this.qrCodeData,
       gstVerificationResponse:
           gstVerificationResponse ?? this.gstVerificationResponse,
+      digitalSignatureAttached:
+          digitalSignatureAttached ?? this.digitalSignatureAttached,
+      digitalSignatureFileName:
+          digitalSignatureFileName ?? this.digitalSignatureFileName,
       ceoSignatureOnTemplate:
           ceoSignatureOnTemplate ?? this.ceoSignatureOnTemplate,
     );

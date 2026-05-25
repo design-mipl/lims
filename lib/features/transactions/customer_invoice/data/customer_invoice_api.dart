@@ -1,8 +1,25 @@
+import '../../shared/billing_document_mock_store.dart';
 import '../../shared/billing_document_row.dart';
 
 class CustomerInvoiceApi {
+  CustomerInvoiceApi() : _store = BillingDocumentMockStore(_seedRows());
+
+  final BillingDocumentMockStore _store;
+
   Future<List<BillingDocumentListingRow>> fetchInvoices() async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
+    return _store.snapshot();
+  }
+
+  void attachDigitalSignature(String id, String fileName) {
+    _store.attachDigitalSignature(id, fileName);
+  }
+
+  void replaceRow(BillingDocumentListingRow row) {
+    _store.replaceRow(row);
+  }
+
+  static List<BillingDocumentListingRow> _seedRows() {
     final now = DateTime.now();
     return [
       BillingDocumentListingRow(

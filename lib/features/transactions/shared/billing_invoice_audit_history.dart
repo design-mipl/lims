@@ -14,6 +14,16 @@ List<ActivityTimelineEntry> buildBillingInvoiceAuditHistory(
       message: 'Invoice Created',
     ),
   ];
+  if (row.digitalSignatureAttached) {
+    entries.add(
+      ActivityTimelineEntry(
+        id: '${row.id}-dsig',
+        at: row.docDate.add(const Duration(hours: 1)),
+        actorLabel: 'CEO Office',
+        message: 'Digital Signature Attached',
+      ),
+    );
+  }
   if (row.gstVerified) {
     entries.add(
       ActivityTimelineEntry(
