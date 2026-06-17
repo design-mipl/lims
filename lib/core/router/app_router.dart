@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,10 @@ import '../../features/masters/item_master/state/item_master_provider.dart';
 import '../../features/masters/item_master/ui/item_master_screen.dart';
 import '../../features/masters/plant_master/state/plant_provider.dart';
 import '../../features/masters/plant_master/ui/plant_screen.dart';
+import '../../features/masters/shared/simple_master_api.dart';
+import '../../features/masters/shared/simple_master_config.dart';
+import '../../features/masters/shared/simple_master_provider.dart';
+import '../../features/masters/shared/simple_master_screen.dart';
 import '../../features/masters/problem_master/state/problem_master_provider.dart';
 import '../../features/masters/problem_master/ui/problem_master_screen.dart';
 import '../../features/masters/sub_assembly_master/state/sub_assembly_master_provider.dart';
@@ -95,6 +100,18 @@ import '../../features/user_management/users/ui/user_form_page.dart';
 import '../../features/user_management/users/ui/user_permissions_screen.dart';
 import '../../features/user_management/users/ui/user_view_page.dart';
 import '../../features/user_management/users/ui/users_screen.dart';
+
+Widget _simpleMasterRoute({
+  required String apiInstanceName,
+  required SimpleMasterConfig config,
+}) {
+  return ChangeNotifierProvider(
+    create: (_) => SimpleMasterProvider(
+      api: sl<SimpleMasterApi>(instanceName: apiInstanceName),
+    )..fetchAll(),
+    child: SimpleMasterScreen(config: config),
+  );
+}
 
 Set<int>? _parseSampleIntakeRowIndexes(String? raw) {
   if (raw == null || raw.trim().isEmpty) return null;
@@ -757,48 +774,66 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/equipment',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Equipment Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'equipmentMasterApi',
+            config: SimpleMasterConfigs.equipment,
+          ),
         ),
         GoRoute(
           path: '/masters/sample-type',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Type of Sample Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'sampleTypeMasterApi',
+            config: SimpleMasterConfigs.sampleType,
+          ),
         ),
         GoRoute(
           path: '/masters/grade',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Grade Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'gradeMasterApi',
+            config: SimpleMasterConfigs.grade,
+          ),
         ),
         GoRoute(
           path: '/masters/department',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Department Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'departmentMasterApi',
+            config: SimpleMasterConfigs.department,
+          ),
         ),
         GoRoute(
           path: '/masters/designation',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Designation Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'designationMasterApi',
+            config: SimpleMasterConfigs.designation,
+          ),
         ),
         GoRoute(
           path: '/masters/test',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Test Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'testMasterApi',
+            config: SimpleMasterConfigs.test,
+          ),
         ),
         GoRoute(
           path: '/masters/method',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Method Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'methodMasterApi',
+            config: SimpleMasterConfigs.method,
+          ),
         ),
         GoRoute(
           path: '/masters/instrument',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Instrument Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'instrumentMasterApi',
+            config: SimpleMasterConfigs.instrument,
+          ),
         ),
         GoRoute(
           path: '/masters/parameter',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Parameter Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'parameterMasterApi',
+            config: SimpleMasterConfigs.parameter,
+          ),
         ),
         GoRoute(
           path: '/masters/unit',
@@ -837,8 +872,10 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: '/masters/storage',
-          builder: (context, _) =>
-              const ComingSoonScreen(moduleName: 'Storage Master'),
+          builder: (context, _) => _simpleMasterRoute(
+            apiInstanceName: 'storageMasterApi',
+            config: SimpleMasterConfigs.storage,
+          ),
         ),
         GoRoute(
           path: '/housekeeping',
