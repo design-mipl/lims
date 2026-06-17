@@ -17,6 +17,7 @@ class AppFormSection extends StatelessWidget {
     this.trailing,
     this.children,
     this.child,
+    this.expandBody = false,
   }) : assert(
           children != null || child != null,
           'Provide either children or child',
@@ -25,6 +26,10 @@ class AppFormSection extends StatelessWidget {
   final String title;
   final String? description;
   final Widget? trailing;
+
+  /// When true, the section body expands to fill available height (e.g. paired
+  /// columns in an [IntrinsicHeight] row). Use with a [Spacer] in [child].
+  final bool expandBody;
 
   /// Grid children. [AppFormFullWidth] items span both columns.
   final List<Widget>? children;
@@ -56,7 +61,7 @@ class AppFormSection extends StatelessWidget {
         padding: const EdgeInsets.all(AppTokens.space4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +105,11 @@ class AppFormSection extends StatelessWidget {
             ),
             SizedBox(height: AppTokens.space3),
             if (children != null)
-              _GridBody(children: children!)
+              expandBody
+                  ? Expanded(child: _GridBody(children: children!))
+                  : _GridBody(children: children!)
+            else if (expandBody)
+              Expanded(child: child!)
             else
               child!,
           ],

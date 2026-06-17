@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -207,7 +208,6 @@ class _UserFormPageState extends State<UserFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final users = context.watch<UsersProvider>();
     final depts = context.watch<DepartmentsProvider>();
     final roles = context.watch<RolesProvider>();
@@ -255,7 +255,12 @@ class _UserFormPageState extends State<UserFormPage> {
                 padding: EdgeInsets.all(AppTokens.space6),
                 child: Text(
                   'User not found.',
-                  style: theme.textTheme.bodyLarge,
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTokens.bodySize,
+                    fontWeight: AppTokens.bodyWeight,
+                    color: AppTokens.textPrimary,
+                    decoration: TextDecoration.none,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),

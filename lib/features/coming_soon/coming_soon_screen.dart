@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../design_system/components/components.dart';
@@ -17,7 +18,6 @@ class ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Center(
       child: SingleChildScrollView(
         child: Padding(
@@ -34,16 +34,22 @@ class ComingSoonScreen extends StatelessWidget {
               Text(
                 moduleName,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleLarge?.copyWith(
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.pageTitleSize,
+                  fontWeight: AppTokens.pageTitleWeight,
                   color: AppTokens.neutral700,
+                  decoration: TextDecoration.none,
                 ),
               ),
               const SizedBox(height: AppTokens.space2),
               Text(
                 'This module is coming soon.',
                 textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.bodySize,
+                  fontWeight: AppTokens.bodyWeight,
                   color: AppTokens.neutral500,
+                  decoration: TextDecoration.none,
                 ),
               ),
               const SizedBox(height: AppTokens.space2),
@@ -51,8 +57,11 @@ class ComingSoonScreen extends StatelessWidget {
                 Text(
                   subtitle!,
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTokens.bodySmSize,
+                    fontWeight: AppTokens.bodyWeight,
                     color: AppTokens.neutral400,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               if (subtitle != null) const SizedBox(height: AppTokens.space2),
@@ -95,9 +104,12 @@ class ComingSoonScreen extends StatelessWidget {
     required IconData icon,
     required String text,
   }) {
-    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTokens.neutral500,
-        );
+    final style = GoogleFonts.poppins(
+      fontSize: AppTokens.bodySmSize,
+      fontWeight: AppTokens.bodyWeight,
+      color: AppTokens.neutral500,
+      decoration: TextDecoration.none,
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

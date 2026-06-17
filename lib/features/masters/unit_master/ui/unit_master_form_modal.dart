@@ -18,7 +18,7 @@ class UnitMasterFormModal {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) => ChangeNotifierProvider<UnitMasterProvider>.value(
         value: p,
         child: _UnitMasterFormDialog(existing: existing),

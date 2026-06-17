@@ -59,12 +59,19 @@ class _AppSidebarState extends State<AppSidebar> {
     _syncExpandForPath();
   }
 
+  /// True when [node]'s path or any direct child's path matches [currentPath].
+  static bool _navLeafMatchesRoute(NavItem node, String currentPath) {
+    if (_pathMatchesRoute(node.path, currentPath)) return true;
+    if (!node.isExpandable || node.children == null) return false;
+    return node.children!.any((c) => _pathMatchesRoute(c.path, currentPath));
+  }
+
   void _syncExpandForPath() {
     String? found;
     for (final item in widget.navItems) {
       if (item.isExpandable &&
           item.children!.any(
-            (c) => _pathMatchesRoute(c.path, widget.currentPath),
+            (c) => _navLeafMatchesRoute(c, widget.currentPath),
           )) {
         found = item.path;
         break;
@@ -461,11 +468,170 @@ class _NavParentBlock extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final c in item.children!)
+                      if (c.isExpandable &&
+                          c.children != null &&
+                          c.children!.isNotEmpty)
+                        _NestedNavChildBlock(
+                          item: c,
+                          currentPath: currentPath,
+                          rowHeight: _childRowHeight,
+                          onPathSelected: onPathSelected,
+                        )
+                      else
+                        _ChildTile(
+                          item: c,
+                          currentPath: currentPath,
+                          rowHeight: _childRowHeight,
+                          onPathSelected: onPathSelected,
+                        ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+/// Nested accordion row under Transactions (e.g. Sample Intake → sub-routes).
+class _NestedNavChildBlock extends StatefulWidget {
+  const _NestedNavChildBlock({
+    required this.item,
+    required this.currentPath,
+    required this.rowHeight,
+    required this.onPathSelected,
+  });
+
+  final NavItem item;
+  final String currentPath;
+  final double rowHeight;
+  final void Function(String path) onPathSelected;
+
+  @override
+  State<_NestedNavChildBlock> createState() => _NestedNavChildBlockState();
+}
+
+class _NestedNavChildBlockState extends State<_NestedNavChildBlock> {
+  late bool _expanded;
+
+  bool _shouldAutoExpand() {
+    final item = widget.item;
+    if (_AppSidebarState._pathMatchesRoute(item.path, widget.currentPath)) {
+      return true;
+    }
+    final kids = item.children;
+    if (kids == null) return false;
+    for (final g in kids) {
+      if (_AppSidebarState._pathMatchesRoute(g.path, widget.currentPath)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = _shouldAutoExpand();
+  }
+
+  @override
+  void didUpdateWidget(_NestedNavChildBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPath != widget.currentPath) {
+      _expanded = _shouldAutoExpand();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final grandchildren = item.children ?? const <NavItem>[];
+    final headerActive =
+        _AppSidebarState._pathMatchesRoute(item.path, widget.currentPath) ||
+            grandchildren.any(
+              (g) =>
+                  _AppSidebarState._pathMatchesRoute(g.path, widget.currentPath),
+            );
+
+    final iconColor = headerActive
+        ? AppTokens.sidebarActiveText
+        : AppTokens.sidebarInactiveText;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          hoverColor: Colors.transparent,
+          splashColor: AppTokens.primary700.withValues(alpha: 0.2),
+          child: Container(
+            height: widget.rowHeight,
+            margin: EdgeInsets.symmetric(horizontal: AppTokens.space2),
+            padding: EdgeInsets.only(
+              left: AppTokens.space6,
+              right: AppTokens.space2,
+            ),
+            decoration: BoxDecoration(
+              color: headerActive
+                  // ignore: deprecated_member_use — spec: sidebarActiveItem.withOpacity(0.40)
+                  ? AppTokens.sidebarActiveItem.withOpacity(0.40)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: AppTokens.iconButtonIconSm,
+                  child: _AccordionChevron(
+                    expanded: _expanded,
+                    iconColor: iconColor,
+                  ),
+                ),
+                SizedBox(width: AppTokens.space2),
+                IconTheme.merge(
+                  data: IconThemeData(size: AppTokens.textMd, color: iconColor),
+                  child: item.icon,
+                ),
+                SizedBox(width: AppTokens.space3),
+                Expanded(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTokens.fontFamily,
+                      fontSize: AppTokens.textSm,
+                      color: headerActive
+                          ? AppTokens.sidebarActiveText
+                          : AppTokens.sidebarInactiveText,
+                      fontWeight: headerActive
+                          ? AppTokens.weightSemibold
+                          : AppTokens.weightRegular,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _expanded
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final g in grandchildren)
                       _ChildTile(
-                        item: c,
-                        currentPath: currentPath,
-                        rowHeight: _childRowHeight,
-                        onPathSelected: onPathSelected,
+                        item: g,
+                        currentPath: widget.currentPath,
+                        rowHeight: widget.rowHeight,
+                        onPathSelected: widget.onPathSelected,
+                        leftPadding: AppTokens.space10,
                       ),
                   ],
                 )
@@ -701,12 +867,14 @@ class _ChildTile extends StatefulWidget {
     required this.currentPath,
     required this.rowHeight,
     required this.onPathSelected,
+    this.leftPadding = AppTokens.space6,
   });
 
   final NavItem item;
   final String currentPath;
   final double rowHeight;
   final void Function(String path) onPathSelected;
+  final double leftPadding;
 
   @override
   State<_ChildTile> createState() => _ChildTileState();
@@ -728,7 +896,7 @@ class _ChildTileState extends State<_ChildTile> {
         height: widget.rowHeight,
         margin: EdgeInsets.symmetric(horizontal: AppTokens.space2),
         padding: EdgeInsets.only(
-          left: AppTokens.space6,
+          left: widget.leftPadding,
           right: AppTokens.space2,
         ),
         decoration: BoxDecoration(

@@ -4,6 +4,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../design_system/components/components.dart';
 import '../../design_system/tokens.dart';
+import 'transaction_nav_items.dart';
 
 /// Side navigation config for the authenticated app shell.
 const List<NavItem> appNavItems = [
@@ -18,38 +19,7 @@ const List<NavItem> appNavItems = [
     label: 'Transactions',
     icon: Icon(LucideIcons.arrowLeftRight, size: AppTokens.iconButtonIconMd),
     sectionLabel: 'TRANSACTIONS',
-    children: [
-      NavItem(
-        path: '/transactions/sample-intake',
-        label: 'Sample Intake & Data Entry',
-        icon: Icon(LucideIcons.clipboardList, size: AppTokens.iconButtonIconMd),
-      ),
-      NavItem(
-        path: '/transactions/lab-code',
-        label: 'Lab Code',
-        icon: Icon(LucideIcons.hash, size: AppTokens.iconButtonIconMd),
-      ),
-      NavItem(
-        path: '/transactions/lab-assignment',
-        label: 'Lab Manager Assignment',
-        icon: Icon(LucideIcons.users, size: AppTokens.iconButtonIconMd),
-      ),
-      NavItem(
-        path: '/transactions/verification',
-        label: 'Verification',
-        icon: Icon(LucideIcons.checkCircle, size: AppTokens.iconButtonIconMd),
-      ),
-      NavItem(
-        path: '/transactions/report-review',
-        label: 'Report Review & Authorization',
-        icon: Icon(LucideIcons.fileCheck, size: AppTokens.iconButtonIconMd),
-      ),
-      NavItem(
-        path: '/transactions/action-taken',
-        label: 'Action Taken',
-        icon: Icon(LucideIcons.activity, size: AppTokens.iconButtonIconMd),
-      ),
-    ],
+    children: kTransactionNavChildren,
   ),
   NavItem(
     path: '/masters',

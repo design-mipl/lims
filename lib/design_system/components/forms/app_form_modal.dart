@@ -48,7 +48,7 @@ class AppFormModal extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) {
         return Dialog(
           insetPadding: EdgeInsets.symmetric(

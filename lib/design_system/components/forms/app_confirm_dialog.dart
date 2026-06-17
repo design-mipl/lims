@@ -45,7 +45,7 @@ class AppConfirmDialog extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
+      barrierColor: AppTokens.modalBarrierScrim,
       builder: (ctx) => AppConfirmDialog(
         icon: icon,
         title: title,
