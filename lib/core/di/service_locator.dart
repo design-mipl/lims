@@ -16,6 +16,8 @@ import '../../features/masters/plant_master/state/plant_provider.dart';
 import '../../features/masters/problem_master/data/problem_master_api.dart';
 import '../../features/masters/site_master/data/site_api.dart';
 import '../../features/masters/site_master/state/site_provider.dart';
+import '../../features/masters/shared/simple_master_api.dart';
+import '../../features/masters/shared/simple_master_seeds.dart';
 import '../../features/masters/sub_assembly_master/data/sub_assembly_master_api.dart';
 import '../../features/masters/unit_master/data/unit_master_api.dart';
 import '../../features/user_management/departments/data/departments_api.dart';
@@ -75,6 +77,76 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<SubAssemblyMasterApi>(() => SubAssemblyMasterApi());
   sl.registerLazySingleton<FerrographyMasterApi>(() => FerrographyMasterApi());
   sl.registerLazySingleton<HsnMasterApi>(() => HsnMasterApi());
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'equipment',
+      seeds: SimpleMasterSeeds.equipment,
+    ),
+    instanceName: 'equipmentMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'sample-type',
+      seeds: SimpleMasterSeeds.sampleType,
+    ),
+    instanceName: 'sampleTypeMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'grade',
+      seeds: SimpleMasterSeeds.grade,
+    ),
+    instanceName: 'gradeMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'department',
+      seeds: SimpleMasterSeeds.department,
+    ),
+    instanceName: 'departmentMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'designation',
+      seeds: SimpleMasterSeeds.designation,
+    ),
+    instanceName: 'designationMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'test',
+      seeds: SimpleMasterSeeds.test,
+    ),
+    instanceName: 'testMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'method',
+      seeds: SimpleMasterSeeds.method,
+    ),
+    instanceName: 'methodMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'instrument',
+      seeds: SimpleMasterSeeds.instrument,
+    ),
+    instanceName: 'instrumentMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'parameter',
+      seeds: SimpleMasterSeeds.parameter,
+    ),
+    instanceName: 'parameterMasterApi',
+  );
+  sl.registerLazySingleton<SimpleMasterApi>(
+    () => SimpleMasterApi(
+      idPrefix: 'storage',
+      seeds: SimpleMasterSeeds.storage,
+    ),
+    instanceName: 'storageMasterApi',
+  );
   sl.registerLazySingleton<PlantApi>(() => PlantApi());
   sl.registerLazySingleton<CourierApi>(() => CourierApi());
   sl.registerLazySingleton<SiteApi>(() => SiteApi());
