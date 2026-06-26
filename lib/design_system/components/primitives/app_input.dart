@@ -6,6 +6,21 @@ import '../../tokens.dart';
 
 enum AppInputSize { sm, md, lg }
 
+/// Value/hint text style for single-line [AppInput], [AppSelect] trigger, and
+/// matching controls — shared metrics so text baselines align in grids.
+TextStyle appFormFieldValueTextStyle({
+  required double fontSize,
+  required Color color,
+  FontWeight fontWeight = FontWeight.w400,
+}) {
+  return GoogleFonts.poppins(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    height: 1.2,
+    color: color,
+  );
+}
+
 /// Shared [InputDecoration] for [AppInput], [AppSelect] triggers, and any
 /// future input-like control. All must use the same vertical metrics and
 /// [prefixIconConstraints] / [suffixIconConstraints] ([AppTokens.inputFieldIconSlot])
@@ -116,6 +131,8 @@ class AppInput extends StatelessWidget {
     this.validator,
     this.isRequired = false,
     this.inputFormatters,
+    this.contentPadding,
+    this.textAlignVertical,
   });
 
   final String? label;
@@ -141,6 +158,12 @@ class AppInput extends StatelessWidget {
   final String? Function(String?)? validator;
   final List<TextInputFormatter>? inputFormatters;
 
+  /// Overrides default field padding (e.g. multiline vertical balance).
+  final EdgeInsetsGeometry? contentPadding;
+
+  /// Multiline fields only — vertical alignment of text within the input.
+  final TextAlignVertical? textAlignVertical;
+
   bool get _isRequired => required || isRequired;
 
   double get _fontSize => switch (size) {
@@ -158,19 +181,15 @@ class AppInput extends StatelessWidget {
     final hasError = errorText != null && errorText!.isNotEmpty;
     final fontSize = _fontSize;
 
-    final fieldStyle = GoogleFonts.poppins(
+    final fieldStyle = appFormFieldValueTextStyle(
       fontSize: fontSize,
-      fontWeight: FontWeight.w400,
       color: enabled ? AppTokens.textPrimary : AppTokens.textMuted,
-      letterSpacing: obscureText ? 2.0 : 0,
-    );
+    ).copyWith(letterSpacing: obscureText ? 2.0 : 0);
 
-    final hintStyle = GoogleFonts.poppins(
+    final hintStyle = appFormFieldValueTextStyle(
       fontSize: fontSize,
-      fontWeight: FontWeight.w400,
       color: AppTokens.hintColor,
-      letterSpacing: obscureText ? 2.0 : 0,
-    );
+    ).copyWith(letterSpacing: obscureText ? 2.0 : 0);
 
     late final Widget textField;
 
@@ -179,9 +198,13 @@ class AppInput extends StatelessWidget {
         enabled: enabled,
         hasError: hasError,
         hintText: hint,
-        hintStyle: hintStyle,
+        hintStyle: appFormFieldValueTextStyle(
+          fontSize: fontSize,
+          color: AppTokens.hintColor,
+        ),
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
+        contentPadding: contentPadding,
       );
 
       textField = TextFormField(
@@ -204,6 +227,7 @@ class AppInput extends StatelessWidget {
         style: fieldStyle,
         cursorColor: AppTokens.borderFocus,
         inputFormatters: inputFormatters,
+        textAlignVertical: textAlignVertical,
         decoration: decoration,
       );
     } else {
@@ -215,6 +239,7 @@ class AppInput extends StatelessWidget {
         hintStyle: hintStyle,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
+        contentPadding: contentPadding,
         counterText: maxLength != null ? '' : null,
         counterStyle: maxLength != null
             ? const TextStyle(height: 0, fontSize: 0)
@@ -235,6 +260,7 @@ class AppInput extends StatelessWidget {
           validator: validator,
           expands: false,
           maxLines: 1,
+          textAlignVertical: TextAlignVertical.center,
           maxLength: maxLength,
           maxLengthEnforcement: maxLength != null
               ? MaxLengthEnforcement.enforced

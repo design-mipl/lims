@@ -8,6 +8,7 @@ class BulkAction<T> {
     required this.icon,
     required this.onTap,
     this.isDanger = false,
+    this.showOnlyWhenSelected = false,
   });
 
   final String key;
@@ -18,4 +19,8 @@ class BulkAction<T> {
   final void Function(List<T> rows) onTap;
 
   final bool isDanger;
+
+  /// When true, the action is omitted from the bulk bar until at least one row
+  /// is selected (not merely disabled).
+  final bool showOnlyWhenSelected;
 }

@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 import '../../breakpoints.dart';
+import '../../scroll/app_scrollbar.dart';
+import '../../scroll/app_shift_wheel_horizontal_scroll.dart';
 import '../../tokens.dart';
 import '../cards/app_card.dart';
 import '../display/kpi_metric.dart';
@@ -16,7 +19,10 @@ import '../primitives/app_input.dart';
 import '../primitives/app_select.dart';
 import 'bulk_action.dart';
 import 'filter_config.dart';
+import 'listing_excel_export.dart';
 import 'listing_bulk_print.dart';
+import 'listing_lab_date_field.dart';
+import 'listing_pagination_controls.dart';
 import 'table_column.dart';
 
 bool _tableColumnHasFilter<T>(TableColumn<T> col) =>
@@ -30,9 +36,10 @@ _resolvedColumnFilter<T>(TableColumn<T> col) {
     return switch (f.type) {
       AppColumnFilterType.text => (isText: true, selectItems: null),
       AppColumnFilterType.select => (
-          isText: false,
-          selectItems: f.options ?? <AppSelectItem<String>>[],
-        ),
+        isText: false,
+        selectItems: f.options ?? <AppSelectItem<String>>[],
+      ),
+      AppColumnFilterType.dateRange => null,
     };
   }
   final c = col.filterConfig;
@@ -40,11 +47,11 @@ _resolvedColumnFilter<T>(TableColumn<T> col) {
     return switch (c.type) {
       ColumnFilterType.text => (isText: true, selectItems: null),
       ColumnFilterType.select => (
-          isText: false,
-          selectItems: (c.options ?? <String>[])
-              .map((s) => AppSelectItem<String>(value: s, label: s))
-              .toList(),
-        ),
+        isText: false,
+        selectItems: (c.options ?? <String>[])
+            .map((s) => AppSelectItem<String>(value: s, label: s))
+            .toList(),
+      ),
     };
   }
   return null;
@@ -64,11 +71,32 @@ const double _kListingTabBadgeHeight = 16.0;
 const double _kListingTabBadgeFontSize = 10.0;
 const double _kListingBodyMinRows = 2.0;
 
+/// Horizontal scrollbar strip under the grid; bounded height keeps Scrollbar +
+/// track paint from expanding past a tight [Expanded] table viewport (avoids
+/// bottom overflow when embedded with other flex siblings).
+const double _kListingTableHScrollFooterHeight = 22.0;
+
+/// Compact horizontal thumb track inside the listing footer strip.
+const double _kListingTableHScrollThumbHeight = 6.0;
+
 EdgeInsets _listingTableCellPadding({required bool isHeader}) =>
     EdgeInsets.symmetric(horizontal: 12, vertical: isHeader ? 0 : 0);
 
+bool _isListingCenterPillColumn(String key) => key == 'status';
+
+/// Test-matrix checkbox columns (Lab Manager Assignment).
+bool _isListingCenterCheckboxColumn(String key) => key.startsWith('test_');
+
+bool _isListingIconColumn(String key) =>
+    key == 'digitalSignature' || key == 'eInvoice';
+
+bool _isListingCenterContentColumn(String key) =>
+    _isListingCenterPillColumn(key) ||
+    _isListingCenterCheckboxColumn(key) ||
+    _isListingIconColumn(key);
+
 Alignment _alignmentForTableColumn<T>(TableColumn<T> col) {
-  if (col.key == 'status') {
+  if (_isListingCenterContentColumn(col.key)) {
     return Alignment.center;
   }
   if (col.numeric) {
@@ -78,13 +106,23 @@ Alignment _alignmentForTableColumn<T>(TableColumn<T> col) {
 }
 
 MainAxisAlignment _headerMainAxisForColumn<T>(TableColumn<T> col) {
-  if (col.key == 'status') {
+  if (_isListingCenterContentColumn(col.key)) {
     return MainAxisAlignment.center;
   }
   if (col.numeric) {
     return MainAxisAlignment.end;
   }
   return MainAxisAlignment.start;
+}
+
+TextAlign _textAlignForColumn<T>(TableColumn<T> col) {
+  if (_isListingCenterContentColumn(col.key)) {
+    return TextAlign.center;
+  }
+  if (col.numeric) {
+    return TextAlign.end;
+  }
+  return TextAlign.start;
 }
 
 Widget _listingTableCellShell({
@@ -186,6 +224,9 @@ class AppListingScreen<T> extends StatefulWidget {
     this.searchHint = 'Search...',
     this.onSearch,
     this.showExport = false,
+    this.exportModuleName,
+    this.exportSourceRows,
+    this.exportButtonLabel,
     this.showImport = false,
     this.showPrint = false,
     this.showColumnToggle = true,
@@ -207,8 +248,51 @@ class AppListingScreen<T> extends StatefulWidget {
     this.onBulkDeactivate,
     this.onBulkDelete,
     this.onBulkExport,
+    this.bulkPrimaryLabel,
+    this.onBulkPrimary,
     this.bulkRowId,
+    this.toolbarAfterSearch,
+    this.toolbarTrailingActions,
+    this.tableScrollableMinWidth,
+    this.showTableHorizontalScrollbar = false,
+    this.showPageHeader = true,
+    this.onRowSelectionChanged,
+    this.showToolbar = true,
+    this.showBulkBar = true,
+    this.bulkBarVisibleOnlyWhenSelection = false,
+    this.bulkSelectionSummary,
+    this.tableHeaderHeight,
+    this.tableRowHeight,
+    this.paginationFooterHeight,
+    this.tableBodyFillsViewport = false,
+    this.tableBodyVerticalScrollController,
+    this.tableBodyVerticalScrollbarThickness,
+    this.listingShellPadding,
+    this.showExpandColumn = false,
+    this.isRowExpanded,
+    this.onExpandRowTap,
+    this.expandedRowBuilder,
+    this.expandedPanelContentPadding,
+    this.showActionsColumnLeadingBorder = true,
+    this.showPaginationFooter = true,
+    this.tabsBelowToolbar = false,
+    this.rowBackgroundColor,
+    this.disableOuterVerticalScroll = false,
+    this.actionsColumnWidth,
+    this.scaleDataColumnsToFillViewport = true,
+    this.preTableActions,
+    this.belowTabsBar,
+    this.bulkBarBeforeToolbar = false,
+    this.columnToggleInToolbar = true,
   });
+
+  /// When non-null, invoked after row checkbox selection changes (indices into
+  /// [rows], not filtered order).
+  final ValueChanged<Set<int>>? onRowSelectionChanged;
+
+  /// When false, omits the listing page title/subtitle/KPI header so the table
+  /// can be embedded under another chrome (e.g. [AppFormPage]).
+  final bool showPageHeader;
 
   final String title;
   final String subtitle;
@@ -242,6 +326,17 @@ class AppListingScreen<T> extends StatefulWidget {
   final ValueChanged<String>? onSearch;
 
   final bool showExport;
+
+  /// When set (and [onExport] is null), enables built-in Excel export for the
+  /// current listing state. Use [exportSourceRows] for full filtered data.
+  final String? exportModuleName;
+
+  /// Tab/search-filtered rows for export. When null, export uses [rows] only.
+  final List<T>? exportSourceRows;
+
+  /// Toolbar export label; defaults to "Export" (matches master listings).
+  final String? exportButtonLabel;
+
   final bool showImport;
   final bool showPrint;
   final bool showColumnToggle;
@@ -274,9 +369,144 @@ class AppListingScreen<T> extends StatefulWidget {
 
   final Future<void> Function(List<dynamic> selectedRows)? onBulkExport;
 
+  /// Optional primary bulk action label (e.g. "Verify"). Shown as a filled
+  /// [AppButton] that stays visible when there is no selection but is disabled
+  /// until rows are selected (unlike greyed mini actions).
+  final String? bulkPrimaryLabel;
+
+  /// Invoked with selected row ids when the primary bulk button is pressed.
+  final Future<void> Function(List<dynamic> selectedIds)? onBulkPrimary;
+
   /// Maps a row to an id for [onBulkActivate] / [onBulkDeactivate] / [onBulkDelete].
   /// When null, those callbacks receive the row objects as [dynamic].
   final dynamic Function(T row)? bulkRowId;
+
+  /// Optional widgets placed after the search field and before the toolbar
+  /// [Spacer] (e.g. date filters). Use compact heights matching the toolbar
+  /// search field ([AppTokens.listingToolbarSearchHeight]).
+  final List<Widget>? toolbarAfterSearch;
+
+  /// Compact actions placed on the toolbar right, before Export / Columns.
+  final List<Widget>? toolbarTrailingActions;
+
+  /// When non-null, the data columns use at least this width for layout so fixed
+  /// and flex columns do not over-compress; the table [SingleChildScrollView]
+  /// scrolls horizontally when the viewport is narrower.
+  final double? tableScrollableMinWidth;
+
+  /// When true, a horizontal [Scrollbar] is shown under the data rows (pagination
+  /// stays below). Uses a [ScrollController] linked to the header and row scrollers.
+  final bool showTableHorizontalScrollbar;
+
+  /// When false, omits the search/export/columns toolbar row inside the listing card.
+  final bool showToolbar;
+
+  /// When false, omits the bulk-selection bar above the table.
+  final bool showBulkBar;
+
+  /// When true with [showBulkBar], the bulk strip is hidden until at least one row is selected.
+  final bool bulkBarVisibleOnlyWhenSelection;
+
+  /// Replaces the default “N rows selected” label when non-null.
+  final String Function(int selectedCount)? bulkSelectionSummary;
+
+  /// Optional override for data table header row height (defaults to [AppTokens.tableHeaderHeight]).
+  final double? tableHeaderHeight;
+
+  /// Optional override for data table body row height (defaults to [AppTokens.tableRowHeight]).
+  final double? tableRowHeight;
+
+  /// Optional override for the pagination footer row height (defaults to
+  /// [AppTokens.listingPaginationHeight]).
+  final double? paginationFooterHeight;
+
+  /// When true on non-mobile widths, the listing root uses [Column] + [Expanded] so the page
+  /// body gets bounded height: tabs/toolbar/bulk stay pinned in the card and only the data
+  /// rows scroll vertically (with scrollbar and sticky column header). Works with or without
+  /// [showPageHeader] (title/subtitle stay pinned above the card when the header is shown).
+  ///
+  /// On mobile widths, this flag is ignored (same layout as [tableBodyFillsViewport] false).
+  final bool tableBodyFillsViewport;
+
+  /// Optional vertical scroll controller for the table body when [tableBodyFillsViewport] is true.
+  /// If null, an internal controller is created and disposed by this widget.
+  final ScrollController? tableBodyVerticalScrollController;
+
+  /// Optional thickness override for the vertical table body scrollbar.
+  final double? tableBodyVerticalScrollbarThickness;
+
+  /// Padding around the listing card (tabs, table, pagination) inside the page shell.
+  ///
+  /// When null, defaults to horizontal [AppTokens.space5] and bottom [AppTokens.space4]
+  /// (matches full-page listings). For embedding next to other full-width sections
+  /// (e.g. under [AppFormPage] with shared horizontal inset), pass an [EdgeInsets] without
+  /// extra horizontal inset so edges align with siblings.
+  final EdgeInsets? listingShellPadding;
+
+  /// When true, renders a leading expand column (before checkboxes) with a
+  /// (+)/(-) toggle when [expandedRowBuilder], [isRowExpanded], and
+  /// [onExpandRowTap] are also set.
+  ///
+  /// Inline expansion can still run with [showExpandColumn] false: pass the
+  /// three callbacks and drive toggling from [onRowTap] (no expand column).
+  final bool showExpandColumn;
+
+  /// Whether [row] is expanded for [expandedRowBuilder].
+  final bool Function(T row)? isRowExpanded;
+
+  /// Toggles expansion for [row] (parent should update state).
+  final void Function(T row)? onExpandRowTap;
+
+  /// Inline content below the row when expanded; must stay non-modal.
+  final Widget Function(BuildContext context, T row)? expandedRowBuilder;
+
+  /// Padding inside the desktop inline expand panel around [expandedRowBuilder]
+  /// content (between checkbox/toggle gutter and actions gutter).
+  ///
+  /// When null, uses horizontal [AppTokens.space2] and vertical [AppTokens.space3].
+  /// Pass [EdgeInsets.zero] or tighter insets when nested content should align
+  /// flush with the listing row (e.g. wide nested tables).
+  final EdgeInsets? expandedPanelContentPadding;
+
+  /// When false, the fixed actions column has no left border (matches tables
+  /// that should blend with the scrollable data area).
+  final bool showActionsColumnLeadingBorder;
+
+  /// When false, omits the footer pagination row (use [toolbarAfterSearch] with
+  /// [ListingPaginationControls] placement [ListingPaginationPlacement.toolbar]
+  /// instead).
+  final bool showPaginationFooter;
+
+  /// When true, renders [ListingTabStrip] below the toolbar row instead of above.
+  final bool tabsBelowToolbar;
+
+  /// Optional per-row background tint on desktop (e.g. status stripes).
+  final Color? Function(T row)? rowBackgroundColor;
+
+  /// When true with [tableBodyFillsViewport] false, omits the outer vertical
+  /// [SingleChildScrollView] around the listing shell so a parent owns vertical
+  /// scrolling (embedded workspaces).
+  final bool disableOuterVerticalScroll;
+
+  /// When non-null, replaces [AppTokens.tableActionsColumnWidth] for this listing only.
+  final double? actionsColumnWidth;
+
+  /// When true (default), fixed-width data columns scale up to fill extra viewport
+  /// width. When false, they keep their declared widths (finance-style dense grids).
+  final bool scaleDataColumnsToFillViewport;
+
+  /// Optional actions row immediately above the data table (e.g. Create Order).
+  final Widget? preTableActions;
+
+  /// Optional slot between tab strip and bulk bar (e.g. assignment filters).
+  final Widget? belowTabsBar;
+
+  /// When true, bulk bar (selection summary + bulk actions) renders after tabs
+  /// and before the search toolbar — Enquiry-style action row placement.
+  final bool bulkBarBeforeToolbar;
+
+  /// When false, [showColumnToggle] moves the Columns control into the bulk bar.
+  final bool columnToggleInToolbar;
 
   @override
   State<AppListingScreen<T>> createState() => _AppListingScreenState<T>();
@@ -292,6 +522,9 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   String? _sortDirection;
   int _selectedTab = 0;
 
+  double get _tableRowHeight =>
+      widget.tableRowHeight ?? AppTokens.tableRowHeight;
+
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -306,12 +539,19 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   OverlayEntry? _colFilterEntry;
 
   /// Syncs horizontal scroll of table header and data rows (see linked_scroll_controller).
-  final LinkedScrollControllerGroup _tableHScrollGroup = LinkedScrollControllerGroup();
+  final LinkedScrollControllerGroup _tableHScrollGroup =
+      LinkedScrollControllerGroup();
   late final ScrollController _tableHeaderHScroll;
+  ScrollController? _tableFooterHScroll;
+
+  /// Owned when [AppListingScreen.tableBodyVerticalScrollController] is null and fill mode is on.
+  ScrollController? _ownedTableBodyVScroll;
 
   // Column filter applied values (key = column key)
   final Map<String, String> _colFilterText = {};
   final Map<String, Set<String>> _colFilterMulti = {};
+  final Map<String, DateTime?> _colFilterDateFrom = {};
+  final Map<String, DateTime?> _colFilterDateTo = {};
 
   final Map<String, TextEditingController> _filterTextCtrls = {};
   final Map<String, Set<String>> _draftMulti = {};
@@ -334,6 +574,9 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   void initState() {
     super.initState();
     _tableHeaderHScroll = _tableHScrollGroup.addAndGet();
+    if (widget.showTableHorizontalScrollbar) {
+      _tableFooterHScroll = _tableHScrollGroup.addAndGet();
+    }
     _columnVisibility = List<bool>.generate(
       widget.columns.length,
       (i) => widget.columns[i].visible,
@@ -347,6 +590,19 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _initFilterControllers();
+    _ensureTableBodyVScroll();
+  }
+
+  void _ensureTableBodyVScroll() {
+    final wantOwn =
+        widget.tableBodyFillsViewport &&
+        widget.tableBodyVerticalScrollController == null;
+    if (wantOwn && _ownedTableBodyVScroll == null) {
+      _ownedTableBodyVScroll = ScrollController();
+    } else if (!wantOwn && _ownedTableBodyVScroll != null) {
+      _ownedTableBodyVScroll!.dispose();
+      _ownedTableBodyVScroll = null;
+    }
   }
 
   int _clampTab(int i) {
@@ -410,6 +666,8 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     _pulseController.dispose();
     _searchController.dispose();
     _tableHeaderHScroll.dispose();
+    _tableFooterHScroll?.dispose();
+    _ownedTableBodyVScroll?.dispose();
     _disposeFilterControllers();
     super.dispose();
   }
@@ -417,6 +675,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   @override
   void didUpdateWidget(covariant AppListingScreen<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _ensureTableBodyVScroll();
     if (oldWidget.columns.length != widget.columns.length) {
       _columnVisibility = List<bool>.generate(
         widget.columns.length,
@@ -428,6 +687,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     }
     if (oldWidget.rows.length != widget.rows.length) {
       _selectedRows.removeWhere((i) => i >= widget.rows.length);
+      _scheduleEmitRowSelection();
     }
     if (oldWidget.filterFields != widget.filterFields) {
       _disposeFilterControllers();
@@ -560,7 +820,11 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   List<double> _computeDataColumnWidths(double maxWidth) {
     final cols = _visibleColumnDefs;
     if (cols.isEmpty) return const <double>[];
-    final widths = List<double>.filled(cols.length, AppTokens.space0, growable: false);
+    final widths = List<double>.filled(
+      cols.length,
+      AppTokens.space0,
+      growable: false,
+    );
     var fixedTotal = AppTokens.space0;
     var totalFlexWeight = 0;
     final flexIndices = <int>[];
@@ -573,8 +837,11 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         continue;
       }
       var baseWidth = c.width ?? 150.0;
-      if (c.key == 'status') {
-        baseWidth = math.max(baseWidth, AppTokens.tableStatusColumnPreferredWidth);
+      if (_isListingCenterPillColumn(c.key)) {
+        baseWidth = math.max(
+          baseWidth,
+          AppTokens.tableStatusColumnPreferredWidth,
+        );
       }
       widths[i] = baseWidth;
       fixedTotal += baseWidth;
@@ -593,8 +860,12 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
       return widths;
     }
 
-    final totalDefinedWidth = widths.fold<double>(AppTokens.space0, (a, b) => a + b);
-    if (maxWidth > AppTokens.space0 &&
+    final totalDefinedWidth = widths.fold<double>(
+      AppTokens.space0,
+      (a, b) => a + b,
+    );
+    if (widget.scaleDataColumnsToFillViewport &&
+        maxWidth > AppTokens.space0 &&
         totalDefinedWidth < maxWidth &&
         totalDefinedWidth > AppTokens.space0) {
       final scale = maxWidth / totalDefinedWidth;
@@ -615,9 +886,44 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     return false;
   }
 
+  bool _colDateRangeBoundsComplete(String columnKey) {
+    return _colFilterDateFrom[columnKey] != null &&
+        _colFilterDateTo[columnKey] != null;
+  }
+
+  DateTime _dateOnlyListing(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Set<String> _activeColFilterKeys() {
+    final keys = <String>{
+      for (final e in _colFilterText.entries)
+        if (e.value.isNotEmpty) e.key,
+      ..._colFilterMulti.keys,
+    };
+    for (final col in widget.columns) {
+      if (col.filter?.type != AppColumnFilterType.dateRange) continue;
+      final k = col.key;
+      if (_colFilterDateFrom[k] != null || _colFilterDateTo[k] != null) {
+        keys.add(k);
+      }
+    }
+    return keys;
+  }
+
   bool _rowPassesColumnFilters(T row) {
     for (final col in widget.columns) {
       final key = col.key;
+      if (col.filter?.type == AppColumnFilterType.dateRange) {
+        final fn = col.filterDateValue;
+        if (fn != null && _colDateRangeBoundsComplete(key)) {
+          final rowDay = _dateOnlyListing(fn(row));
+          final fromD = _dateOnlyListing(_colFilterDateFrom[key]!);
+          final toD = _dateOnlyListing(_colFilterDateTo[key]!);
+          if (rowDay.isBefore(fromD) || rowDay.isAfter(toD)) {
+            return false;
+          }
+        }
+        continue;
+      }
       final resolved = _resolvedColumnFilter(col);
       final text = _colFilterText[key];
       if (text != null && text.isNotEmpty) {
@@ -687,8 +993,8 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         cmp = av.compareTo(bv);
       } else {
         cmp = av.toString().toLowerCase().compareTo(
-              bv.toString().toLowerCase(),
-            );
+          bv.toString().toLowerCase(),
+        );
       }
       return dir == 'asc' ? cmp : -cmp;
     });
@@ -698,6 +1004,21 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   void _pruneSelectionToVisible() {
     final visible = _filteredRowEntries().map((e) => e.$1).toSet();
     _selectedRows.removeWhere((i) => !visible.contains(i));
+  }
+
+  void _emitRowSelection() {
+    widget.onRowSelectionChanged?.call(Set<int>.from(_selectedRows));
+  }
+
+  /// Must not call [onRowSelectionChanged] synchronously from [didUpdateWidget]
+  /// — that runs during the parent's build/update and would trigger
+  /// setState/markNeedsBuild during build (e.g. when [rows] length changes).
+  void _scheduleEmitRowSelection() {
+    if (widget.onRowSelectionChanged == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onRowSelectionChanged?.call(Set<int>.from(_selectedRows));
+    });
   }
 
   List<T> _selectedRowValues() {
@@ -724,6 +1045,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         _selectedRows.clear();
       }
     });
+    _emitRowSelection();
   }
 
   bool? _selectAllState() {
@@ -839,13 +1161,65 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
   LayerLink _colFilterLink(String key) =>
       _colFilterLinks.putIfAbsent(key, LayerLink.new);
 
-  bool get _anyColFilterActive =>
-      _colFilterText.values.any((v) => v.isNotEmpty) ||
-      _colFilterMulti.values.any((s) => s.isNotEmpty);
+  bool get _anyColFilterActive {
+    if (_colFilterText.values.any((v) => v.isNotEmpty)) return true;
+    if (_colFilterMulti.values.any((s) => s.isNotEmpty)) return true;
+    for (final col in widget.columns) {
+      if (col.filter?.type == AppColumnFilterType.dateRange &&
+          _colDateRangeBoundsComplete(col.key)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   void _showColFilterOverlay(TableColumn<T> col) {
     _colFilterEntry?.remove();
     _colFilterEntry = null;
+    if (col.filter?.type == AppColumnFilterType.dateRange) {
+      if (col.filterDateValue == null) return;
+      _colFilterEntry = OverlayEntry(
+        builder: (ctx) => _ColumnDateRangeFilterOverlay(
+          link: _colFilterLink(col.key),
+          initialFrom: _colFilterDateFrom[col.key],
+          initialTo: _colFilterDateTo[col.key],
+          onApply: (from, to) {
+            setState(() {
+              if (from != null) {
+                _colFilterDateFrom[col.key] = from;
+              } else {
+                _colFilterDateFrom.remove(col.key);
+              }
+              if (to != null) {
+                _colFilterDateTo[col.key] = to;
+              } else {
+                _colFilterDateTo.remove(col.key);
+              }
+              _pruneSelectionToVisible();
+            });
+            _emitRowSelection();
+            _colFilterEntry?.remove();
+            _colFilterEntry = null;
+          },
+          onClear: () {
+            setState(() {
+              _colFilterDateFrom.remove(col.key);
+              _colFilterDateTo.remove(col.key);
+              _pruneSelectionToVisible();
+            });
+            _emitRowSelection();
+            _colFilterEntry?.remove();
+            _colFilterEntry = null;
+          },
+          onDismiss: () {
+            _colFilterEntry?.remove();
+            _colFilterEntry = null;
+          },
+        ),
+      );
+      Overlay.of(context).insert(_colFilterEntry!);
+      return;
+    }
     final resolved = _resolvedColumnFilter(col);
     if (resolved == null) {
       return;
@@ -875,6 +1249,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
             }
             _pruneSelectionToVisible();
           });
+          _emitRowSelection();
           _colFilterEntry?.remove();
           _colFilterEntry = null;
         },
@@ -892,11 +1267,13 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     if (fn == null) {
       return;
     }
-    final rows =
-        _selectedRowValues().map<dynamic>((e) => e as dynamic).toList();
+    final rows = _selectedRowValues()
+        .map<dynamic>((e) => e as dynamic)
+        .toList();
     await fn(rows);
     if (mounted) {
       setState(_selectedRows.clear);
+      _emitRowSelection();
     }
   }
 
@@ -908,6 +1285,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     await fn(_selectedBulkIds());
     if (mounted) {
       setState(_selectedRows.clear);
+      _emitRowSelection();
     }
   }
 
@@ -919,6 +1297,7 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     await fn(_selectedBulkIds());
     if (mounted) {
       setState(_selectedRows.clear);
+      _emitRowSelection();
     }
   }
 
@@ -941,7 +1320,92 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     await fn(_selectedBulkIds());
     if (mounted) {
       setState(_selectedRows.clear);
+      _emitRowSelection();
     }
+  }
+
+  Future<void> _runBulkPrimary() async {
+    final fn = widget.onBulkPrimary;
+    if (fn == null) {
+      return;
+    }
+    await fn(_selectedBulkIds());
+    if (mounted) {
+      setState(_selectedRows.clear);
+      _emitRowSelection();
+    }
+  }
+
+  List<T> _resolveExportRows() {
+    if (_selectedRows.isNotEmpty) {
+      return _selectedRows.map((i) => widget.rows[i]).toList();
+    }
+    final source = widget.exportSourceRows;
+    if (source != null) {
+      final entries = <(int, T)>[];
+      for (var i = 0; i < source.length; i++) {
+        if (_rowPassesColumnFilters(source[i])) {
+          entries.add((i, source[i]));
+        }
+      }
+      return _sortedRowEntries(entries).map((e) => e.$2).toList();
+    }
+    return _sortedRowEntries(_filteredRowEntries()).map((e) => e.$2).toList();
+  }
+
+  Future<void> _handleBuiltInExport() async {
+    final module = widget.exportModuleName;
+    if (module == null) return;
+    final columns = _visibleColumnDefs;
+    final rows = _resolveExportRows();
+    if (!mounted) return;
+    if (rows.isEmpty || columns.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No data available to export.',
+            style: GoogleFonts.poppins(fontSize: AppTokens.bodySize),
+          ),
+          backgroundColor: AppTokens.neutral700,
+        ),
+      );
+      return;
+    }
+    await exportListingToExcel<T>(
+      moduleName: module,
+      columns: columns,
+      rows: rows,
+    );
+    if (!mounted) return;
+    final message = kIsWeb
+        ? 'Exported ${rows.length} row(s) to Excel'
+        : 'Copied ${rows.length} row(s) to clipboard — paste into Excel';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.poppins(
+            fontSize: AppTokens.bodySize,
+            color: AppTokens.white,
+          ),
+        ),
+        backgroundColor: AppTokens.primary800,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  VoidCallback? get _effectiveExportHandler {
+    if (widget.onExport != null) return widget.onExport;
+    if (widget.exportModuleName != null) return _handleBuiltInExport;
+    return null;
+  }
+
+  String get _effectiveExportLabel {
+    if (widget.exportButtonLabel != null) {
+      return widget.exportButtonLabel!;
+    }
+    return 'Export';
   }
 
   void _onFilterToolbarPressed() {
@@ -969,73 +1433,139 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
         widget.filterFields != null &&
         widget.filterFields!.isNotEmpty;
 
-    final headerColumn = Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTokens.space5,
-        AppTokens.space4,
-        AppTokens.space5,
-        AppTokens.space0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PageHeader<T>(widget: widget),
-          SizedBox(height: AppTokens.space3),
-          if (widget.showKpis &&
-              widget.kpiCards != null &&
-              widget.kpiCards!.isNotEmpty) ...[
-            KpiRow(cards: widget.kpiCards!),
-            SizedBox(height: AppTokens.space3),
-          ],
-        ],
-      ),
-    );
+    final headerColumn = widget.showPageHeader
+        ? Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space5,
+              AppTokens.space4,
+              AppTokens.space5,
+              AppTokens.space0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PageHeader<T>(widget: widget),
+                SizedBox(height: AppTokens.space3),
+                if (widget.showKpis &&
+                    widget.kpiCards != null &&
+                    widget.kpiCards!.isNotEmpty) ...[
+                  KpiRow(cards: widget.kpiCards!),
+                  SizedBox(height: AppTokens.space3),
+                ],
+              ],
+            ),
+          )
+        : const SizedBox.shrink();
 
     final showColumnsDot =
         _anyColFilterActive || _columnsVisibilityDivergedFromDefault();
 
+    final useDesktopTableFill =
+        widget.tableBodyFillsViewport && !AppBreakpoints.isMobileWidth(width);
+    final useTableFill = useDesktopTableFill;
+    final useViewportFillRoot = useDesktopTableFill;
+
+    final showBulkBarChrome = widget.showBulkBar &&
+        (!widget.bulkBarVisibleOnlyWhenSelection || _selectedRows.isNotEmpty);
+    final bulkBarChrome = showBulkBarChrome
+        ? _BulkBar<T>(
+            selectedCount: _selectedRows.length,
+            hasSelection: _selectedRows.isNotEmpty,
+            bulkActions: widget.bulkActions,
+            selectionSummary: widget.bulkSelectionSummary,
+            onBulk: (fn) => fn(_selectedRowValues()),
+            onClearSelection: () {
+              setState(_selectedRows.clear);
+              _emitRowSelection();
+            },
+            onBulkExport: widget.onBulkExport != null ? _runBulkExport : null,
+            onBulkPrint: () => listingBulkPrint(context),
+            showPrint: widget.showPrint,
+            onBulkActivate: widget.onBulkActivate != null
+                ? _runBulkActivate
+                : null,
+            onBulkDeactivate: widget.onBulkDeactivate != null
+                ? _runBulkDeactivate
+                : null,
+            onBulkDelete: widget.onBulkDelete != null ? _runBulkDelete : null,
+            bulkPrimaryLabel: widget.bulkPrimaryLabel,
+            onBulkPrimary:
+                widget.bulkPrimaryLabel != null && widget.onBulkPrimary != null
+                ? _runBulkPrimary
+                : null,
+            showColumnPicker: widget.showColumnToggle &&
+                !widget.columnToggleInToolbar,
+            onColumnPicker: _showColumnPicker,
+            showColumnsDot: showColumnsDot,
+          )
+        : null;
+
+    final toolbarChrome = widget.showToolbar
+        ? _ToolbarRow<T>(
+            widget: widget,
+            searchController: _searchController,
+            onToggleFilters: _onFilterToolbarPressed,
+            onColumnPicker: _showColumnPicker,
+            columnsButtonLink: _columnsButtonLink,
+            showColumnsDot: showColumnsDot,
+            onExport: _effectiveExportHandler,
+            exportLabel: _effectiveExportLabel,
+            showColumnToggle: widget.showColumnToggle &&
+                widget.columnToggleInToolbar,
+          )
+        : null;
+
     final cardColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: useTableFill ? MainAxisSize.max : MainAxisSize.min,
       children: [
-        if (widget.tabs != null && widget.tabs!.isNotEmpty)
-          _TabStrip(
-            tabs: widget.tabs!,
-            selected: _selectedTab,
-            onSelect: (i) {
-              setState(() {
-                _selectedTab = i;
-                _sortColumnKey = null;
-                _sortDirection = null;
-              });
-              widget.onTabChanged?.call(i);
-            },
+        if (!widget.tabsBelowToolbar) ...[
+          if (widget.tabs != null && widget.tabs!.isNotEmpty)
+            ListingTabStrip(
+              tabs: widget.tabs!,
+              selected: _selectedTab,
+              onSelect: (i) {
+                setState(() {
+                  _selectedTab = i;
+                  _sortColumnKey = null;
+                  _sortDirection = null;
+                });
+                widget.onTabChanged?.call(i);
+              },
+            ),
+          if (widget.bulkBarBeforeToolbar) ?bulkBarChrome,
+          ?toolbarChrome,
+        ] else ...[
+          ?toolbarChrome,
+          if (widget.tabs != null && widget.tabs!.isNotEmpty)
+            ListingTabStrip(
+              tabs: widget.tabs!,
+              selected: _selectedTab,
+              onSelect: (i) {
+                setState(() {
+                  _selectedTab = i;
+                  _sortColumnKey = null;
+                  _sortDirection = null;
+                });
+                widget.onTabChanged?.call(i);
+              },
+            ),
+          if (widget.bulkBarBeforeToolbar) ?bulkBarChrome,
+        ],
+        if (widget.belowTabsBar != null)
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppTokens.cardBg,
+              border: Border(
+                bottom: BorderSide(
+                  color: AppTokens.borderDefault,
+                  width: AppTokens.borderWidthSm,
+                ),
+              ),
+            ),
+            child: widget.belowTabsBar!,
           ),
-        _ToolbarRow<T>(
-          widget: widget,
-          searchController: _searchController,
-          onToggleFilters: _onFilterToolbarPressed,
-          onColumnPicker: _showColumnPicker,
-          columnsButtonLink: _columnsButtonLink,
-          showColumnsDot: showColumnsDot,
-        ),
-        _BulkBar<T>(
-          selectedCount: _selectedRows.length,
-          hasSelection: _selectedRows.isNotEmpty,
-          bulkActions: widget.bulkActions,
-          onBulk: (fn) => fn(_selectedRowValues()),
-          onClearSelection: () => setState(_selectedRows.clear),
-          onBulkExport:
-              widget.onBulkExport != null ? _runBulkExport : null,
-          onBulkPrint: () => listingBulkPrint(context),
-          showPrint: widget.showPrint,
-          onBulkActivate:
-              widget.onBulkActivate != null ? _runBulkActivate : null,
-          onBulkDeactivate:
-              widget.onBulkDeactivate != null ? _runBulkDeactivate : null,
-          onBulkDelete:
-              widget.onBulkDelete != null ? _runBulkDelete : null,
-        ),
+        if (!widget.bulkBarBeforeToolbar) ?bulkBarChrome,
         if (widget.activeFilters.isNotEmpty)
           _ActiveFilterChips(
             activeFilters: widget.activeFilters,
@@ -1047,22 +1577,52 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
             },
             onClearAll: () => widget.onFiltersChanged?.call([]),
           ),
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: AppTokens.tableRowHeight * _kListingBodyMinRows,
+        if (widget.preTableActions != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space3,
+              AppTokens.space2,
+              AppTokens.space3,
+              AppTokens.space1,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: widget.preTableActions!,
+            ),
           ),
-          child: AppBreakpoints.isMobileWidth(width)
-              ? _buildMobileBody()
-              : _buildDesktopTableBody(),
-        ),
-        _PaginationRow(
-          totalCount: widget.totalCount,
-          currentPage: widget.currentPage,
-          pageSize: widget.pageSize,
-          pageSizeOptions: widget.pageSizeOptions,
-          onPageChanged: widget.onPageChanged,
-          onPageSizeChanged: widget.onPageSizeChanged,
-        ),
+        if (useTableFill)
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, cons) {
+                final minRowsH = _tableRowHeight * _kListingBodyMinRows;
+                final minH = math.min(minRowsH, cons.maxHeight);
+                return ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minH),
+                  child: _buildDesktopTableBody(fillViewport: true),
+                );
+              },
+            ),
+          )
+        else
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: _tableRowHeight * _kListingBodyMinRows,
+            ),
+            child: AppBreakpoints.isMobileWidth(width)
+                ? _buildMobileBody()
+                : _buildDesktopTableBody(fillViewport: false),
+          ),
+        if (widget.showPaginationFooter)
+          _PaginationRow(
+            height: widget.paginationFooterHeight ??
+                AppTokens.listingPaginationHeight,
+            totalCount: widget.totalCount,
+            currentPage: widget.currentPage,
+            pageSize: widget.pageSize,
+            pageSizeOptions: widget.pageSizeOptions,
+            onPageChanged: widget.onPageChanged,
+            onPageSizeChanged: widget.onPageSizeChanged,
+          ),
       ],
     );
 
@@ -1080,12 +1640,14 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     );
 
     final expandedBody = Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppTokens.space5,
-        AppTokens.space0,
-        AppTokens.space5,
-        AppTokens.space4,
-      ),
+      padding:
+          widget.listingShellPadding ??
+          const EdgeInsets.fromLTRB(
+            AppTokens.space5,
+            AppTokens.space0,
+            AppTokens.space5,
+            AppTokens.space4,
+          ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1132,15 +1694,26 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
 
     return ColoredBox(
       color: AppTokens.pageBg,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            headerColumn,
-            expandedBody,
-          ],
-        ),
-      ),
+      child: useViewportFillRoot
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                headerColumn,
+                Expanded(child: expandedBody),
+              ],
+            )
+          : widget.disableOuterVerticalScroll
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [headerColumn, expandedBody],
+            )
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [headerColumn, expandedBody],
+              ),
+            ),
     );
   }
 
@@ -1148,66 +1721,159 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
     return widget.isLoading
         ? _SkeletonTable(animation: _pulseAnimation)
         : widget.rows.isEmpty
-            ? widget.emptyWidget ??
-                _EmptyState(
-                  message: widget.emptyMessage ?? 'No records found',
-                )
-            : Builder(
-                builder: (context) {
-                  final filtered = _sortedRowEntries(_filteredRowEntries());
-                  if (filtered.isEmpty) {
-                    return widget.emptyWidget ??
-                        _EmptyState(
-                          message:
-                              widget.emptyMessage ?? 'No records found',
-                        );
-                  }
-                  return ListView.separated(
-                    padding: EdgeInsets.all(AppTokens.space4),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filtered.length,
-                    separatorBuilder: (context, index) => SizedBox(
-                      key: ValueKey<int>(index),
-                      height: AppTokens.space2,
+        ? widget.emptyWidget ??
+              _EmptyState(message: widget.emptyMessage ?? 'No records found')
+        : Builder(
+            builder: (context) {
+              final filtered = _sortedRowEntries(_filteredRowEntries());
+              if (filtered.isEmpty) {
+                return widget.emptyWidget ??
+                    _EmptyState(
+                      message: widget.emptyMessage ?? 'No records found',
+                    );
+              }
+              return ListView.separated(
+                padding: EdgeInsets.all(AppTokens.space4),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filtered.length,
+                separatorBuilder: (context, index) => SizedBox(
+                  key: ValueKey<int>(index),
+                  height: AppTokens.space2,
+                ),
+                itemBuilder: (context, listIndex) {
+                  final orig = filtered[listIndex].$1;
+                  final row = filtered[listIndex].$2;
+                  final showExpandChrome = widget.showExpandColumn;
+                  final hasInlineExpand =
+                      widget.expandedRowBuilder != null &&
+                      widget.isRowExpanded != null &&
+                      widget.onExpandRowTap != null;
+                  final expandColumnInteractive =
+                      showExpandChrome && hasInlineExpand;
+                  final expandedMobile =
+                      hasInlineExpand && widget.isRowExpanded!(row);
+
+                  final card = AppCard(
+                    key: ValueKey<int>(orig),
+                    padding: EdgeInsets.zero,
+                    onTap: widget.onRowTap != null
+                        ? () => widget.onRowTap!(row)
+                        : null,
+                    child: Padding(
+                      padding: EdgeInsets.all(AppTokens.space4),
+                      child: widget.mobileCardBuilder(row),
                     ),
-                    itemBuilder: (context, listIndex) {
-                      final row = filtered[listIndex].$2;
-                      return AppCard(
-                        key: ValueKey<int>(filtered[listIndex].$1),
-                        padding: EdgeInsets.zero,
-                        onTap: widget.onRowTap != null
-                            ? () => widget.onRowTap!(row)
-                            : null,
-                        child: Padding(
-                          padding: EdgeInsets.all(AppTokens.space4),
-                          child: widget.mobileCardBuilder(row),
+                  );
+
+                  Widget expandedMobilePanel() => Padding(
+                    padding: const EdgeInsets.only(top: AppTokens.space2),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppTokens.surfaceSubtle,
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.cardRadius,
                         ),
-                      );
-                    },
+                        border: Border.all(
+                          color: AppTokens.borderDefault,
+                          width: AppTokens.borderWidthSm,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppTokens.space3),
+                        child: widget.expandedRowBuilder!(context, row),
+                      ),
+                    ),
+                  );
+
+                  if (!showExpandChrome && !hasInlineExpand) {
+                    return card;
+                  }
+
+                  if (!showExpandChrome && hasInlineExpand) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        card,
+                        if (expandedMobile) expandedMobilePanel(),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: AppTokens.space3,
+                              right: AppTokens.space2,
+                            ),
+                            child: _ListingExpandToggle(
+                              expanded: expandedMobile,
+                              interactive: expandColumnInteractive,
+                              onTap: expandColumnInteractive
+                                  ? () => widget.onExpandRowTap!(row)
+                                  : null,
+                            ),
+                          ),
+                          Expanded(child: card),
+                        ],
+                      ),
+                      if (hasInlineExpand && expandedMobile)
+                        expandedMobilePanel(),
+                    ],
                   );
                 },
               );
+            },
+          );
   }
 
-  Widget _buildDesktopTableBody() {
+  Widget _buildDesktopTableBody({required bool fillViewport}) {
     if (widget.isLoading) {
-      return _SkeletonTable(animation: _pulseAnimation);
+      return fillViewport
+          ? SizedBox.expand(child: _SkeletonTable(animation: _pulseAnimation))
+          : _SkeletonTable(animation: _pulseAnimation);
     }
     if (widget.rows.isEmpty) {
-      return widget.emptyWidget ??
+      final empty =
+          widget.emptyWidget ??
           _EmptyState(message: widget.emptyMessage ?? 'No records found');
+      return fillViewport ? SizedBox.expand(child: empty) : empty;
     }
     final filtered = _sortedRowEntries(_filteredRowEntries());
     if (filtered.isEmpty) {
-      return widget.emptyWidget ??
+      final empty =
+          widget.emptyWidget ??
           _EmptyState(message: widget.emptyMessage ?? 'No records found');
+      return fillViewport ? SizedBox.expand(child: empty) : empty;
     }
+
     return LayoutBuilder(
       builder: (context, constraints) {
+        final vScroll = fillViewport
+            ? (widget.tableBodyVerticalScrollController ??
+                  _ownedTableBodyVScroll!)
+            : null;
         final innerW = (constraints.maxWidth - 2 * _kListingTableOuterGutter)
             .clamp(0.0, double.infinity);
+        final showExpandChrome = widget.showExpandColumn;
+        final hasInlineExpand =
+            widget.expandedRowBuilder != null &&
+            widget.isRowExpanded != null &&
+            widget.onExpandRowTap != null;
+        final expandColumnInteractive = showExpandChrome && hasInlineExpand;
+        final actionsColW =
+            widget.actionsColumnWidth ?? AppTokens.tableActionsColumnWidth;
         var fixedNonScroll = 0.0;
+        if (showExpandChrome) {
+          fixedNonScroll += AppTokens.tableExpandColumnWidth;
+        }
         if (widget.showCheckboxes) {
           fixedNonScroll += AppTokens.tableCheckboxColumnWidth;
         }
@@ -1215,81 +1881,130 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
           fixedNonScroll += AppTokens.tableToggleColumnWidth;
         }
         if (widget.rowActions != null && widget.rowActions!.isNotEmpty) {
-          fixedNonScroll += AppTokens.tableActionsColumnWidth;
+          fixedNonScroll += actionsColW;
         }
         final dataMaxW = (innerW - fixedNonScroll).clamp(0.0, double.infinity);
-        final scrollWidths = _computeDataColumnWidths(dataMaxW);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _ListingTableHeader<T>(
-              scrollWidths: scrollWidths,
-              columns: _visibleColumnDefs,
-              horizontalScroll: _tableHeaderHScroll,
-              showCheckboxes: widget.showCheckboxes,
-              showToggle: widget.showToggle,
-              hasRowActions:
-                  widget.rowActions != null && widget.rowActions!.isNotEmpty,
-              sortColumnKey: _sortColumnKey,
-              sortDirection: _sortDirection,
-              selectAll: _selectAllState(),
-              onSelectAll: widget.showCheckboxes ? _toggleSelectAll : null,
-              onSortTap: (col) {
-                if (!col.sortable) {
-                  return;
-                }
-                setState(() {
-                  if (_sortColumnKey != col.key) {
-                    _sortColumnKey = col.key;
-                    _sortDirection = 'asc';
-                  } else if (_sortDirection == 'asc') {
-                    _sortDirection = 'desc';
-                  } else if (_sortDirection == 'desc') {
-                    _sortColumnKey = null;
-                    _sortDirection = null;
-                  } else {
-                    _sortDirection = 'asc';
-                  }
-                });
-                final activeKey = _sortColumnKey;
-                final activeDir = _sortDirection;
-                if (activeKey != null && activeDir != null) {
-                  widget.onSortChanged?.call((
-                    columnKey: activeKey,
-                    ascending: activeDir == 'asc',
-                  ));
-                }
-              },
-              onFilterTap: _showColFilterOverlay,
-              activeColFilters: {
-                ..._colFilterText.keys,
-                ..._colFilterMulti.keys,
-              },
-              getColFilterLink: _colFilterLink,
-            ),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filtered.length,
-              itemBuilder: (context, listIndex) {
-                final origIndex = filtered[listIndex].$1;
-                final row = filtered[listIndex].$2;
-                final selected = _selectedRows.contains(origIndex);
-                final isLast = listIndex == filtered.length - 1;
-                return _ListingDataRow<T>(
-                  key: ValueKey<int>(origIndex),
+        final layoutWidth = math.max(
+          dataMaxW,
+          widget.tableScrollableMinWidth ?? 0,
+        );
+        final scrollWidths = _computeDataColumnWidths(layoutWidth);
+        final totalScrollWidth = scrollWidths.fold<double>(0, (a, w) => a + w);
+        final showHScrollBar =
+            widget.showTableHorizontalScrollbar &&
+            _tableFooterHScroll != null &&
+            totalScrollWidth > dataMaxW + 0.5;
+
+        var footerPadLeft = _kListingTableOuterGutter;
+        var footerPadRight = _kListingTableOuterGutter;
+        if (showExpandChrome) {
+          footerPadLeft += AppTokens.tableExpandColumnWidth;
+        }
+        if (widget.showCheckboxes) {
+          footerPadLeft += AppTokens.tableCheckboxColumnWidth;
+        }
+        if (widget.showToggle) {
+          footerPadLeft += AppTokens.tableToggleColumnWidth;
+        }
+        if (widget.rowActions != null && widget.rowActions!.isNotEmpty) {
+          footerPadRight += actionsColW;
+        }
+
+        final header = _ListingTableHeader<T>(
+          scrollWidths: scrollWidths,
+          columns: _visibleColumnDefs,
+          horizontalScroll: _tableHeaderHScroll,
+          headerRowHeight:
+              widget.tableHeaderHeight ?? AppTokens.tableHeaderHeight,
+          actionsColumnWidth: actionsColW,
+          showExpandColumn: showExpandChrome,
+          showCheckboxes: widget.showCheckboxes,
+          showToggle: widget.showToggle,
+          hasRowActions:
+              widget.rowActions != null && widget.rowActions!.isNotEmpty,
+          showActionsColumnLeadingBorder: widget.showActionsColumnLeadingBorder,
+          sortColumnKey: _sortColumnKey,
+          sortDirection: _sortDirection,
+          selectAll: _selectAllState(),
+          onSelectAll: widget.showCheckboxes ? _toggleSelectAll : null,
+          onSortTap: (col) {
+            if (!col.sortable) {
+              return;
+            }
+            setState(() {
+              if (_sortColumnKey != col.key) {
+                _sortColumnKey = col.key;
+                _sortDirection = 'asc';
+              } else if (_sortDirection == 'asc') {
+                _sortDirection = 'desc';
+              } else if (_sortDirection == 'desc') {
+                _sortColumnKey = null;
+                _sortDirection = null;
+              } else {
+                _sortDirection = 'asc';
+              }
+            });
+            final activeKey = _sortColumnKey;
+            final activeDir = _sortDirection;
+            if (activeKey != null && activeDir != null) {
+              widget.onSortChanged?.call((
+                columnKey: activeKey,
+                ascending: activeDir == 'asc',
+              ));
+            }
+          },
+          onFilterTap: _showColFilterOverlay,
+          activeColFilters: _activeColFilterKeys(),
+          getColFilterLink: _colFilterLink,
+        );
+
+        final listCore = ListView.builder(
+          controller: fillViewport ? vScroll : null,
+          physics: fillViewport
+              ? const ClampingScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          shrinkWrap: !fillViewport,
+          itemCount: filtered.length,
+          itemBuilder: (context, listIndex) {
+            final origIndex = filtered[listIndex].$1;
+            final row = filtered[listIndex].$2;
+            final selected = _selectedRows.contains(origIndex);
+            final isLastInList = listIndex == filtered.length - 1;
+            final expanded = hasInlineExpand && widget.isRowExpanded!(row);
+            final mainRowBottomBorder = !expanded && !isLastInList;
+
+            return Column(
+              key: ValueKey<Object>(
+                widget.bulkRowId != null
+                    ? widget.bulkRowId!(row) as Object
+                    : origIndex,
+              ),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ListingDataRow<T>(
                   scrollWidths: scrollWidths,
                   columns: _visibleColumnDefs,
                   horizontalScrollGroup: _tableHScrollGroup,
                   row: row,
                   index: origIndex,
-                  isLast: isLast,
+                  isLast: isLastInList,
                   selected: selected,
+                  showExpandColumn: showExpandChrome,
+                  expandInteractive: expandColumnInteractive,
+                  isExpanded: expanded,
+                  onExpandTap: expandColumnInteractive
+                      ? () => widget.onExpandRowTap!(row)
+                      : null,
+                  showMainRowBottomBorder: mainRowBottomBorder,
                   showCheckboxes: widget.showCheckboxes,
                   showToggle: widget.showToggle,
                   hasRowActions:
-                      widget.rowActions != null && widget.rowActions!.isNotEmpty,
+                      widget.rowActions != null &&
+                      widget.rowActions!.isNotEmpty,
+                  actionsColumnWidth: actionsColW,
+                  showActionsColumnLeadingBorder:
+                      widget.showActionsColumnLeadingBorder,
                   rowActions: widget.rowActions,
                   onToggleChanged: widget.onToggleChanged,
                   onRowTap: widget.onRowTap,
@@ -1301,11 +2016,126 @@ class _AppListingScreenState<T> extends State<AppListingScreen<T>>
                         _selectedRows.remove(origIndex);
                       }
                     });
+                    _emitRowSelection();
                   },
-                );
-              },
+                  rowBackgroundColor: widget.rowBackgroundColor,
+                  tableRowHeight: _tableRowHeight,
+                ),
+                if (expanded)
+                  _ListingInlineExpandPanel(
+                    leftFixedWidth:
+                        (showExpandChrome
+                            ? AppTokens.tableExpandColumnWidth
+                            : 0) +
+                        (widget.showCheckboxes
+                            ? AppTokens.tableCheckboxColumnWidth
+                            : 0) +
+                        (widget.showToggle
+                            ? AppTokens.tableToggleColumnWidth
+                            : 0),
+                    rightFixedWidth:
+                        widget.rowActions != null &&
+                            widget.rowActions!.isNotEmpty
+                        ? actionsColW
+                        : 0,
+                    contentPadding: widget.expandedPanelContentPadding,
+                    child: widget.expandedRowBuilder!(context, row),
+                  ),
+              ],
+            );
+          },
+        );
+
+        final hBar = showHScrollBar
+            ? SizedBox(
+                height: _kListingTableHScrollFooterHeight,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: footerPadLeft,
+                    right: footerPadRight,
+                    top: AppTokens.space1,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AppScrollbar(
+                      controller: _tableFooterHScroll!,
+                      scrollDirection: Axis.horizontal,
+                      thickness: AppScrollMetrics.listingHorizontalThickness,
+                      child: SingleChildScrollView(
+                        controller: _tableFooterHScroll,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: totalScrollWidth,
+                          height: _kListingTableHScrollThumbHeight,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null;
+
+        final headerRowH =
+            widget.tableHeaderHeight ?? AppTokens.tableHeaderHeight;
+        final hBarTotalH =
+            showHScrollBar ? _kListingTableHScrollFooterHeight : 0.0;
+
+        Widget tableChrome(Widget column) {
+          return AppShiftWheelHorizontalScroll(
+            controller: _tableHeaderHScroll,
+            child: column,
+          );
+        }
+
+        if (!fillViewport) {
+          return tableChrome(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [header, listCore, ?hBar],
             ),
-          ],
+          );
+        }
+
+        if (constraints.hasBoundedHeight) {
+          final listViewportH = (constraints.maxHeight -
+                  headerRowH -
+                  hBarTotalH)
+              .clamp(0.0, double.infinity);
+          return tableChrome(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                SizedBox(
+                  height: listViewportH,
+                  child: AppScrollbar(
+                    controller: vScroll!,
+                    thickness: widget.tableBodyVerticalScrollbarThickness,
+                    child: listCore,
+                  ),
+                ),
+                ?hBar,
+              ],
+            ),
+          );
+        }
+
+        return tableChrome(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              Expanded(
+                child: AppScrollbar(
+                  controller: vScroll!,
+                  thickness: widget.tableBodyVerticalScrollbarThickness,
+                  child: listCore,
+                ),
+              ),
+              ?hBar,
+            ],
+          ),
         );
       },
     );
@@ -1390,8 +2220,10 @@ class _PageHeader<T> extends StatelessWidget {
 // Tabs
 // -----------------------------------------------------------------------------
 
-class _TabStrip extends StatelessWidget {
-  const _TabStrip({
+/// Listing tabs matching transaction modules ([AppListingScreen] strip style).
+class ListingTabStrip extends StatelessWidget {
+  const ListingTabStrip({
+    super.key,
     required this.tabs,
     required this.selected,
     required this.onSelect,
@@ -1526,6 +2358,9 @@ class _ToolbarRow<T> extends StatelessWidget {
     required this.onColumnPicker,
     required this.columnsButtonLink,
     required this.showColumnsDot,
+    this.onExport,
+    required this.exportLabel,
+    this.showColumnToggle = true,
   });
 
   final AppListingScreen<T> widget;
@@ -1534,12 +2369,54 @@ class _ToolbarRow<T> extends StatelessWidget {
   final VoidCallback onColumnPicker;
   final LayerLink columnsButtonLink;
   final bool showColumnsDot;
+  final VoidCallback? onExport;
+  final String exportLabel;
+  final bool showColumnToggle;
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
     final hasFilters =
         widget.filterFields != null && widget.filterFields!.isNotEmpty;
+    final extras = widget.toolbarAfterSearch;
+    final hasExtras = extras != null && extras.isNotEmpty;
+
+    final searchWidget = SizedBox(
+      height: AppTokens.listingToolbarSearchHeight,
+      child: _ListingSearchField(
+        controller: searchController,
+        hint: widget.searchHint,
+        onChanged: widget.onSearch,
+        compact: true,
+      ),
+    );
+
+    Widget leadingToolbar() {
+      if (!widget.showSearch && !hasExtras) {
+        return const Spacer();
+      }
+      return Expanded(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.showSearch)
+                  SizedBox(
+                    width: AppTokens.listingToolbarSearchWidth,
+                    child: searchWidget,
+                  ),
+                if (hasExtras) ...[
+                  SizedBox(width: AppTokens.space2),
+                  ...extras,
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -1554,51 +2431,30 @@ class _ToolbarRow<T> extends StatelessWidget {
       child: SizedBox(
         height: AppTokens.listingToolbarHeight,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space3,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
           child: Row(
             children: [
-              if (widget.showSearch)
-                if (AppBreakpoints.isMobileWidth(w))
-                  Expanded(
-                    child: SizedBox(
-                      height: AppTokens.listingToolbarSearchHeight,
-                      child: _ListingSearchField(
-                        controller: searchController,
-                        hint: widget.searchHint,
-                        onChanged: widget.onSearch,
-                        compact: true,
-                      ),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: AppTokens.listingToolbarSearchWidth,
-                    height: AppTokens.listingToolbarSearchHeight,
-                    child: _ListingSearchField(
-                      controller: searchController,
-                      hint: widget.searchHint,
-                      onChanged: widget.onSearch,
-                      compact: true,
-                    ),
-                  ),
-              const Spacer(),
-              if (widget.onExport != null) ...[
+              leadingToolbar(),
+              if (widget.toolbarTrailingActions != null)
+                for (final a in widget.toolbarTrailingActions!) ...[
+                  a,
+                  SizedBox(width: AppTokens.listingToolbarActionsGap),
+                ],
+              if (onExport != null) ...[
                 AppButton(
-                  label: 'Export',
+                  label: exportLabel,
                   leadingIcon: Icon(
                     LucideIcons.download,
                     size: AppTokens.iconButtonIconSm,
                     color: AppTokens.textPrimary,
                   ),
-                  onPressed: widget.onExport,
+                  onPressed: onExport,
                   variant: AppButtonVariant.secondary,
                   size: AppButtonSize.sm,
                 ),
                 SizedBox(width: AppTokens.listingToolbarActionsGap),
               ],
-              if (widget.showColumnToggle) ...[
+              if (widget.showColumnToggle && showColumnToggle) ...[
                 CompositedTransformTarget(
                   link: columnsButtonLink,
                   child: Stack(
@@ -1698,8 +2554,9 @@ class _ListingSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldHeight =
-        compact ? AppTokens.listingToolbarSearchHeight : AppTokens.buttonHeightMd;
+    final fieldHeight = compact
+        ? AppTokens.listingToolbarSearchHeight
+        : AppTokens.buttonHeightMd;
     final fontSize = compact ? AppTokens.textSm : AppTokens.textSm;
     final fillColor = compact ? AppTokens.surfaceSubtle : AppTokens.cardBg;
     final radius = BorderRadius.circular(
@@ -1900,8 +2757,7 @@ class _BulkBarMiniAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        isDanger ? AppTokens.error500 : AppTokens.borderDefault;
+    final borderColor = isDanger ? AppTokens.error500 : AppTokens.borderDefault;
     final bg = isDanger ? AppTokens.error100 : AppTokens.cardBg;
     final fg = isDanger ? AppTokens.error500 : AppTokens.textPrimary;
 
@@ -1910,15 +2766,15 @@ class _BulkBarMiniAction extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppTokens.bulkActionButtonRadius),
       child: InkWell(
         onTap: onPressed,
-        borderRadius:
-            BorderRadius.circular(AppTokens.bulkActionButtonRadius),
+        borderRadius: BorderRadius.circular(AppTokens.bulkActionButtonRadius),
         child: Container(
           height: AppTokens.bulkActionButtonHeight,
           padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(AppTokens.bulkActionButtonRadius),
+            borderRadius: BorderRadius.circular(
+              AppTokens.bulkActionButtonRadius,
+            ),
             border: Border.all(
               color: borderColor,
               width: AppTokens.borderWidthSm,
@@ -1957,6 +2813,7 @@ class _BulkBar<T> extends StatelessWidget {
     required this.selectedCount,
     required this.hasSelection,
     required this.bulkActions,
+    required this.selectionSummary,
     required this.onBulk,
     required this.onClearSelection,
     this.onBulkExport,
@@ -1965,11 +2822,17 @@ class _BulkBar<T> extends StatelessWidget {
     this.onBulkActivate,
     this.onBulkDeactivate,
     this.onBulkDelete,
+    this.bulkPrimaryLabel,
+    this.onBulkPrimary,
+    this.showColumnPicker = false,
+    this.onColumnPicker,
+    this.showColumnsDot = false,
   });
 
   final int selectedCount;
   final bool hasSelection;
   final List<BulkAction<T>>? bulkActions;
+  final String Function(int selectedCount)? selectionSummary;
   final void Function(void Function(List<T> rows) fn) onBulk;
   final VoidCallback onClearSelection;
   final Future<void> Function()? onBulkExport;
@@ -1978,6 +2841,11 @@ class _BulkBar<T> extends StatelessWidget {
   final Future<void> Function()? onBulkActivate;
   final Future<void> Function()? onBulkDeactivate;
   final Future<void> Function()? onBulkDelete;
+  final String? bulkPrimaryLabel;
+  final Future<void> Function()? onBulkPrimary;
+  final bool showColumnPicker;
+  final VoidCallback? onColumnPicker;
+  final bool showColumnsDot;
 
   Widget _actionsRow() {
     return SingleChildScrollView(
@@ -1985,6 +2853,26 @@ class _BulkBar<T> extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (onBulkDelete != null) ...[
+            _BulkBarMiniAction(
+              label: 'Delete',
+              leading: const Icon(LucideIcons.trash2),
+              isDanger: true,
+              onPressed: () => onBulkDelete!(),
+            ),
+            SizedBox(width: AppTokens.space2),
+          ],
+          if (bulkActions != null)
+            for (final a in bulkActions!)
+              if (!a.showOnlyWhenSelected || hasSelection) ...[
+                _BulkBarMiniAction(
+                  label: a.label,
+                  leading: a.icon,
+                  isDanger: a.isDanger,
+                  onPressed: () => onBulk(a.onTap),
+                ),
+                SizedBox(width: AppTokens.space2),
+              ],
           if (onBulkExport != null) ...[
             _BulkBarMiniAction(
               label: 'Export',
@@ -2017,31 +2905,6 @@ class _BulkBar<T> extends StatelessWidget {
             ),
             SizedBox(width: AppTokens.space2),
           ],
-          if (onBulkDelete != null) ...[
-            Container(
-              width: AppTokens.borderWidthSm,
-              height: AppTokens.space4,
-              color: AppTokens.borderDefault,
-            ),
-            SizedBox(width: AppTokens.space2),
-            _BulkBarMiniAction(
-              label: 'Delete',
-              leading: const Icon(LucideIcons.trash2),
-              isDanger: true,
-              onPressed: () => onBulkDelete!(),
-            ),
-            SizedBox(width: AppTokens.space2),
-          ],
-          if (bulkActions != null)
-            for (final a in bulkActions!) ...[
-              _BulkBarMiniAction(
-                label: a.label,
-                leading: a.icon,
-                isDanger: a.isDanger,
-                onPressed: () => onBulk(a.onTap),
-              ),
-              SizedBox(width: AppTokens.space2),
-            ],
         ],
       ),
     );
@@ -2058,11 +2921,10 @@ class _BulkBar<T> extends StatelessWidget {
       opacity: hasSelection
           ? AppTokens.opacityFull
           : AppTokens.bulkBarGreyedOpacity,
-      child: IgnorePointer(
-        ignoring: !hasSelection,
-        child: _actionsRow(),
-      ),
+      child: IgnorePointer(ignoring: !hasSelection, child: _actionsRow()),
     );
+
+    final showBulkPrimary = bulkPrimaryLabel != null && onBulkPrimary != null;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -2096,7 +2958,9 @@ class _BulkBar<T> extends StatelessWidget {
                           ),
                           SizedBox(width: AppTokens.listingToolbarActionsGap),
                           Text(
-                            '$selectedCount rows selected',
+                            selectionSummary != null
+                                ? selectionSummary!(selectedCount)
+                                : '$selectedCount rows selected',
                             style: GoogleFonts.poppins(
                               fontSize: AppTokens.textXs,
                               fontWeight: AppTokens.weightMedium,
@@ -2108,7 +2972,7 @@ class _BulkBar<T> extends StatelessWidget {
                           GestureDetector(
                             onTap: onClearSelection,
                             child: Text(
-                              '✕ Clear',
+                              'Clear Selection',
                               style: GoogleFonts.poppins(
                                 fontSize: AppTokens.textXs,
                                 color: AppTokens.textMuted,
@@ -2128,7 +2992,40 @@ class _BulkBar<T> extends StatelessWidget {
                         ),
                       ),
               ),
-              rightActions,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  rightActions,
+                  if (showColumnPicker && onColumnPicker != null) ...[
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _BulkBarMiniAction(
+                          label: 'Columns',
+                          leading: const Icon(LucideIcons.columns),
+                          onPressed: onColumnPicker,
+                        ),
+                        if (showColumnsDot)
+                          const Positioned(
+                            right: -2,
+                            top: -2,
+                            child: _ToolbarAccentDot(),
+                          ),
+                      ],
+                    ),
+                    SizedBox(width: AppTokens.space2),
+                  ],
+                  if (showBulkPrimary) ...[
+                    SizedBox(width: AppTokens.space2),
+                    AppButton(
+                      label: bulkPrimaryLabel!,
+                      variant: AppButtonVariant.primary,
+                      size: AppButtonSize.sm,
+                      onPressed: hasSelection ? () => onBulkPrimary!() : null,
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -2141,14 +3038,128 @@ class _BulkBar<T> extends StatelessWidget {
 // Table header & rows
 // -----------------------------------------------------------------------------
 
+class _ListingExpandToggle extends StatelessWidget {
+  const _ListingExpandToggle({
+    required this.expanded,
+    required this.interactive,
+    this.onTap,
+  });
+
+  static const double _circle = 22;
+  static const double _icon = 12;
+
+  final bool expanded;
+  final bool interactive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final control = Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: interactive ? onTap : null,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: _circle,
+          height: _circle,
+          decoration: BoxDecoration(
+            color: expanded ? AppTokens.error500 : AppTokens.success500,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            expanded ? LucideIcons.minus : LucideIcons.plus,
+            size: _icon,
+            color: AppTokens.white,
+          ),
+        ),
+      ),
+    );
+
+    final faded = Opacity(
+      opacity: interactive ? AppTokens.opacityFull : AppTokens.disabledOpacity,
+      child: control,
+    );
+
+    if (!interactive) {
+      return faded;
+    }
+    return Tooltip(
+      message: expanded ? 'Collapse row' : 'Expand row',
+      child: faded,
+    );
+  }
+}
+
+class _ListingInlineExpandPanel extends StatelessWidget {
+  const _ListingInlineExpandPanel({
+    required this.leftFixedWidth,
+    required this.rightFixedWidth,
+    required this.child,
+    this.contentPadding,
+  });
+
+  final double leftFixedWidth;
+  final double rightFixedWidth;
+  final Widget child;
+
+  /// When null, matches historical inline expand panel padding.
+  final EdgeInsets? contentPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTokens.surfaceSubtle,
+        border: Border(
+          top: BorderSide(
+            color: AppTokens.tableRowDivider,
+            width: AppTokens.borderWidthSm,
+          ),
+          bottom: BorderSide(
+            color: AppTokens.tableRowDivider,
+            width: AppTokens.borderWidthSm,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: _kListingTableOuterGutter),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: leftFixedWidth),
+            Expanded(
+              child: Padding(
+                padding:
+                    contentPadding ??
+                    const EdgeInsets.fromLTRB(
+                      AppTokens.space2,
+                      AppTokens.space3,
+                      AppTokens.space2,
+                      AppTokens.space3,
+                    ),
+                child: child,
+              ),
+            ),
+            SizedBox(width: rightFixedWidth),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ListingTableHeader<T> extends StatelessWidget {
   const _ListingTableHeader({
     required this.scrollWidths,
     required this.columns,
     required this.horizontalScroll,
+    required this.headerRowHeight,
+    required this.actionsColumnWidth,
+    required this.showExpandColumn,
     required this.showCheckboxes,
     required this.showToggle,
     required this.hasRowActions,
+    required this.showActionsColumnLeadingBorder,
     required this.sortColumnKey,
     required this.sortDirection,
     required this.selectAll,
@@ -2162,9 +3173,13 @@ class _ListingTableHeader<T> extends StatelessWidget {
   final List<double> scrollWidths;
   final List<TableColumn<T>> columns;
   final ScrollController horizontalScroll;
+  final double headerRowHeight;
+  final double actionsColumnWidth;
+  final bool showExpandColumn;
   final bool showCheckboxes;
   final bool showToggle;
   final bool hasRowActions;
+  final bool showActionsColumnLeadingBorder;
   final String? sortColumnKey;
   // 'asc' | 'desc' | null
   final String? sortDirection;
@@ -2188,13 +3203,27 @@ class _ListingTableHeader<T> extends StatelessWidget {
 
     Widget headerCell(TableColumn<T> col, double w) {
       final hasFilter = _tableColumnHasFilter(col);
+      final maxLines = col.headerMaxLines.clamp(1, 4);
+      final multiLine = maxLines > 1;
       final labelStyle = GoogleFonts.poppins(
         fontSize: AppTokens.tableHeaderSize,
         fontWeight: AppTokens.tableHeaderWeight,
         letterSpacing: 0.3,
         color: AppTokens.textSecondary,
         decoration: TextDecoration.none,
+        height: multiLine ? 1.15 : 1.0,
       );
+      Widget labelText({required TextAlign align}) {
+        return Text(
+          col.label.toUpperCase(),
+          maxLines: maxLines,
+          softWrap: multiLine,
+          overflow: multiLine ? TextOverflow.clip : TextOverflow.ellipsis,
+          textAlign: align,
+          style: labelStyle,
+        );
+      }
+
       return shell(
         w,
         _alignmentForTableColumn(col),
@@ -2210,21 +3239,15 @@ class _ListingTableHeader<T> extends StatelessWidget {
                         mainAxisAlignment: _headerMainAxisForColumn(col),
                         children: [
                           Expanded(
-                            child: Text(
-                              col.label.toUpperCase(),
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              style: labelStyle,
-                            ),
+                            child: labelText(align: _textAlignForColumn(col)),
                           ),
                           SizedBox(width: AppTokens.space1),
                           Icon(
                             sortColumnKey != col.key
                                 ? LucideIcons.chevronsUpDown
                                 : (sortDirection == 'asc'
-                                    ? LucideIcons.chevronUp
-                                    : LucideIcons.chevronDown),
+                                      ? LucideIcons.chevronUp
+                                      : LucideIcons.chevronDown),
                             size: AppTokens.textSm,
                             color: sortColumnKey == col.key
                                 ? AppTokens.primary800
@@ -2235,13 +3258,7 @@ class _ListingTableHeader<T> extends StatelessWidget {
                     )
                   : Align(
                       alignment: _alignmentForTableColumn(col),
-                      child: Text(
-                        col.label.toUpperCase(),
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: labelStyle,
-                      ),
+                      child: labelText(align: _textAlignForColumn(col)),
                     ),
             ),
             if (hasFilter) ...[
@@ -2283,7 +3300,7 @@ class _ListingTableHeader<T> extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: SizedBox(
-          height: AppTokens.tableHeaderHeight,
+          height: headerRowHeight,
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: _kListingTableOuterGutter,
@@ -2291,6 +3308,23 @@ class _ListingTableHeader<T> extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (showExpandColumn)
+                  SizedBox(
+                    width: AppTokens.tableExpandColumnWidth,
+                    child: Center(
+                      child: Text(
+                        'EXPAND',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: AppTokens.tableHeaderSize,
+                          fontWeight: AppTokens.tableHeaderWeight,
+                          letterSpacing: 0.3,
+                          color: AppTokens.textSecondary,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (showCheckboxes)
                   SizedBox(
                     width: AppTokens.tableCheckboxColumnWidth,
@@ -2329,16 +3363,18 @@ class _ListingTableHeader<T> extends StatelessWidget {
                 ),
                 if (hasRowActions)
                   Container(
-                    width: AppTokens.tableActionsColumnWidth,
+                    width: actionsColumnWidth,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppTokens.surfaceSubtle,
-                      border: Border(
-                        left: BorderSide(
-                          color: AppTokens.borderDefault,
-                          width: AppTokens.borderWidthSm,
-                        ),
-                      ),
+                      border: showActionsColumnLeadingBorder
+                          ? const Border(
+                              left: BorderSide(
+                                color: AppTokens.borderDefault,
+                                width: AppTokens.borderWidthSm,
+                              ),
+                            )
+                          : null,
                     ),
                     child: Text(
                       'ACTIONS',
@@ -2371,14 +3407,26 @@ class _ListingDataRow<T> extends StatefulWidget {
     required this.index,
     required this.isLast,
     required this.selected,
+    required this.showExpandColumn,
+    required this.expandInteractive,
+    required this.isExpanded,
+    this.onExpandTap,
+    required this.showMainRowBottomBorder,
     required this.showCheckboxes,
     required this.showToggle,
     required this.hasRowActions,
+    required this.actionsColumnWidth,
+    required this.showActionsColumnLeadingBorder,
     required this.rowActions,
     required this.onToggleChanged,
     required this.onRowTap,
-    required this.onSelectRow,
+    required     this.onSelectRow,
+    this.rowBackgroundColor,
+    required this.tableRowHeight,
   });
+
+  final Color? Function(T)? rowBackgroundColor;
+  final double tableRowHeight;
 
   final List<double> scrollWidths;
   final List<TableColumn<T>> columns;
@@ -2387,9 +3435,16 @@ class _ListingDataRow<T> extends StatefulWidget {
   final int index;
   final bool isLast;
   final bool selected;
+  final bool showExpandColumn;
+  final bool expandInteractive;
+  final bool isExpanded;
+  final VoidCallback? onExpandTap;
+  final bool showMainRowBottomBorder;
   final bool showCheckboxes;
   final bool showToggle;
   final bool hasRowActions;
+  final double actionsColumnWidth;
+  final bool showActionsColumnLeadingBorder;
   final List<RowAction<T>>? rowActions;
   final ValueChanged<T>? onToggleChanged;
   final ValueChanged<T>? onRowTap;
@@ -2428,11 +3483,16 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
       );
     }
 
+    final Color? tint = widget.rowBackgroundColor?.call(widget.row);
+    final Color baseBg = tint ?? AppTokens.cardBg;
     final Color bg = widget.selected
         ? AppTokens.warning50
         : _hover
-            ? AppTokens.surfaceSubtle
-            : AppTokens.cardBg;
+        ? Color.alphaBlend(
+            AppTokens.surfaceSubtle.withValues(alpha: 0.65),
+            baseBg,
+          )
+        : baseBg;
 
     final scrollChildren = <Widget>[];
     for (final col in widget.columns) {
@@ -2461,139 +3521,176 @@ class _ListingDataRowState<T> extends State<_ListingDataRow<T>> {
       onExit: (_) => setState(() => _hover = false),
       child: Material(
         color: bg,
-        child: InkWell(
-          onTap: widget.onRowTap != null
-              ? () => widget.onRowTap!(widget.row)
-              : null,
-          child: Container(
-            height: AppTokens.tableRowHeight,
-            padding: EdgeInsets.symmetric(
-              horizontal: _kListingTableOuterGutter,
-            ),
-            decoration: BoxDecoration(
-              border: widget.isLast
-                  ? null
-                  : const Border(
-                      bottom: BorderSide(
-                        color: AppTokens.tableRowDivider,
-                        width: AppTokens.borderWidthSm,
-                      ),
+        child: Container(
+          height: widget.tableRowHeight,
+          padding: EdgeInsets.symmetric(horizontal: _kListingTableOuterGutter),
+          decoration: BoxDecoration(
+            border: widget.showMainRowBottomBorder
+                ? const Border(
+                    bottom: BorderSide(
+                      color: AppTokens.tableRowDivider,
+                      width: AppTokens.borderWidthSm,
                     ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (widget.showCheckboxes)
-                  SizedBox(
-                    width: AppTokens.tableCheckboxColumnWidth,
-                    child: Center(
-                      child: _ListingCheckbox(
-                        value: widget.selected,
-                        onChanged: (v) => widget.onSelectRow(v ?? false),
-                      ),
+                  )
+                : null,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.showExpandColumn)
+                SizedBox(
+                  width: AppTokens.tableExpandColumnWidth,
+                  child: Center(
+                    child: _ListingExpandToggle(
+                      expanded: widget.isExpanded,
+                      interactive: widget.expandInteractive,
+                      onTap: widget.onExpandTap,
                     ),
                   ),
-                if (widget.showToggle)
-                  SizedBox(
-                    width: AppTokens.tableToggleColumnWidth,
-                    child: Center(
-                      child: _RowToggleSwitch(
-                        row: widget.row,
-                        onToggleChanged: widget.onToggleChanged,
-                      ),
+                ),
+              if (widget.showCheckboxes)
+                SizedBox(
+                  width: AppTokens.tableCheckboxColumnWidth,
+                  child: Center(
+                    child: _ListingCheckbox(
+                      value: widget.selected,
+                      onChanged: (v) => widget.onSelectRow(v ?? false),
                     ),
                   ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        key: ObjectKey(_hScroll),
-                        controller: _hScroll,
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minWidth: constraints.maxWidth,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: scrollChildren,
-                          ),
+                ),
+              if (widget.showToggle)
+                SizedBox(
+                  width: AppTokens.tableToggleColumnWidth,
+                  child: Center(
+                    child: _RowToggleSwitch(
+                      row: widget.row,
+                      onToggleChanged: widget.onToggleChanged,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: widget.onRowTap != null
+                    ? InkWell(
+                        onTap: () => widget.onRowTap!(widget.row),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              key: ObjectKey(_hScroll),
+                              controller: _hScroll,
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: scrollChildren,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            key: ObjectKey(_hScroll),
+                            controller: _hScroll,
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: constraints.maxWidth,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: scrollChildren,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              if (widget.hasRowActions)
+                Container(
+                  width: widget.actionsColumnWidth,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: bg,
+                    border: widget.showActionsColumnLeadingBorder
+                        ? Border(
+                            left: BorderSide(
+                              color: AppTokens.borderDefault,
+                              width: AppTokens.borderWidthSm,
+                            ),
+                          )
+                        : null,
+                  ),
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Actions',
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      LucideIcons.moreHorizontal,
+                      size: AppTokens.iconButtonIconMd,
+                      color: AppTokens.textMuted,
+                    ),
+                    onSelected: (key) {
+                      final actions = widget.rowActions!;
+                      RowAction<T>? match;
+                      for (final a in actions) {
+                        if (a.key == key) {
+                          match = a;
+                          break;
+                        }
+                      }
+                      if (match == null) return;
+                      final row = widget.row;
+                      if (!match.enabledFor(row)) return;
+                      final onTap = match.onTap;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        onTap(row);
+                      });
+                    },
+                    itemBuilder: (context) {
+                      return widget.rowActions!.map((a) {
+                        final row = widget.row;
+                        final effectiveLabel =
+                            a.labelBuilder?.call(row) ?? a.label;
+                        final effectiveIcon =
+                            a.iconBuilder?.call(row) ?? a.icon;
+                        return PopupMenuItem<String>(
+                          value: a.key,
+                          enabled: a.enabledFor(row),
+                          child: Row(
+                            children: [
+                              IconTheme(
+                                data: IconThemeData(
+                                  size: AppTokens.textMd,
+                                  color: a.isDanger
+                                      ? AppTokens.error500
+                                      : AppTokens.neutral700,
+                                ),
+                                child: effectiveIcon,
+                              ),
+                              SizedBox(width: AppTokens.space2),
+                              Text(
+                                effectiveLabel,
+                                style: GoogleFonts.poppins(
+                                  fontSize: AppTokens.textSm,
+                                  fontWeight: AppTokens.weightRegular,
+                                  color: a.isDanger
+                                      ? AppTokens.error500
+                                      : AppTokens.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList();
                     },
                   ),
                 ),
-                if (widget.hasRowActions)
-                  Container(
-                    width: AppTokens.tableActionsColumnWidth,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: bg,
-                      border: Border(
-                        left: BorderSide(
-                          color: AppTokens.borderDefault,
-                          width: AppTokens.borderWidthSm,
-                        ),
-                      ),
-                    ),
-                    child: PopupMenuButton<String>(
-                      tooltip: 'Actions',
-                      padding: EdgeInsets.zero,
-                      icon: Icon(
-                        LucideIcons.moreHorizontal,
-                        size: AppTokens.iconButtonIconMd,
-                        color: AppTokens.textMuted,
-                      ),
-                      onSelected: (key) {
-                        final a = widget.rowActions!.firstWhere(
-                          (e) => e.key == key,
-                        );
-                        if (!a.enabledFor(widget.row)) {
-                          return;
-                        }
-                        a.onTap(widget.row);
-                      },
-                      itemBuilder: (context) {
-                        return widget.rowActions!.map((a) {
-                          final row = widget.row;
-                          final effectiveLabel =
-                              a.labelBuilder?.call(row) ?? a.label;
-                          final effectiveIcon =
-                              a.iconBuilder?.call(row) ?? a.icon;
-                          return PopupMenuItem<String>(
-                            value: a.key,
-                            enabled: a.enabledFor(row),
-                            child: Row(
-                              children: [
-                                IconTheme(
-                                  data: IconThemeData(
-                                    size: AppTokens.textMd,
-                                    color: a.isDanger
-                                        ? AppTokens.error500
-                                        : AppTokens.neutral700,
-                                  ),
-                                  child: effectiveIcon,
-                                ),
-                                SizedBox(width: AppTokens.space2),
-                                Text(
-                                  effectiveLabel,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: AppTokens.textSm,
-                                    fontWeight: AppTokens.weightRegular,
-                                    color: a.isDanger
-                                        ? AppTokens.error500
-                                        : AppTokens.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList();
-                      },
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -2764,6 +3861,7 @@ class _EmptyState extends StatelessWidget {
 
 class _PaginationRow extends StatelessWidget {
   const _PaginationRow({
+    required this.height,
     required this.totalCount,
     required this.currentPage,
     required this.pageSize,
@@ -2772,6 +3870,7 @@ class _PaginationRow extends StatelessWidget {
     required this.onPageSizeChanged,
   });
 
+  final double height;
   final int totalCount;
   final int currentPage;
   final int pageSize;
@@ -2781,17 +3880,6 @@ class _PaginationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final start = totalCount == 0 ? 0 : (currentPage - 1) * pageSize + 1;
-    final end = totalCount == 0
-        ? 0
-        : (currentPage * pageSize).clamp(0, totalCount);
-    final canPrev = currentPage > 1;
-    final lastPage = totalCount == 0 ? 1 : ((totalCount - 1) ~/ pageSize) + 1;
-    final canNext = totalCount > 0 && currentPage < lastPage;
-    final resolvedSize = pageSizeOptions.contains(pageSize)
-        ? pageSize
-        : pageSizeOptions.first;
-
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppTokens.cardBg,
@@ -2805,106 +3893,17 @@ class _PaginationRow extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: SizedBox(
-          height: AppTokens.listingPaginationHeight,
+          height: height,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-            child: Row(
-              children: [
-              Text(
-                'Rows per page:',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.textSm,
-                  fontWeight: AppTokens.weightRegular,
-                  color: AppTokens.textSecondary,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              SizedBox(width: AppTokens.listingPaginationLabelGap),
-              PopupMenuButton<int>(
-                initialValue: resolvedSize,
-                onSelected: (v) => onPageSizeChanged(v),
-                itemBuilder: (context) => pageSizeOptions
-                    .map(
-                      (n) => PopupMenuItem<int>(
-                        value: n,
-                        height: AppTokens.space8,
-                        child: Text(
-                          n.toString(),
-                          style: GoogleFonts.poppins(
-                            fontSize: AppTokens.textSm,
-                            color: AppTokens.textPrimary,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-                child: Container(
-                  height: 24,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppTokens.space2,
-                  ),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: AppTokens.borderDefault,
-                      width: AppTokens.borderWidthSm,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(AppTokens.radiusSm),
-                    color: AppTokens.cardBg,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        resolvedSize.toString(),
-                        style: GoogleFonts.poppins(
-                          fontSize: AppTokens.textXs,
-                          color: AppTokens.textPrimary,
-                        ),
-                      ),
-                      SizedBox(width: AppTokens.space1),
-                      Icon(
-                        LucideIcons.chevronDown,
-                        size: 12,
-                        color: AppTokens.textMuted,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '$start–$end of $totalCount',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: AppTokens.textSm,
-                  fontWeight: AppTokens.weightRegular,
-                  color: AppTokens.textSecondary,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              SizedBox(width: AppTokens.listingPaginationRangeGap),
-              AppIconButton(
-                icon: const Icon(LucideIcons.chevronLeft),
-                onPressed: canPrev
-                    ? () => onPageChanged(currentPage - 1)
-                    : null,
-                variant: AppIconButtonVariant.outlined,
-                size: AppIconButtonSize.sm,
-                tooltip: 'Previous page',
-              ),
-              AppIconButton(
-                icon: const Icon(LucideIcons.chevronRight),
-                onPressed: canNext
-                    ? () => onPageChanged(currentPage + 1)
-                    : null,
-                variant: AppIconButtonVariant.outlined,
-                size: AppIconButtonSize.sm,
-                tooltip: 'Next page',
-              ),
-            ],
+            child: ListingPaginationControls(
+              placement: ListingPaginationPlacement.footer,
+              totalCount: totalCount,
+              currentPage: currentPage,
+              pageSize: pageSize,
+              pageSizeOptions: pageSizeOptions,
+              onPageChanged: onPageChanged,
+              onPageSizeChanged: onPageSizeChanged,
             ),
           ),
         ),
@@ -3313,6 +4312,146 @@ class _ColumnSelectorOverlayState extends State<_ColumnSelectorOverlay> {
 }
 
 // -----------------------------------------------------------------------------
+// Column date-range filter overlay (From / To using [LabCodeLabIdDateField])
+// -----------------------------------------------------------------------------
+
+const double _kColumnDateRangePopoverWidth = 288;
+
+class _ColumnDateRangeFilterOverlay extends StatefulWidget {
+  const _ColumnDateRangeFilterOverlay({
+    required this.link,
+    required this.initialFrom,
+    required this.initialTo,
+    required this.onApply,
+    required this.onClear,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+  final void Function(DateTime? from, DateTime? to) onApply;
+  final VoidCallback onClear;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_ColumnDateRangeFilterOverlay> createState() =>
+      _ColumnDateRangeFilterOverlayState();
+}
+
+class _ColumnDateRangeFilterOverlayState
+    extends State<_ColumnDateRangeFilterOverlay> {
+  DateTime? _from;
+  DateTime? _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.initialFrom;
+    _to = widget.initialTo;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onDismiss,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: widget.link,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, 4),
+          child: Material(
+            color: AppTokens.cardBg,
+            borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+            elevation: 0,
+            child: Container(
+              width: _kColumnDateRangePopoverWidth,
+              decoration: BoxDecoration(
+                color: AppTokens.cardBg,
+                border: Border.all(
+                  color: AppTokens.borderDefault,
+                  width: AppTokens.borderWidthSm,
+                ),
+                borderRadius: BorderRadius.circular(AppTokens.cardRadius),
+                boxShadow: AppTokens.shadowMd,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppTokens.space3),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'From',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.captionSize,
+                        fontWeight: AppTokens.weightMedium,
+                        color: AppTokens.textSecondary,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    SizedBox(height: AppTokens.space1),
+                    LabCodeLabIdDateField(
+                      hint: 'From date',
+                      selectedDate: _from,
+                      onDateSelected: (d) => setState(() => _from = d),
+                    ),
+                    SizedBox(height: AppTokens.space2),
+                    Text(
+                      'To',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTokens.captionSize,
+                        fontWeight: AppTokens.weightMedium,
+                        color: AppTokens.textSecondary,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    SizedBox(height: AppTokens.space1),
+                    LabCodeLabIdDateField(
+                      hint: 'To date',
+                      selectedDate: _to,
+                      onDateSelected: (d) => setState(() => _to = d),
+                    ),
+                    SizedBox(height: AppTokens.space3),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            label: 'Apply',
+                            onPressed: () => widget.onApply(_from, _to),
+                            variant: AppButtonVariant.primary,
+                            size: AppButtonSize.sm,
+                          ),
+                        ),
+                        SizedBox(width: AppTokens.listingToolbarActionsGap),
+                        AppButton(
+                          label: 'Reset',
+                          onPressed: widget.onClear,
+                          variant: AppButtonVariant.tertiary,
+                          size: AppButtonSize.sm,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Column filter overlay (anchored to filter icon in column header)
 // -----------------------------------------------------------------------------
 
@@ -3342,18 +4481,35 @@ class _ColumnFilterOverlay extends StatefulWidget {
 class _ColumnFilterOverlayState extends State<_ColumnFilterOverlay> {
   late final TextEditingController _textCtrl;
   late Set<String> _multi;
+  TextEditingController? _selectSearchCtrl;
 
   @override
   void initState() {
     super.initState();
     _textCtrl = TextEditingController(text: widget.initialText);
     _multi = Set<String>.from(widget.initialMulti);
+    if (!widget.isText) {
+      _selectSearchCtrl = TextEditingController()
+        ..addListener(() => setState(() {}));
+    }
   }
 
   @override
   void dispose() {
     _textCtrl.dispose();
+    _selectSearchCtrl?.dispose();
     super.dispose();
+  }
+
+  List<AppSelectItem<String>> get _filteredSelectItems {
+    final q = _selectSearchCtrl?.text.trim().toLowerCase() ?? '';
+    if (q.isEmpty) {
+      return widget.selectItems;
+    }
+    return widget.selectItems.where((item) {
+      return item.label.toLowerCase().contains(q) ||
+          item.value.toLowerCase().contains(q);
+    }).toList();
   }
 
   @override
@@ -3390,7 +4546,9 @@ class _ColumnFilterOverlayState extends State<_ColumnFilterOverlay> {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(AppTokens.space3),
-                child: widget.isText ? _buildTextFilter() : _buildSelectFilter(),
+                child: widget.isText
+                    ? _buildTextFilter()
+                    : _buildSelectFilter(),
               ),
             ),
           ),
@@ -3434,20 +4592,30 @@ class _ColumnFilterOverlayState extends State<_ColumnFilterOverlay> {
   }
 
   Widget _buildSelectFilter() {
+    final items = _filteredSelectItems;
+    final searchCtrl = _selectSearchCtrl!;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        AppInput(
+          controller: searchCtrl,
+          hint: 'Search…',
+          size: AppInputSize.sm,
+        ),
+        SizedBox(height: AppTokens.space2),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 200),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: widget.selectItems.map((item) {
+              children: items.map((item) {
                 return SizedBox(
                   height: AppTokens.columnFilterSelectRowHeight,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppTokens.space1),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppTokens.space1,
+                    ),
                     child: CheckboxListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
@@ -3497,8 +4665,7 @@ class _ColumnFilterOverlayState extends State<_ColumnFilterOverlay> {
             ),
             AppButton(
               label: 'OK',
-              onPressed: () =>
-                  widget.onApply(null, Set<String>.from(_multi)),
+              onPressed: () => widget.onApply(null, Set<String>.from(_multi)),
               variant: AppButtonVariant.primary,
               size: AppButtonSize.sm,
             ),

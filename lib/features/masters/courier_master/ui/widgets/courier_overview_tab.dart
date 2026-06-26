@@ -150,6 +150,31 @@ class CourierOverviewTabState extends State<CourierOverviewTab> {
     super.dispose();
   }
 
+  /// Bottom-aligns [trailing] with the text/select shell ([AppTokens.inputHeight]).
+  Widget _fieldWithTrailingControl({
+    required Widget field,
+    required Widget trailing,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: field),
+          SizedBox(width: AppTokens.space2),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SizedBox(
+                height: AppTokens.inputHeight,
+                child: Center(child: trailing),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Map<String, dynamic>? validateAndCollectPayload(
     CourierProvider provider,
     String? excludeCourierId,
@@ -262,13 +287,15 @@ class CourierOverviewTabState extends State<CourierOverviewTab> {
               controller: _companyCtrl,
               size: AppInputSize.sm,
             ),
-            AppInput(
-              label: 'Name of the Person',
-              hint: 'Primary contact person',
-              controller: _personCtrl,
-              isRequired: true,
-              errorText: _personError,
-              size: AppInputSize.sm,
+            AppFormFullWidth(
+              child: AppInput(
+                label: 'Name of the Person',
+                hint: 'Primary contact person',
+                controller: _personCtrl,
+                isRequired: true,
+                errorText: _personError,
+                size: AppInputSize.sm,
+              ),
             ),
             AppFormFullWidth(
               child: AppTextarea(
@@ -298,119 +325,103 @@ class CourierOverviewTabState extends State<CourierOverviewTab> {
       right: AppFormPageLayout.sectionsColumn([
         AppFormSection(
           title: 'Communication Details',
-          children: [
-            Text(
-              'Maximum 2 email addresses allowed',
-              style: GoogleFonts.poppins(
-                fontSize: AppTokens.captionSize,
-                color: AppTokens.textMuted,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Maximum 2 email addresses allowed',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  color: AppTokens.textMuted,
+                ),
               ),
-            ),
-            SizedBox(height: AppTokens.space2),
-            AppInput(
-              label: 'Email 1',
-              controller: _email1Ctrl,
-              errorText: _email1Error,
-              size: AppInputSize.sm,
-            ),
-            if (_emailSlotCount > 1) ...[
               SizedBox(height: AppTokens.space2),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: AppInput(
-                      label: 'Email 2',
-                      controller: _email2Ctrl,
-                      errorText: _email2Error,
-                      size: AppInputSize.sm,
-                    ),
+              _fieldWithTrailingControl(
+                field: AppInput(
+                  label: 'Email 1',
+                  controller: _email1Ctrl,
+                  errorText: _email1Error,
+                  size: AppInputSize.sm,
+                ),
+                trailing: AppButton(
+                  label: '+ Add Email',
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                  onPressed: _emailSlotCount >= 2
+                      ? null
+                      : () => setState(() => _emailSlotCount = 2),
+                ),
+              ),
+              if (_emailSlotCount > 1) ...[
+                SizedBox(height: AppTokens.space2),
+                _fieldWithTrailingControl(
+                  field: AppInput(
+                    label: 'Email 2',
+                    controller: _email2Ctrl,
+                    errorText: _email2Error,
+                    size: AppInputSize.sm,
                   ),
-                  SizedBox(width: AppTokens.space2),
-                  Padding(
-                    padding: EdgeInsets.only(top: AppTokens.space6),
-                    child: AppIconButton(
-                      tooltip: 'Remove Email 2',
-                      icon: Icon(LucideIcons.trash2),
-                      variant: AppIconButtonVariant.outlined,
-                      onPressed: () => setState(() {
-                        _email2Ctrl.clear();
-                        _emailSlotCount = 1;
-                      }),
-                    ),
+                  trailing: AppIconButton(
+                    tooltip: 'Remove Email 2',
+                    icon: Icon(LucideIcons.trash2),
+                    variant: AppIconButtonVariant.outlined,
+                    onPressed: () => setState(() {
+                      _email2Ctrl.clear();
+                      _emailSlotCount = 1;
+                    }),
                   ),
-                ],
+                ),
+              ],
+              SizedBox(height: AppTokens.space3),
+              Text(
+                'Maximum 2 mobile numbers allowed',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTokens.captionSize,
+                  color: AppTokens.textMuted,
+                ),
               ),
-            ],
-            Align(
-              alignment: Alignment.centerLeft,
-              child: AppButton(
-                label: '+ Add Email',
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.sm,
-                onPressed: _emailSlotCount >= 2
-                    ? null
-                    : () => setState(() => _emailSlotCount = 2),
-              ),
-            ),
-            SizedBox(height: AppTokens.space3),
-            Text(
-              'Maximum 2 mobile numbers allowed',
-              style: GoogleFonts.poppins(
-                fontSize: AppTokens.captionSize,
-                color: AppTokens.textMuted,
-              ),
-            ),
-            SizedBox(height: AppTokens.space2),
-            AppInput(
-              label: 'Mobile 1',
-              hint: '10-digit mobile',
-              controller: _mobile1Ctrl,
-              errorText: _mobile1Error,
-              size: AppInputSize.sm,
-            ),
-            if (_mobileSlotCount > 1) ...[
               SizedBox(height: AppTokens.space2),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: AppInput(
-                      label: 'Mobile 2',
-                      hint: '10-digit mobile',
-                      controller: _mobile2Ctrl,
-                      errorText: _mobile2Error,
-                      size: AppInputSize.sm,
-                    ),
-                  ),
-                  SizedBox(width: AppTokens.space2),
-                  Padding(
-                    padding: EdgeInsets.only(top: AppTokens.space6),
-                    child: AppIconButton(
-                      tooltip: 'Remove Mobile 2',
-                      icon: Icon(LucideIcons.trash2),
-                      variant: AppIconButtonVariant.outlined,
-                      onPressed: () => setState(() {
-                        _mobile2Ctrl.clear();
-                        _mobileSlotCount = 1;
-                      }),
-                    ),
-                  ),
-                ],
+              _fieldWithTrailingControl(
+                field: AppInput(
+                  label: 'Mobile 1',
+                  hint: '10-digit mobile',
+                  controller: _mobile1Ctrl,
+                  errorText: _mobile1Error,
+                  size: AppInputSize.sm,
+                ),
+                trailing: AppButton(
+                  label: '+ Add Mobile',
+                  variant: AppButtonVariant.secondary,
+                  size: AppButtonSize.sm,
+                  onPressed: _mobileSlotCount >= 2
+                      ? null
+                      : () => setState(() => _mobileSlotCount = 2),
+                ),
               ),
+              if (_mobileSlotCount > 1) ...[
+                SizedBox(height: AppTokens.space2),
+                _fieldWithTrailingControl(
+                  field: AppInput(
+                    label: 'Mobile 2',
+                    hint: '10-digit mobile',
+                    controller: _mobile2Ctrl,
+                    errorText: _mobile2Error,
+                    size: AppInputSize.sm,
+                  ),
+                  trailing: AppIconButton(
+                    tooltip: 'Remove Mobile 2',
+                    icon: Icon(LucideIcons.trash2),
+                    variant: AppIconButtonVariant.outlined,
+                    onPressed: () => setState(() {
+                      _mobile2Ctrl.clear();
+                      _mobileSlotCount = 1;
+                    }),
+                  ),
+                ),
+              ],
             ],
-            Align(
-              alignment: Alignment.centerLeft,
-              child: AppButton(
-                label: '+ Add Mobile',
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.sm,
-                onPressed: _mobileSlotCount >= 2
-                    ? null
-                    : () => setState(() => _mobileSlotCount = 2),
-              ),
-            ),
-          ],
+          ),
         ),
       ]),
     );

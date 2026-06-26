@@ -181,7 +181,7 @@ class _ColorPaletteSection extends StatelessWidget {
         _Swatch('accent100', AppTokens.accent100, '#F5C4B3'),
       ]),
       _ColorGroup('Surface', [
-        _Swatch('pageBg', AppTokens.pageBg, '#F0F2F5'),
+        _Swatch('pageBg', AppTokens.pageBg, '#FFFFFF'),
         _Swatch('cardBg', AppTokens.cardBg, '#FFFFFF'),
         _Swatch('surfaceSubtle', AppTokens.surfaceSubtle, '#F8FAFC'),
       ]),

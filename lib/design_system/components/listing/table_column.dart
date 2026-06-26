@@ -17,7 +17,10 @@ class TableColumn<T> {
     this.filter,
     this.filterTextValue,
     this.filterSelectValue,
+    this.filterDateValue,
     this.sortValue,
+    this.exportValue,
+    this.headerMaxLines = 1,
   });
 
   final String key;
@@ -58,6 +61,9 @@ class TableColumn<T> {
   /// a select filter is applied, that filter is ignored for the row.
   final String Function(T row)? filterSelectValue;
 
+  /// Row calendar day used for [AppColumnFilterType.dateRange] column filters.
+  final DateTime Function(T row)? filterDateValue;
+
   /// Returns a comparable value for client-side sorting.
   ///
   /// - Return [num] for numeric columns (compared with [num.compareTo]).
@@ -66,4 +72,11 @@ class TableColumn<T> {
   /// - When `null`, the column is treated as not sortable (regardless of
   ///   [sortable]); the sort handler will skip it.
   final dynamic Function(T row)? sortValue;
+
+  /// Plain-text value for toolbar Excel export. Falls back to [filterTextValue],
+  /// [filterSelectValue], then [sortValue] when null.
+  final String Function(T row)? exportValue;
+
+  /// Header label max lines (1 = single line + ellipsis; 2+ allows wrapping).
+  final int headerMaxLines;
 }

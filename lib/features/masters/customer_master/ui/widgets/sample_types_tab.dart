@@ -675,10 +675,9 @@ class _SampleTypesTabState extends State<SampleTypesTab> {
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: AppTokens.space4),
-              child: Scrollbar(
+              child: AppScrollbar(
                 controller: _horizontalScrollCtrl,
-                thumbVisibility: true,
-                trackVisibility: true,
+                scrollDirection: Axis.horizontal,
                 child: SingleChildScrollView(
                   controller: _horizontalScrollCtrl,
                   scrollDirection: Axis.horizontal,
